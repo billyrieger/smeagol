@@ -10,7 +10,7 @@ pub enum Cell {
 }
 
 impl Cell {
-    fn is_alive(self) -> bool {
+    pub fn is_alive(self) -> bool {
         match self {
             Cell::Alive => true,
             Cell::Dead => true,

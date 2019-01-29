@@ -10,12 +10,6 @@ impl Store {
         self.nodes[index]
     }
 
-    pub fn create_leaf(&mut self, cell: Cell) -> Node {
-        let node = Node::new_leaf(cell);
-        self.add_node(node);
-        node
-    }
-
     fn add_node(&mut self, node: Node) {
         if !self.indices.contains_key(&node) {
             let index = self.nodes.len();
