@@ -5,3 +5,4 @@ authors = ["Billy Rieger <wrieger@protonmail.com>"]
 edition = "2018"
 
 [dependencies]
+hashbrown = "0.1"
