@@ -1,4 +1,13 @@
+mod create;
+
 use crate::{Cell, Node};
+
+pub struct NodeTemplate {
+    pub ne: Node,
+    pub nw: Node,
+    pub se: Node,
+    pub sw: Node,
+}
 
 pub struct Store {
     nodes: Vec<Node>,

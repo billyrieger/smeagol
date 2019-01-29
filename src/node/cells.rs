@@ -34,7 +34,7 @@ impl Node {
                             // se
                             self.se(store).get_cell(store, 0, 0)
                         }
-                        _ => unreachable!()
+                        _ => unreachable!(),
                     }
                 } else {
                     // quarter side length
@@ -58,7 +58,7 @@ impl Node {
                         }
                     }
                 }
-            },
+            }
         }
     }
 }

@@ -1,7 +1,10 @@
 mod node;
 mod store;
 
-pub use self::{node::Node, store::Store};
+pub use self::{
+    node::Node,
+    store::{NodeTemplate, Store},
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Cell {
