@@ -16,7 +16,7 @@ impl Cell {
     pub fn is_alive(self) -> bool {
         match self {
             Cell::Alive => true,
-            Cell::Dead => true,
+            Cell::Dead => false,
         }
     }
 }

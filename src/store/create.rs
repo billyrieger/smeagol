@@ -41,4 +41,12 @@ impl Store {
             })
         }
     }
+
+    fn add_node(&mut self, node: Node) {
+        if !self.indices.contains_key(&node) {
+            let index = self.nodes.len();
+            self.nodes.push(node);
+            self.indices.insert(node, index);
+        }
+    }
 }

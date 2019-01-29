@@ -1,6 +1,6 @@
 mod create;
 
-use crate::{Cell, Node};
+use crate::Node;
 
 pub struct NodeTemplate {
     pub ne: Node,
@@ -15,15 +15,14 @@ pub struct Store {
 }
 
 impl Store {
-    pub(crate) fn node(&self, index: usize) -> Node {
-        self.nodes[index]
+    pub fn new() -> Self {
+        Self {
+            nodes: vec![],
+            indices: hashbrown::HashMap::new(),
+        }
     }
 
-    fn add_node(&mut self, node: Node) {
-        if !self.indices.contains_key(&node) {
-            let index = self.nodes.len();
-            self.nodes.push(node);
-            self.indices.insert(node, index);
-        }
+    pub(crate) fn node(&self, index: usize) -> Node {
+        self.nodes[index]
     }
 }
