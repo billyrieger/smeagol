@@ -1,5 +1,4 @@
-use crate::Node;
-use crate::Cell;
+use crate::{Cell, Node};
 
 pub struct Store {
     nodes: Vec<Node>,

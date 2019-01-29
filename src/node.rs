@@ -33,7 +33,9 @@ pub struct Node {
 
 impl Node {
     pub(crate) fn new_leaf(cell: Cell) -> Self {
-        let base = NodeBase::Leaf { alive: cell.is_alive() };
+        let base = NodeBase::Leaf {
+            alive: cell.is_alive(),
+        };
         let level = 0;
         let population = if cell.is_alive() { 1 } else { 0 };
         Self {
