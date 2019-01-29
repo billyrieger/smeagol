@@ -33,3 +33,53 @@ impl Node {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Cell;
+
+    mod subnode {
+        use super::*;
+
+        #[test]
+        fn ne() {
+            let mut store = Store::new();
+            let node = store.create_empty(1).set_cell(&mut store, 0, -1, Cell::Alive);
+
+            let expected = store.create_leaf(Cell::Alive);
+
+            assert_eq!(node.ne(&mut store), expected);
+        }
+
+        #[test]
+        fn nw() {
+            let mut store = Store::new();
+            let node = store.create_empty(1).set_cell(&mut store, -1, -1, Cell::Alive);
+
+            let expected = store.create_leaf(Cell::Alive);
+
+            assert_eq!(node.nw(&mut store), expected);
+        }
+
+        #[test]
+        fn se() {
+            let mut store = Store::new();
+            let node = store.create_empty(1).set_cell(&mut store, 0, 0, Cell::Alive);
+
+            let expected = store.create_leaf(Cell::Alive);
+
+            assert_eq!(node.se(&mut store), expected);
+        }
+
+        #[test]
+        fn sw() {
+            let mut store = Store::new();
+            let node = store.create_empty(1).set_cell(&mut store, -1, 0, Cell::Alive);
+
+            let expected = store.create_leaf(Cell::Alive);
+
+            assert_eq!(node.sw(&mut store), expected);
+        }
+    }
+}

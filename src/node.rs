@@ -6,7 +6,7 @@ use crate::Cell;
 
 const MAX_LEVEL: u8 = 64;
 
-#[derive(Clone, Copy, Hash, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
 enum NodeBase {
     Leaf {
         alive: bool,
@@ -19,7 +19,7 @@ enum NodeBase {
     },
 }
 
-#[derive(Clone, Copy, Hash, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
 pub struct Node {
     base: NodeBase,
     level: u8,
