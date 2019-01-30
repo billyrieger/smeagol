@@ -20,7 +20,13 @@ enum NodeBase {
     },
 }
 
-#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
+impl std::hash::Hash for Node {
+    fn hash<H>(&self, state: &mut H) where H: std::hash::Hasher {
+        self.base.hash(state);
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Node {
     base: NodeBase,
     level: u8,

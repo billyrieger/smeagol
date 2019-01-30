@@ -1,0 +1,12 @@
+[package]
+name = "smeagol-cli"
+version = "0.1.0"
+authors = ["Billy Rieger <wrieger@protonmail.com>"]
+edition = "2018"
+
+[dependencies]
+smeagol = { path = "../smeagol" }
+
+[[bin]]
+name = "smeagol"
+path = "src/main.rs"
