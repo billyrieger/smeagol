@@ -19,8 +19,8 @@ impl Store {
     pub fn new() -> Self {
         Self {
             nodes: vec![],
-            indices: hashbrown::HashMap::new(),
-            steps: hashbrown::HashMap::new(),
+            indices: hashbrown::HashMap::default(),
+            steps: hashbrown::HashMap::default(),
         }
     }
 
