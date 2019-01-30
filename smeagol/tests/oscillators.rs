@@ -1,4 +1,4 @@
-fn figure_eight() -> smeagol::Life {
+fn make_figure_eight() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
         "
 2o4b$2obo2b$4bob$bo4b$2bob2o$4b2o!
@@ -7,7 +7,7 @@ fn figure_eight() -> smeagol::Life {
     .unwrap()
 }
 
-fn pentadecathlon() -> smeagol::Life {
+fn make_pentadecathlon() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
         "
 2bo4bo2b$2ob4ob2o$2bo4bo!
@@ -16,7 +16,7 @@ fn pentadecathlon() -> smeagol::Life {
     .unwrap()
 }
 
-fn pulsar() -> smeagol::Life {
+fn make_pulsar() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
         "
 2b3o3b3o2b2$o4bobo4bo$o4bobo4bo$o4bobo4bo$2b3o3b3o2b2$2b3o3b3o2b$o4bob
@@ -26,7 +26,7 @@ o4bo$o4bobo4bo$o4bobo4bo2$2b3o3b3o!
     .unwrap()
 }
 
-fn queen_bee_shuttle() -> smeagol::Life {
+fn make_queen_bee_shuttle() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
         "
 9bo12b$7bobo12b$6bobo13b$2o3bo2bo11b2o$2o4bobo11b2o$7bobo12b$9bo!
@@ -57,21 +57,21 @@ fn helper(mut life: smeagol::Life, period: u64) {
 }
 
 #[test]
-fn figure_eight_period_8() {
-    helper(figure_eight(), 8);
+fn figure_eight() {
+    helper(make_figure_eight(), 8);
 }
 
 #[test]
-fn pentadecathlon_period_15() {
-    helper(pentadecathlon(), 15);
+fn pentadecathlon() {
+    helper(make_pentadecathlon(), 15);
 }
 
 #[test]
-fn pulsar_period_3() {
-    helper(pulsar(), 3);
+fn pulsar() {
+    helper(make_pulsar(), 3);
 }
 
 #[test]
-fn queen_bee_shuttle_period_30() {
-    helper(queen_bee_shuttle(), 30);
+fn queen_bee_shuttle() {
+    helper(make_queen_bee_shuttle(), 30);
 }
