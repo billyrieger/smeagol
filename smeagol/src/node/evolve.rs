@@ -21,11 +21,8 @@ impl Node {
         // base case: level = 2
         // jump size is 2^(2 - 2) = 1, so a jump is equivalent to a step
         if self.level == 2 {
-            let result = self.step_level_2(store);
-
-            store.add_step(*self, 1, result);
-
-            return result;
+            // step_level_2 handles its own cache
+            return self.step_level_2(store);
         }
 
         // given a level n node, n >= 3, we want to calculate
@@ -49,7 +46,7 @@ impl Node {
         // |   |   |   |   |   |   |   |   |
         // +---+---+---+---+---+---+---+---+
 
-        // a-i are all 2^(n-3) ticks in the future
+        // a-i are all level n-2 and 2^(n-3) ticks in the future
         // since each one is a jump of a level n-1 node
         //
         // +---+---+---+---+---+---+---+---+
@@ -96,7 +93,7 @@ impl Node {
 
         let i = self.se(store).jump(store);
 
-        // w-z are anther 2^(level - 3) ticks in the future
+        // a-i are all level n-2 and another 2^(n-3) ticks in the future
         // since each one is a jump of a level n-1 node
         //
         // +---+---+---+---+---+---+---+---+
@@ -152,6 +149,7 @@ impl Node {
         // when calculating a-i, we jumped 2^(n-3)
         // when calculating w-z, we jumped 2^(n-3)
         // this makes the total jump 2^(n-2) as desired
+        // level of jump is n-1
         let final_jump = store.create_interior(NodeTemplate {
             ne: x,
             nw: w,
@@ -290,33 +288,65 @@ impl Node {
     fn step_level_2(&self, store: &mut Store) -> Node {
         assert_eq!(self.level, 2);
 
-        // TODO: make this more efficient using bitfields
-
-        let mut nodes = Vec::with_capacity(4);
-        for (x, y) in itertools::iproduct!(-1..=0, -1..=0) {
-            let mut neighbors = 0;
-            for (dx, dy) in itertools::iproduct!(-1..=1, -1..=1).filter(|&c| c != (0, 0)) {
-                if self.get_cell(store, x + dx, y + dy).is_alive() {
-                    neighbors += 1;
-                }
-            }
-            if neighbors == 3 || (neighbors == 2 && self.get_cell(store, x, y).is_alive()) {
-                nodes.push(store.create_leaf(Cell::Alive))
-            } else {
-                nodes.push(store.create_leaf(Cell::Dead))
-            }
+        if let Some(step) = store.level_2_step(*self) {
+            return step;
         }
 
-        // (-1, -1)
-        let nw = nodes[0];
-        // (-1, 0)
-        let sw = nodes[1];
-        // (0, -1)
-        let ne = nodes[2];
-        // (0, 0)
-        let se = nodes[3];
+        let nw_bitmask = 0b1110_1010_1110_0000;
+        let ne_bitmask = 0b0111_0101_0111_0000;
+        let sw_bitmask = 0b0000_1110_1010_1110;
+        let se_bitmask = 0b0000_0111_0101_0111;
+        let nw_center = 1 << (15 - 5);
+        let ne_center = 1 << (15 - 6);
+        let sw_center = 1 << (15 - 9);
+        let se_center = 1 << (15 - 10);
 
-        store.create_interior(NodeTemplate { ne, nw, se, sw })
+        let mut board = 0u16;
+        for y in -2..=1 {
+            for x in -2..=1 {
+                if self.get_cell(store, x, y).is_alive() {
+                    board |= 1 << (15 - ((y + 2) * 4 + (x + 2)));
+                }
+            }
+        }
+        
+        // nw
+        let nw_neighbors = (nw_bitmask & board).count_ones();
+        let nw = if nw_neighbors == 3 || (nw_neighbors == 2 && (board & nw_center > 0)) {
+            store.create_leaf(Cell::Alive)
+        } else {
+            store.create_leaf(Cell::Dead)
+        };
+        
+        // ne
+        let ne_neighbors = (ne_bitmask & board).count_ones();
+        let ne = if ne_neighbors == 3 || (ne_neighbors == 2 && (board & ne_center > 0)) {
+            store.create_leaf(Cell::Alive)
+        } else {
+            store.create_leaf(Cell::Dead)
+        };
+
+        // ns
+        let sw_neighbors = (sw_bitmask & board).count_ones();
+        let sw = if sw_neighbors == 3 || (sw_neighbors == 2 && (board & sw_center > 0)) {
+            store.create_leaf(Cell::Alive)
+        } else {
+            store.create_leaf(Cell::Dead)
+        };
+        
+        // ne
+        let se_neighbors = (se_bitmask & board).count_ones();
+        let se = if se_neighbors == 3 || (se_neighbors == 2 && (board & se_center > 0)) {
+            store.create_leaf(Cell::Alive)
+        } else {
+            store.create_leaf(Cell::Dead)
+        };
+
+        let step = store.create_interior(NodeTemplate { ne, nw, se, sw });
+
+        store.add_level_2_step(*self, step);
+
+        step
     }
 
     /// Given two horizontally adjacent level `n` nodes, compute the level `n-1`
