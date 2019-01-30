@@ -1,6 +1,7 @@
 use crate::{Cell, Node, Store};
 use png::HasParameters;
 
+#[derive(Clone, Debug)]
 pub struct Life {
     root: Node,
     store: Store,

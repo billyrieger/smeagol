@@ -9,6 +9,7 @@ pub struct NodeTemplate {
     pub sw: Node,
 }
 
+#[derive(Clone, Debug)]
 pub struct Store {
     nodes: Vec<Node>,
     indices: hashbrown::HashMap<Node, usize>,
