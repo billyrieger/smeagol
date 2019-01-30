@@ -1,7 +1,12 @@
 use crate::{Cell, Node, NodeTemplate, Store};
 
 impl Node {
-    /// For a level `n` node, jumps the node `2^(n-2)` ticks into the future.
+    /// For a level `n` node, returns the center subnode of the node `2^(n-2)` ticks into the
+    /// future.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `n < 2`.
     #[allow(clippy::many_single_char_names)]
     pub fn jump(&self, store: &mut Store) -> Node {
         assert!(self.level >= 2);
@@ -160,13 +165,15 @@ impl Node {
         final_jump
     }
 
-    /// Jumps the node `2^(cutoff-2)` levels into the future.
+    /// Returns the center subnode of the node `2^(cutoff-2)` ticks into the future.
     ///
     /// # Panics
     ///
-    /// Panics if `node.level() < cutoff` or `cutoff < 2`.
+    /// For a level `n` node, panics if `n < cutoff` or `cutoff < 2`.
     pub fn step(&self, store: &mut Store, level_cutoff: u8) -> Node {
-        assert!(self.level >= 2);
+        assert!(self.level >= level_cutoff);
+        assert!(level_cutoff >= 2);
+
         let step_size = 1 << (level_cutoff - 2);
 
         // check if the result has been calculated previously
@@ -175,12 +182,11 @@ impl Node {
         }
 
         match self.level.cmp(&level_cutoff) {
-            std::cmp::Ordering::Less => panic!(),
+            std::cmp::Ordering::Less => unreachable!(),
             std::cmp::Ordering::Equal => {
+                // when level == level_cutoff, a step is equivalent to a jump
                 let jump = self.jump(store);
-
                 store.add_step(*self, step_size, jump);
-
                 jump
             }
             std::cmp::Ordering::Greater => {
@@ -276,6 +282,11 @@ impl Node {
         }
     }
 
+    /// Steps a level two node one tick into the future.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the level of the node is not two.
     fn step_level_2(&self, store: &mut Store) -> Node {
         assert_eq!(self.level, 2);
 
@@ -564,7 +575,8 @@ mod tests {
 
             // returns glider cells offset by the given deltas
             let offset_glider = |dx: i64, dy: i64| -> Vec<(i64, i64)> {
-                (&glider_cells).clone()
+                (&glider_cells)
+                    .clone()
                     .into_iter()
                     .map(|(x, y)| (x + dx, y + dy))
                     .collect()
@@ -611,7 +623,8 @@ mod tests {
 
             // returns glider cells offset by the given deltas
             let offset_glider = |dx: i64, dy: i64| -> Vec<(i64, i64)> {
-                (&glider_cells).clone()
+                (&glider_cells)
+                    .clone()
                     .into_iter()
                     .map(|(x, y)| (x + dx, y + dy))
                     .collect()

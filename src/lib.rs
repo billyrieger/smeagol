@@ -1,10 +1,17 @@
 #[macro_use]
 extern crate itertools;
+#[cfg(feature = "import-rle")]
+#[macro_use]
+extern crate nom;
 
+mod life;
 mod node;
 mod store;
+#[cfg(feature = "import-rle")]
+mod rle;
 
 pub use self::{
+    life::Life,
     node::Node,
     store::{NodeTemplate, Store},
 };

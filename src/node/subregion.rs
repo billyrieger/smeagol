@@ -1,6 +1,45 @@
 use crate::{node::NodeBase, Node, NodeTemplate, Store};
 
 impl Node {
+    pub fn expand(&self, store: &mut Store) -> Node {
+        assert!(self.level >= 1);
+        let border = store.create_empty(self.level - 1);
+
+        let self_ne = self.ne(store);
+        let ne = store.create_interior(NodeTemplate {
+            ne: border,
+            nw: border,
+            se: border,
+            sw: self_ne,
+        });
+
+        let self_nw = self.nw(store);
+        let nw = store.create_interior(NodeTemplate {
+            ne: border,
+            nw: border,
+            se: self_nw,
+            sw: border,
+        });
+
+        let self_se = self.se(store);
+        let se = store.create_interior(NodeTemplate {
+            ne: border,
+            nw: self_se,
+            se: border,
+            sw: border,
+        });
+
+        let self_sw = self.sw(store);
+        let sw = store.create_interior(NodeTemplate {
+            ne: self_sw,
+            nw: border,
+            se: border,
+            sw: border,
+        });
+
+        store.create_interior(NodeTemplate { ne, nw, se, sw })
+    }
+
     pub fn ne(&self, store: &Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
