@@ -1,4 +1,4 @@
-use crate::{node::NodeBase, NodeTemplate, Node, Store};
+use crate::{node::NodeBase, Node, NodeTemplate, Store};
 
 impl Node {
     pub fn ne(&self, store: &Store) -> Node {
@@ -116,7 +116,9 @@ mod tests {
         #[test]
         fn ne() {
             let mut store = Store::new();
-            let node = store.create_empty(1).set_cell(&mut store, 0, -1, Cell::Alive);
+            let node = store
+                .create_empty(1)
+                .set_cell(&mut store, 0, -1, Cell::Alive);
 
             let expected = store.create_leaf(Cell::Alive);
 
@@ -126,7 +128,9 @@ mod tests {
         #[test]
         fn nw() {
             let mut store = Store::new();
-            let node = store.create_empty(1).set_cell(&mut store, -1, -1, Cell::Alive);
+            let node = store
+                .create_empty(1)
+                .set_cell(&mut store, -1, -1, Cell::Alive);
 
             let expected = store.create_leaf(Cell::Alive);
 
@@ -136,7 +140,9 @@ mod tests {
         #[test]
         fn se() {
             let mut store = Store::new();
-            let node = store.create_empty(1).set_cell(&mut store, 0, 0, Cell::Alive);
+            let node = store
+                .create_empty(1)
+                .set_cell(&mut store, 0, 0, Cell::Alive);
 
             let expected = store.create_leaf(Cell::Alive);
 
@@ -146,7 +152,9 @@ mod tests {
         #[test]
         fn sw() {
             let mut store = Store::new();
-            let node = store.create_empty(1).set_cell(&mut store, -1, 0, Cell::Alive);
+            let node = store
+                .create_empty(1)
+                .set_cell(&mut store, -1, 0, Cell::Alive);
 
             let expected = store.create_leaf(Cell::Alive);
 
@@ -156,13 +164,15 @@ mod tests {
         #[test]
         fn center_subnode() {
             let mut store = Store::new();
-            let node = store.create_empty(2)
+            let node = store
+                .create_empty(2)
                 .set_cell(&mut store, -1, -1, Cell::Alive)
                 .set_cell(&mut store, -1, 0, Cell::Alive)
                 .set_cell(&mut store, 0, -1, Cell::Alive)
                 .set_cell(&mut store, 0, 0, Cell::Alive);
 
-            let expected = store.create_empty(1)
+            let expected = store
+                .create_empty(1)
                 .set_cell(&mut store, -1, -1, Cell::Alive)
                 .set_cell(&mut store, -1, 0, Cell::Alive)
                 .set_cell(&mut store, 0, -1, Cell::Alive)
@@ -171,7 +181,6 @@ mod tests {
             assert_eq!(node.center_subnode(&mut store), expected);
         }
     }
-
 
     mod subsubnode {
         use super::*;

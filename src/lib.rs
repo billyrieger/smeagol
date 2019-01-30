@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate itertools;
+
 mod node;
 mod store;
 
