@@ -1,5 +1,5 @@
 fn main() {
-    let mut life = smeagol::Life::from_rle("/home/billy/Downloads/all/breeder1.rle").unwrap();
+    let mut life = smeagol::Life::from_rle(std::env::args().nth(1).unwrap()).unwrap();
     println!("{}", life.generation());
     println!("{}", life.population());
     for _ in 0..100 {
