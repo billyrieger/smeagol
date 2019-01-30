@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate itertools;
 #[cfg(feature = "import-rle")]
 #[macro_use]
 extern crate nom;

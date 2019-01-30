@@ -309,7 +309,7 @@ impl Node {
                 }
             }
         }
-        
+
         // nw
         let nw_neighbors = (nw_bitmask & board).count_ones();
         let nw = if nw_neighbors == 3 || (nw_neighbors == 2 && (board & nw_center > 0)) {
@@ -317,7 +317,7 @@ impl Node {
         } else {
             store.create_leaf(Cell::Dead)
         };
-        
+
         // ne
         let ne_neighbors = (ne_bitmask & board).count_ones();
         let ne = if ne_neighbors == 3 || (ne_neighbors == 2 && (board & ne_center > 0)) {
@@ -333,7 +333,7 @@ impl Node {
         } else {
             store.create_leaf(Cell::Dead)
         };
-        
+
         // ne
         let se_neighbors = (se_bitmask & board).count_ones();
         let se = if se_neighbors == 3 || (se_neighbors == 2 && (board & se_center > 0)) {

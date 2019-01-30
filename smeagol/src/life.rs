@@ -21,6 +21,7 @@ impl Life {
         }
     }
 
+    #[cfg(feature = "import-rle")]
     fn from_rle(rle: crate::rle::Rle) -> Result<Self, crate::rle::RleError> {
         let mut alive_cells = rle
             .alive_cells()
@@ -56,12 +57,8 @@ impl Life {
     }
 
     #[cfg(feature = "import-rle")]
-    pub fn from_rle_pattern(
-        width: u32,
-        height: u32,
-        pattern: &str,
-    ) -> Result<Self, crate::rle::RleError> {
-        let rle = crate::rle::Rle::from_pattern(width, height, pattern)?;
+    pub fn from_rle_pattern(pattern: &str) -> Result<Self, crate::rle::RleError> {
+        let rle = crate::rle::Rle::from_pattern(pattern)?;
         Self::from_rle(rle)
     }
 
@@ -83,7 +80,7 @@ impl Life {
     }
 }
 
-/// Methods to get and set individual cells.
+/// Methods to get and set cells.
 impl Life {
     /// Gets the cell at the given coordinates.
     pub fn get_cell(&self, x: i64, y: i64) -> Cell {
@@ -108,6 +105,10 @@ impl Life {
             self.root = self.root.expand(&mut self.store);
         }
         self.root = self.root.set_cell(&mut self.store, x, y, cell);
+    }
+
+    pub fn get_alive_cells(&self) -> Vec<(i64, i64)> {
+        self.root.get_alive_cells(&self.store)
     }
 }
 
@@ -156,6 +157,19 @@ impl Life {
         }
         self.root = self.root.step(&mut self.store, level_cutoff);
         self.generation += 1 << step_log_2;
+    }
+
+    pub fn step(&mut self, step: u64) {
+        let mut countdown = step;
+        let mut power = 0;
+        while countdown > 0 {
+            if countdown % 2 == 1 {
+                println!("{}, {}", countdown, power);
+                self.step_pow_2(power);
+            }
+            power += 1;
+            countdown /= 2;
+        }
     }
 }
 

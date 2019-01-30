@@ -79,8 +79,6 @@ impl From<nom::ErrorKind> for RleError {
 }
 
 pub struct Rle {
-    pub width: u32,
-    pub height: u32,
     units: Vec<(u32, char)>,
 }
 
@@ -95,24 +93,16 @@ impl Rle {
         let mut buf = vec![];
         reader.read_to_end(&mut buf)?;
 
-        let (_rest, (_comments, (width, height), units)) =
+        let (_rest, (_comments, (_width, _height), units)) =
             rle(&buf).map_err(|e| e.into_error_kind())?;
 
-        Ok(Self {
-            width,
-            height,
-            units,
-        })
+        Ok(Self { units })
     }
 
-    pub fn from_pattern(width: u32, height: u32, pattern_str: &str) -> Result<Self, RleError> {
+    pub fn from_pattern(pattern_str: &str) -> Result<Self, RleError> {
         let (_rest, units) =
             pattern(&pattern_str.bytes().collect::<Vec<_>>()).map_err(|e| e.into_error_kind())?;
-        Ok(Self {
-            width,
-            height,
-            units,
-        })
+        Ok(Self { units })
     }
 
     pub fn alive_cells(&self) -> Vec<(u32, u32)> {
