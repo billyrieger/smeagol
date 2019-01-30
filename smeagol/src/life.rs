@@ -56,9 +56,7 @@ impl Life {
     }
 
     #[cfg(feature = "import-rle")]
-    pub fn from_rle_pattern(
-        pattern: &str,
-    ) -> Result<Self, crate::rle::RleError> {
+    pub fn from_rle_pattern(pattern: &str) -> Result<Self, crate::rle::RleError> {
         let rle = crate::rle::Rle::from_pattern(pattern)?;
         Self::from_rle(rle)
     }
@@ -108,7 +106,7 @@ impl Life {
         self.root = self.root.set_cell(&mut self.store, x, y, cell);
     }
 
-    pub fn get_alive_cells(&self) -> Vec<(i64, i64)>{
+    pub fn get_alive_cells(&self) -> Vec<(i64, i64)> {
         self.root.get_alive_cells(&self.store)
     }
 }

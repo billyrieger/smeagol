@@ -1,9 +1,12 @@
 extern crate criterion;
 
 fn glider() -> smeagol::Life {
-    smeagol::Life::from_rle_pattern("
+    smeagol::Life::from_rle_pattern(
+        "
 bob$2bo$3o!
-").unwrap()
+",
+    )
+    .unwrap()
 }
 
 fn gosper_glider_gun() -> smeagol::Life {
