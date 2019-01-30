@@ -21,7 +21,10 @@ enum NodeBase {
 }
 
 impl std::hash::Hash for Node {
-    fn hash<H>(&self, state: &mut H) where H: std::hash::Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: std::hash::Hasher,
+    {
         self.base.hash(state);
     }
 }

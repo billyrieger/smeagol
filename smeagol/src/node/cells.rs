@@ -130,25 +130,66 @@ impl Node {
         }
     }
 
-    pub fn get_alive_cells(&self, store: &Store)-> Vec<(i64, i64)> {
+    pub fn get_alive_cells(&self, store: &Store) -> Vec<(i64, i64)> {
         match self.base {
-            NodeBase::Leaf { alive } => if alive { vec![(0, 0)] } else { vec![] },
+            NodeBase::Leaf { alive } => {
+                if alive {
+                    vec![(0, 0)]
+                } else {
+                    vec![]
+                }
+            }
             NodeBase::Interior { .. } => {
                 let mut alive_cells = Vec::with_capacity(self.population as usize);
 
                 if self.population > 0 {
                     if self.level == 1 {
-                        alive_cells.extend(self.nw(store).get_alive_cells(store).into_iter().map(|(x, y)| (x - 1, y - 1)));
-                        alive_cells.extend(self.ne(store).get_alive_cells(store).into_iter().map(|(x, y)| (x, y - 1)));
-                        alive_cells.extend(self.sw(store).get_alive_cells(store).into_iter().map(|(x, y)| (x - 1, y)));
+                        alive_cells.extend(
+                            self.nw(store)
+                                .get_alive_cells(store)
+                                .into_iter()
+                                .map(|(x, y)| (x - 1, y - 1)),
+                        );
+                        alive_cells.extend(
+                            self.ne(store)
+                                .get_alive_cells(store)
+                                .into_iter()
+                                .map(|(x, y)| (x, y - 1)),
+                        );
+                        alive_cells.extend(
+                            self.sw(store)
+                                .get_alive_cells(store)
+                                .into_iter()
+                                .map(|(x, y)| (x - 1, y)),
+                        );
                         alive_cells.extend(self.se(store).get_alive_cells(store));
                     } else {
                         // quarter side length
                         let offset = 1 << (self.level - 2);
-                        alive_cells.extend(self.nw(store).get_alive_cells(store).into_iter().map(|(x, y)| (x - offset, y - offset)));
-                        alive_cells.extend(self.ne(store).get_alive_cells(store).into_iter().map(|(x, y)| (x + offset, y - offset)));
-                        alive_cells.extend(self.sw(store).get_alive_cells(store).into_iter().map(|(x, y)| (x - offset, y + offset)));
-                        alive_cells.extend(self.se(store).get_alive_cells(store).into_iter().map(|(x, y)| (x + offset, y + offset)));
+                        alive_cells.extend(
+                            self.nw(store)
+                                .get_alive_cells(store)
+                                .into_iter()
+                                .map(|(x, y)| (x - offset, y - offset)),
+                        );
+                        alive_cells.extend(
+                            self.ne(store)
+                                .get_alive_cells(store)
+                                .into_iter()
+                                .map(|(x, y)| (x + offset, y - offset)),
+                        );
+                        alive_cells.extend(
+                            self.sw(store)
+                                .get_alive_cells(store)
+                                .into_iter()
+                                .map(|(x, y)| (x - offset, y + offset)),
+                        );
+                        alive_cells.extend(
+                            self.se(store)
+                                .get_alive_cells(store)
+                                .into_iter()
+                                .map(|(x, y)| (x + offset, y + offset)),
+                        );
                     }
                 }
 
@@ -161,7 +202,13 @@ impl Node {
         self.set_cells_alive_recursive(store, coords, 0, 0)
     }
 
-    fn set_cells_alive_recursive(&self, store: &mut Store, coords: &mut [(i64, i64)], offset_x: i64, offset_y: i64) -> Node {
+    fn set_cells_alive_recursive(
+        &self,
+        store: &mut Store,
+        coords: &mut [(i64, i64)],
+        offset_x: i64,
+        offset_y: i64,
+    ) -> Node {
         if coords.len() == 0 {
             return *self;
         }
@@ -174,7 +221,7 @@ impl Node {
         }
 
         match self.base {
-            NodeBase::Leaf { .. } =>  {
+            NodeBase::Leaf { .. } => {
                 assert!(coords.len() == 1);
                 assert_eq!(coords[0].0 - offset_x, 0);
                 assert_eq!(coords[0].1 - offset_y, 0);
@@ -192,20 +239,57 @@ impl Node {
                 let (southwest, southeast) = south.split_at_mut(horiz_cutoff);
 
                 if self.level == 1 {
-                    let nw = self.nw(store).set_cells_alive_recursive(store, northwest, offset_x - 1, offset_y - 1);
-                    let ne = self.ne(store).set_cells_alive_recursive(store, northeast, offset_x, offset_y - 1);
-                    let sw = self.sw(store).set_cells_alive_recursive(store, southwest, offset_x - 1, offset_y);
-                    let se = self.se(store).set_cells_alive_recursive(store, southeast, offset_x, offset_y);
+                    let nw = self.nw(store).set_cells_alive_recursive(
+                        store,
+                        northwest,
+                        offset_x - 1,
+                        offset_y - 1,
+                    );
+                    let ne = self.ne(store).set_cells_alive_recursive(
+                        store,
+                        northeast,
+                        offset_x,
+                        offset_y - 1,
+                    );
+                    let sw = self.sw(store).set_cells_alive_recursive(
+                        store,
+                        southwest,
+                        offset_x - 1,
+                        offset_y,
+                    );
+                    let se = self
+                        .se(store)
+                        .set_cells_alive_recursive(store, southeast, offset_x, offset_y);
 
                     store.create_interior(NodeTemplate { ne, nw, se, sw })
                 } else {
                     // quarter side length
                     let offset = 1 << (self.level - 2);
 
-                    let nw = self.nw(store).set_cells_alive_recursive(store, northwest, offset_x - offset, offset_y - offset);
-                    let ne = self.ne(store).set_cells_alive_recursive(store, northeast, offset_x + offset, offset_y - offset);
-                    let sw = self.sw(store).set_cells_alive_recursive(store, southwest, offset_x - offset, offset_y + offset);
-                    let se = self.se(store).set_cells_alive_recursive(store, southeast, offset_x + offset, offset_y + offset);
+                    let nw = self.nw(store).set_cells_alive_recursive(
+                        store,
+                        northwest,
+                        offset_x - offset,
+                        offset_y - offset,
+                    );
+                    let ne = self.ne(store).set_cells_alive_recursive(
+                        store,
+                        northeast,
+                        offset_x + offset,
+                        offset_y - offset,
+                    );
+                    let sw = self.sw(store).set_cells_alive_recursive(
+                        store,
+                        southwest,
+                        offset_x - offset,
+                        offset_y + offset,
+                    );
+                    let se = self.se(store).set_cells_alive_recursive(
+                        store,
+                        southeast,
+                        offset_x + offset,
+                        offset_y + offset,
+                    );
 
                     store.create_interior(NodeTemplate { ne, nw, se, sw })
                 }
@@ -245,7 +329,9 @@ mod tests {
         let mut coords = vec![(0, 0), (1, 1), (-2, 3), (1, -1), (-4, -5)];
 
         let mut store = Store::new();
-        let node = store.create_empty(4).set_cells_alive(&mut store, &mut coords);
+        let node = store
+            .create_empty(4)
+            .set_cells_alive(&mut store, &mut coords);
 
         for &(x, y) in &coords {
             assert_eq!(node.get_cell(&store, x, y), Cell::Alive);

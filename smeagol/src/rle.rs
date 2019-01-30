@@ -48,6 +48,8 @@ named!(pattern_unit<&[u8], (u32, char)>, do_parse!(
     (reps, cell_type)
 ));
 
+named!(pattern<&[u8], Vec<(u32, char)>>, many0!(pattern_unit));
+
 named!(rle<&[u8], (Vec<String>, (u32, u32), Vec<(u32, char)>)>,
     do_parse!(
         comments: many0!(comment_line) >>
@@ -96,6 +98,16 @@ impl Rle {
         let (_rest, (_comments, (width, height), units)) =
             rle(&buf).map_err(|e| e.into_error_kind())?;
 
+        Ok(Self {
+            width,
+            height,
+            units,
+        })
+    }
+
+    pub fn from_pattern(width: u32, height: u32, pattern_str: &str) -> Result<Self, RleError> {
+        let (_rest, units) =
+            pattern(&pattern_str.bytes().collect::<Vec<_>>()).map_err(|e| e.into_error_kind())?;
         Ok(Self {
             width,
             height,

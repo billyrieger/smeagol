@@ -6,9 +6,9 @@ extern crate nom;
 
 mod life;
 mod node;
-mod store;
 #[cfg(feature = "import-rle")]
 mod rle;
+mod store;
 
 pub use self::{
     life::Life,

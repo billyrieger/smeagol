@@ -20,13 +20,12 @@ impl Life {
         }
     }
 
-    #[cfg(feature = "import-rle")]
-    pub fn from_rle<P>(path: P) -> Result<Self, crate::rle::RleError>
-    where
-        P: AsRef<std::path::Path>,
-    {
-        let rle = crate::rle::Rle::from_file(path)?;
-        let mut alive_cells = rle.alive_cells().into_iter().map(|(x, y)| (x as i64, y as i64)).collect::<Vec<_>>();
+    fn from_rle(rle: crate::rle::Rle) -> Result<Self, crate::rle::RleError> {
+        let mut alive_cells = rle
+            .alive_cells()
+            .into_iter()
+            .map(|(x, y)| (x as i64, y as i64))
+            .collect::<Vec<_>>();
 
         let mut store = Store::new();
         let mut root = store.create_empty(3);
@@ -37,7 +36,11 @@ impl Life {
             let y_min = alive_cells.iter().min_by_key(|&(_, y)| y).unwrap().1;
             let y_max = alive_cells.iter().max_by_key(|&(_, y)| y).unwrap().1;
 
-            while x_min < root.min_coord() || x_max > root.max_coord() || y_min < root.min_coord() || y_max > root.max_coord() {
+            while x_min < root.min_coord()
+                || x_max > root.max_coord()
+                || y_min < root.min_coord()
+                || y_max > root.max_coord()
+            {
                 root = root.expand(&mut store);
             }
 
@@ -51,6 +54,25 @@ impl Life {
         })
     }
 
+    #[cfg(feature = "import-rle")]
+    pub fn from_rle_pattern(
+        width: u32,
+        height: u32,
+        pattern: &str,
+    ) -> Result<Self, crate::rle::RleError> {
+        let rle = crate::rle::Rle::from_pattern(width, height, pattern)?;
+        Self::from_rle(rle)
+    }
+
+    #[cfg(feature = "import-rle")]
+    pub fn from_rle_file<P>(path: P) -> Result<Self, crate::rle::RleError>
+    where
+        P: AsRef<std::path::Path>,
+    {
+        let rle = crate::rle::Rle::from_file(path)?;
+        Self::from_rle(rle)
+    }
+
     pub fn generation(&self) -> u128 {
         self.generation
     }
@@ -59,7 +81,6 @@ impl Life {
         self.root.population()
     }
 }
-
 
 /// Methods to get and set individual cells.
 impl Life {
