@@ -33,7 +33,6 @@ impl std::hash::Hash for Node {
 pub struct Node {
     base: NodeBase,
     level: u8,
-    population: u128,
 }
 
 /// Internal node creation methods.
@@ -43,15 +42,13 @@ impl Node {
             alive: cell.is_alive(),
         };
         let level = 0;
-        let population = if cell.is_alive() { 1 } else { 0 };
         Self {
             base,
             level,
-            population,
         }
     }
 
-    pub(crate) fn new_interior(level: u8, population: u128, indices: [usize; 4]) -> Self {
+    pub(crate) fn new_interior(level: u8, indices: [usize; 4]) -> Self {
         if level > MAX_LEVEL {
             panic!("cannot create a node with level above {}", MAX_LEVEL);
         }
@@ -63,7 +60,6 @@ impl Node {
                 sw_index: indices[3],
             },
             level,
-            population,
         }
     }
 }

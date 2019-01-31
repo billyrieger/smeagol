@@ -1,12 +1,12 @@
-use crate::{node::MAX_LEVEL, Node};
+use crate::{node::MAX_LEVEL, Node, Store};
 
 impl Node {
     pub fn level(&self) -> u8 {
         self.level
     }
 
-    pub fn population(&self) -> u128 {
-        self.population
+    pub fn population(&self, store: &Store) -> u128 {
+        store.population(&self)
     }
 
     pub fn min_coord(&self) -> i64 {

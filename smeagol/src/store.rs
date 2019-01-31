@@ -12,6 +12,7 @@ pub struct NodeTemplate {
 #[derive(Clone, Debug)]
 pub struct Store {
     nodes: Vec<Node>,
+    populations: Vec<u128>,
     indices: hashbrown::HashMap<Node, usize>,
     level_2_steps: hashbrown::HashMap<Node, usize>,
     steps: hashbrown::HashMap<(Node, u64), usize>,
@@ -21,10 +22,15 @@ impl Store {
     pub fn new() -> Self {
         Self {
             nodes: vec![],
+            populations: vec![],
             indices: hashbrown::HashMap::default(),
             level_2_steps: hashbrown::HashMap::default(),
             steps: hashbrown::HashMap::default(),
         }
+    }
+
+    pub(crate) fn population(&self, node: &Node) -> u128 {
+        self.populations[self.indices[node]]
     }
 
     pub(crate) fn node(&self, index: usize) -> Node {

@@ -140,9 +140,10 @@ impl Node {
                 }
             }
             NodeBase::Interior { .. } => {
-                let mut alive_cells = Vec::with_capacity(self.population as usize);
+                let pop = self.population(store);
+                let mut alive_cells = Vec::with_capacity(pop as usize);
 
-                if self.population > 0 {
+                if pop > 0 {
                     if self.level == 1 {
                         alive_cells.extend(
                             self.nw(store)

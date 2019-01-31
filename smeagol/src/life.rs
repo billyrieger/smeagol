@@ -75,7 +75,7 @@ impl Life {
     }
 
     pub fn population(&self) -> u128 {
-        self.root.population()
+        self.root.population(&self.store)
     }
 }
 
@@ -115,34 +115,34 @@ impl Life {
 impl Life {
     fn pad(&mut self) {
         while self.root.level() < 3
-            || self.root.ne(&mut self.store).population()
+            || self.root.ne(&mut self.store).population(&self.store)
                 != self
                     .root
                     .ne(&mut self.store)
                     .sw(&mut self.store)
                     .sw(&mut self.store)
-                    .population()
-            || self.root.nw(&mut self.store).population()
+                    .population(&self.store)
+            || self.root.nw(&mut self.store).population(&self.store)
                 != self
                     .root
                     .nw(&mut self.store)
                     .se(&mut self.store)
                     .se(&mut self.store)
-                    .population()
-            || self.root.se(&mut self.store).population()
+                    .population(&self.store)
+            || self.root.se(&mut self.store).population(&self.store)
                 != self
                     .root
                     .se(&mut self.store)
                     .nw(&mut self.store)
                     .nw(&mut self.store)
-                    .population()
-            || self.root.sw(&mut self.store).population()
+                    .population(&self.store)
+            || self.root.sw(&mut self.store).population(&self.store)
                 != self
                     .root
                     .sw(&mut self.store)
                     .ne(&mut self.store)
                     .ne(&mut self.store)
-                    .population()
+                    .population(&self.store)
         {
             self.root = self.root.expand(&mut self.store);
         }
