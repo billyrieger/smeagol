@@ -37,23 +37,33 @@ fn make_queen_bee_shuttle() -> smeagol::Life {
 
 fn helper(mut life: smeagol::Life, period: u64) {
     let mut before = life.get_alive_cells();
+    let before_population = life.population();
+    let before_generation = life.generation();
     before.sort();
 
     life.step(period);
 
     let mut after = life.get_alive_cells();
+    let after_population = life.population();
+    let after_generation = life.generation();
     after.sort();
 
     assert_eq!(before, after);
+    assert_eq!(before_population, after_population);
+    assert_eq!(after_generation - before_generation, period as u128);
 
     for _ in 0..period {
         life.step(1);
     }
 
     let mut after_again = life.get_alive_cells();
+    let after_again_population = life.population();
+    let after_again_generation = life.generation();
     after_again.sort();
 
     assert_eq!(before, after_again);
+    assert_eq!(before_population, after_again_population);
+    assert_eq!(after_again_generation - after_generation, period as u128);
 }
 
 #[test]
