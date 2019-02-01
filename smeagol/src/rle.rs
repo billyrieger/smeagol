@@ -1,11 +1,13 @@
 use std::io::Read;
 
-use nom::{is_digit, line_ending, not_line_ending};
+use nom::{line_ending, not_line_ending};
 
-named!(comment_line<&[u8], String>,
+named!(whitespace, take_while!(|c: u8| (c as char).is_whitespace()));
+
+named!(comment_line<&[u8], &[u8]>,
     do_parse!(
         char!('#') >>
-        comment: map!(not_line_ending, |x| std::str::from_utf8(x).expect("could not parse comment as utf8").to_owned()) >>
+        comment: not_line_ending >>
         line_ending >>
         (comment)
     )
@@ -14,43 +16,42 @@ named!(comment_line<&[u8], String>,
 named!(header<&[u8], (u32, u32)>,
     do_parse!(
         tag!("x") >>
-        take_while!(|c: u8| (c as char).is_whitespace()) >>
+        whitespace >>
         tag!("=") >>
-        take_while!(|c: u8| (c as char).is_whitespace()) >>
-        width: map!(take_while!(is_digit), |digits| std::str::from_utf8(digits).unwrap().parse::<u32>().unwrap()) >>
-        take_while!(|c: u8| (c as char).is_whitespace()) >>
+        whitespace >>
+        width: map_res!(nom::digit0, btoi::btoi) >>
+        whitespace >>
         tag!(",") >>
-        take_while!(|c: u8| (c as char).is_whitespace()) >>
+        whitespace >>
         tag!("y") >>
-        take_while!(|c: u8| (c as char).is_whitespace()) >>
+        whitespace >>
         tag!("=") >>
-        take_while!(|c: u8| (c as char).is_whitespace()) >>
-        height: map!(take_while!(is_digit), |digits| std::str::from_utf8(digits).unwrap().parse::<u32>().unwrap()) >>
+        whitespace >>
+        height: map_res!(nom::digit0, btoi::btoi) >>
         not_line_ending >>
         line_ending >>
         (width, height)
     )
 );
 
-fn parse_rle_digits(digits: &[u8]) -> u32 {
+fn parse_rle_digits(digits: &[u8]) -> Result<u32, btoi::ParseIntegerError> {
     if digits.len() == 0 {
-        1
+        Ok(1)
     } else {
-        std::str::from_utf8(digits).unwrap().parse::<u32>().unwrap()
+        btoi::btoi(digits)
     }
 }
 
 named!(pattern_unit<&[u8], (u32, char)>, do_parse!(
     take_while!(|c: u8| (c as char).is_whitespace()) >>
-    reps: map!(take_while!(is_digit), parse_rle_digits) >>
+    reps: map_res!(nom::digit0, parse_rle_digits) >>
     cell_type: one_of!("bo$") >>
-    take_while!(|c: u8| (c as char).is_whitespace()) >>
     (reps, cell_type)
 ));
 
 named!(pattern<&[u8], Vec<(u32, char)>>, many0!(pattern_unit));
 
-named!(rle<&[u8], (Vec<String>, (u32, u32), Vec<(u32, char)>)>,
+named!(rle<&[u8], (Vec<&[u8]>, (u32, u32), Vec<(u32, char)>)>,
     do_parse!(
         comments: many0!(comment_line) >>
         dimensions: header >>
@@ -99,9 +100,9 @@ impl Rle {
         Ok(Self { units })
     }
 
-    pub fn from_pattern(pattern_str: &str) -> Result<Self, RleError> {
+    pub fn from_pattern(pattern_str: &[u8]) -> Result<Self, RleError> {
         let (_rest, units) =
-            pattern(&pattern_str.bytes().collect::<Vec<_>>()).map_err(|e| e.into_error_kind())?;
+            pattern(pattern_str).map_err(|e| e.into_error_kind())?;
         Ok(Self { units })
     }
 

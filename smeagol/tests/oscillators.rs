@@ -1,6 +1,6 @@
 fn make_figure_eight() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
-        "
+        b"
 2o4b$2obo2b$4bob$bo4b$2bob2o$4b2o!
 ",
     )
@@ -9,7 +9,7 @@ fn make_figure_eight() -> smeagol::Life {
 
 fn make_pentadecathlon() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
-        "
+        b"
 2bo4bo2b$2ob4ob2o$2bo4bo!
 ",
     )
@@ -18,7 +18,7 @@ fn make_pentadecathlon() -> smeagol::Life {
 
 fn make_pulsar() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
-        "
+        b"
 2b3o3b3o2b2$o4bobo4bo$o4bobo4bo$o4bobo4bo$2b3o3b3o2b2$2b3o3b3o2b$o4bob
 o4bo$o4bobo4bo$o4bobo4bo2$2b3o3b3o!
 ",
@@ -28,7 +28,7 @@ o4bo$o4bobo4bo$o4bobo4bo2$2b3o3b3o!
 
 fn make_queen_bee_shuttle() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
-        "
+        b"
 9bo12b$7bobo12b$6bobo13b$2o3bo2bo11b2o$2o4bobo11b2o$7bobo12b$9bo!
 ",
     )

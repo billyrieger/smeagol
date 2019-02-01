@@ -56,7 +56,7 @@ impl Life {
     }
 
     #[cfg(feature = "import-rle")]
-    pub fn from_rle_pattern(pattern: &str) -> Result<Self, crate::rle::RleError> {
+    pub fn from_rle_pattern(pattern: &[u8]) -> Result<Self, crate::rle::RleError> {
         let rle = crate::rle::Rle::from_pattern(pattern)?;
         Self::from_rle(rle)
     }

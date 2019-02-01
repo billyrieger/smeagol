@@ -1,6 +1,6 @@
 fn make_ecologist() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
-        "
+        b"
 bo2bo5b2o15b$o8b4o14b$o3bo3b2ob2o14b$4o5b2o16b4$11b2o14b$2b3o7b2o13b$
 2bo6bo2bo14b$2bobo6bo15b$3b2o3b2o17b$25b2o$25bob$bo2bo18b3ob$o26b$o3bo
 22b$4o!
@@ -11,7 +11,7 @@ bo2bo5b2o15b$o8b4o14b$o3bo3b2ob2o14b$4o5b2o16b4$11b2o14b$2b3o7b2o13b$
 
 fn make_glider() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
-        "
+        b"
 bob$2bo$3o!
 ",
     )
@@ -20,7 +20,7 @@ bob$2bo$3o!
 
 fn make_lobster() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
-        "
+        b"
 11b3o$13bo$8b2o2bo$8b2o$12b2o$11b2o$10bo2bo2$8bo2bo$7bo3bo$6bob3o$5bo$
 5bo13bobo2b2o$6bo13b2obobo$b2o13b2o2bo4bo$o2b2o2b2o6bo3bo$5bo2bo6bo6b
 2o$9b2o4bobo4b2o$2bo3bo3bo5bo$6b2o4bo2bo$bobo5bo3b2o$2o8bo$5bo4bo$7bo
@@ -32,7 +32,7 @@ fn make_lobster() -> smeagol::Life {
 
 fn make_sir_robin() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
-        "
+        b"
 4b2o$4bo2bo$4bo3bo$6b3o$2b2o6b4o$2bob2o4b4o$bo4bo6b3o$2b4o4b2o3bo$o9b
 2o$bo3bo$6b3o2b2o2bo$2b2o7bo4bo$13bob2o$10b2o6bo$11b2ob3obo$10b2o3bo2b
 o$10bobo2b2o$10bo2bobobo$10b3o6bo$11bobobo3bo$14b2obobo$11bo6b3o2$11bo
@@ -50,7 +50,7 @@ o$22b2o3bo$21bo$21b2obo$20bo$19b5o$19bo4bo$18b3ob3o$18bob5o$18bo$20bo$
 
 fn make_weekender() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
-        "
+        b"
 bo12bob$bo12bob$obo10bobo$bo12bob$bo12bob$2bo3b4o3bo2b$6b4o6b$2b4o4b4o
 2b2$4bo6bo4b$5b2o2b2o!
 ",

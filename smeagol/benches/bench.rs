@@ -2,7 +2,7 @@ extern crate criterion;
 
 fn glider() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
-        "
+        b"
 bob$2bo$3o!
 ",
     )
@@ -11,7 +11,7 @@ bob$2bo$3o!
 
 fn gosper_glider_gun() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
-        "
+        b"
 24bo11b$22bobo11b$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o14b$2o8b
 o3bob2o4bobo11b$10bo5bo7bo11b$11bo3bo20b$12b2o!
 ",
@@ -21,7 +21,7 @@ o3bob2o4bobo11b$10bo5bo7bo11b$11bo3bo20b$12b2o!
 
 fn sir_robin() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
-        "
+        b"
 4b2o$4bo2bo$4bo3bo$6b3o$2b2o6b4o$2bob2o4b4o$bo4bo6b3o$2b4o4b2o3bo$o9b
 2o$bo3bo$6b3o2b2o2bo$2b2o7bo4bo$13bob2o$10b2o6bo$11b2ob3obo$10b2o3bo2b
 o$10bobo2b2o$10bo2bobobo$10b3o6bo$11bobobo3bo$14b2obobo$11bo6b3o2$11bo
@@ -86,7 +86,7 @@ fn step_sir_robin(c: &mut criterion::Criterion) {
 
 criterion::criterion_group!(
     name = benches;
-    config = criterion::Criterion::default().save_baseline("asdf".to_owned());
+    config = criterion::Criterion::default();
     targets =
         create_glider,
         create_gosper_glider_gun,
