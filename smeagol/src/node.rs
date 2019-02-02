@@ -5,7 +5,8 @@ mod subregion;
 
 use crate::Cell;
 
-const MAX_LEVEL: u8 = 64;
+/// The maximum level a node can have.
+pub const MAX_LEVEL: u8 = 64;
 
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
 enum NodeBase {
@@ -33,22 +34,31 @@ impl std::hash::Hash for Node {
 pub struct Node {
     base: NodeBase,
     level: u8,
+    contains_alive_cells: bool,
 }
 
 /// Internal node creation methods.
 impl Node {
+    /// Creates a new leaf node corresponding to the given cell.
     pub(crate) fn new_leaf(cell: Cell) -> Self {
         let base = NodeBase::Leaf {
             alive: cell.is_alive(),
         };
         let level = 0;
-        Self {
-            base,
-            level,
-        }
+        let contains_alive_cells = cell.is_alive();
+        Self { base, level, contains_alive_cells }
     }
 
-    pub(crate) fn new_interior(level: u8, indices: [usize; 4]) -> Self {
+    /// Creates a new interior node with the given level, children node indices, and boolean
+    /// representing whether the node contains any alive cells.
+    ///
+    /// The node indices should be in the following order: northeast, northwest, southeast,
+    /// southwest.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `level > MAX_LEVEL`.
+    pub(crate) fn new_interior(level: u8, indices: [usize; 4], contains_alive_cells: bool) -> Self {
         if level > MAX_LEVEL {
             panic!("cannot create a node with level above {}", MAX_LEVEL);
         }
@@ -60,6 +70,7 @@ impl Node {
                 sw_index: indices[3],
             },
             level,
+            contains_alive_cells,
         }
     }
 }

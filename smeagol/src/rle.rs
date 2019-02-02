@@ -1,12 +1,10 @@
 use std::io::Read;
 
-use nom::{line_ending, not_line_ending};
-
-named!(whitespace, take_while!(|c: u8| (c as char).is_whitespace()));
+use nom::{line_ending, not_line_ending, whitespace::sp};
 
 named!(comment_line<&[u8], &[u8]>,
     do_parse!(
-        char!('#') >>
+        tag!("#") >>
         comment: not_line_ending >>
         line_ending >>
         (comment)
@@ -16,17 +14,17 @@ named!(comment_line<&[u8], &[u8]>,
 named!(header<&[u8], (u32, u32)>,
     do_parse!(
         tag!("x") >>
-        whitespace >>
+        sp >>
         tag!("=") >>
-        whitespace >>
+        sp >>
         width: map_res!(nom::digit0, btoi::btoi) >>
-        whitespace >>
+        sp >>
         tag!(",") >>
-        whitespace >>
+        sp >>
         tag!("y") >>
-        whitespace >>
+        sp >>
         tag!("=") >>
-        whitespace >>
+        sp >>
         height: map_res!(nom::digit0, btoi::btoi) >>
         not_line_ending >>
         line_ending >>
@@ -101,8 +99,7 @@ impl Rle {
     }
 
     pub fn from_pattern(pattern_str: &[u8]) -> Result<Self, RleError> {
-        let (_rest, units) =
-            pattern(pattern_str).map_err(|e| e.into_error_kind())?;
+        let (_rest, units) = pattern(pattern_str).map_err(|e| e.into_error_kind())?;
         Ok(Self { units })
     }
 
