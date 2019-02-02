@@ -27,7 +27,8 @@ impl Store {
 
         match level {
             0 => {
-                let (node, population) = Node::create_level_one(template.ne, template.nw, template.se, template.sw);
+                let (node, population) =
+                    Node::create_level_one(template.ne, template.nw, template.se, template.sw);
                 self.add_node(node, population);
                 node
             }

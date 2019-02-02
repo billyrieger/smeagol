@@ -107,9 +107,7 @@ pub struct Node {
 impl Node {
     pub(crate) fn new_leaf(alive: bool) -> Self {
         Self {
-            base: NodeBase::Leaf {
-                alive
-            },
+            base: NodeBase::Leaf { alive },
             level: 0,
         }
     }
