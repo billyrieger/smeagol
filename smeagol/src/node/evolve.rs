@@ -1,4 +1,4 @@
-use crate::{Cell, Node, NodeTemplate, Store};
+use crate::{node::NodeBase, Cell, Node, NodeTemplate, Store};
 
 impl Node {
     /// For a level `n` node, returns the center subnode of the node `2^(n-2)` ticks into the
@@ -301,14 +301,10 @@ impl Node {
         let sw_center = 1 << (15 - 9);
         let se_center = 1 << (15 - 10);
 
-        let mut board = 0u16;
-        for y in -2..=1 {
-            for x in -2..=1 {
-                if self.get_cell(store, x, y).is_alive() {
-                    board |= 1 << (15 - ((y + 2) * 4 + (x + 2)));
-                }
-            }
-        }
+        let board = match self.base {
+            NodeBase::LevelTwo {cells} => cells,
+            _ => unreachable!(),
+        };
 
         // nw
         let nw_neighbors = (nw_bitmask & board).count_ones();
