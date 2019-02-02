@@ -82,7 +82,7 @@ impl Life {
 /// Methods to get and set individual cells.
 impl Life {
     /// Gets the cell at the given coordinates.
-    pub fn get_cell(&self, x: i64, y: i64) -> Cell {
+    pub fn get_cell(&mut self, x: i64, y: i64) -> Cell {
         if x < self.root.min_coord()
             || x > self.root.max_coord()
             || y < self.root.min_coord()
@@ -90,7 +90,7 @@ impl Life {
         {
             Cell::Dead
         } else {
-            self.root.get_cell(&self.store, x, y)
+            self.root.get_cell(&mut self.store, x, y)
         }
     }
 
@@ -106,8 +106,8 @@ impl Life {
         self.root = self.root.set_cell(&mut self.store, x, y, cell);
     }
 
-    pub fn get_alive_cells(&self) -> Vec<(i64, i64)> {
-        self.root.get_alive_cells(&self.store)
+    pub fn get_alive_cells(&mut self) -> Vec<(i64, i64)> {
+        self.root.get_alive_cells(&mut self.store)
     }
 }
 
@@ -174,14 +174,14 @@ impl Life {
 /// Methods to export a Life board.
 impl Life {
     #[cfg(feature = "export-png")]
-    pub fn save_png<P>(&self, path: P)
+    pub fn save_png<P>(&mut self, path: P)
     where
         P: AsRef<std::path::Path>,
     {
         let file = std::fs::File::create(path).unwrap();
         let writer = std::io::BufWriter::new(file);
 
-        let alive_cells = self.root.get_alive_cells(&self.store);
+        let alive_cells = self.root.get_alive_cells(&mut self.store);
         if alive_cells.len() > 0 {
             let x_min = alive_cells.iter().map(|(x, _)| x).min().cloned().unwrap();
             let y_min = alive_cells.iter().map(|(_, y)| y).min().cloned().unwrap();

@@ -101,8 +101,7 @@ impl Rle {
     }
 
     pub fn from_pattern(pattern_str: &[u8]) -> Result<Self, RleError> {
-        let (_rest, units) =
-            pattern(pattern_str).map_err(|e| e.into_error_kind())?;
+        let (_rest, units) = pattern(pattern_str).map_err(|e| e.into_error_kind())?;
         Ok(Self { units })
     }
 

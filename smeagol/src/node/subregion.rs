@@ -1,4 +1,7 @@
-use crate::{node::NodeBase, Node, NodeTemplate, Store};
+use crate::{
+    node::{self, NodeBase},
+    Cell, Node, NodeTemplate, Store,
+};
 
 impl Node {
     pub fn expand(&self, store: &mut Store) -> Node {
@@ -40,34 +43,72 @@ impl Node {
         store.create_interior(NodeTemplate { ne, nw, se, sw })
     }
 
-    pub fn ne(&self, store: &Store) -> Node {
+    pub fn ne(&self, store: &mut Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
             NodeBase::Leaf { .. } => unreachable!(),
+            NodeBase::LevelOne { cells } => {
+                store.create_leaf(if cells & node::LEVEL_ONE_NE_MASK > 0 {
+                    Cell::Alive
+                } else {
+                    Cell::Dead
+                })
+            }
+            NodeBase::LevelTwo { cells } => {
+                store.create_level_one_from_cells(cells.to_be_bytes()[0] & node::LEVEL_ONE_MASK)
+            }
             NodeBase::Interior { ne_index, .. } => store.node(ne_index),
         }
     }
 
-    pub fn nw(&self, store: &Store) -> Node {
+    pub fn nw(&self, store: &mut Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
             NodeBase::Leaf { .. } => unreachable!(),
+            NodeBase::LevelOne { cells } => {
+                store.create_leaf(if cells & node::LEVEL_ONE_NW_MASK > 0 {
+                    Cell::Alive
+                } else {
+                    Cell::Dead
+                })
+            }
+            NodeBase::LevelTwo { cells } => store
+                .create_level_one_from_cells((cells.to_be_bytes()[0] >> 2) & node::LEVEL_ONE_MASK),
             NodeBase::Interior { nw_index, .. } => store.node(nw_index),
         }
     }
 
-    pub fn se(&self, store: &Store) -> Node {
+    pub fn se(&self, store: &mut Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
             NodeBase::Leaf { .. } => unreachable!(),
+            NodeBase::LevelOne { cells } => {
+                store.create_leaf(if cells & node::LEVEL_ONE_SE_MASK > 0 {
+                    Cell::Alive
+                } else {
+                    Cell::Dead
+                })
+            }
+            NodeBase::LevelTwo { cells } => {
+                store.create_level_one_from_cells(cells.to_be_bytes()[1] & node::LEVEL_ONE_MASK)
+            }
             NodeBase::Interior { se_index, .. } => store.node(se_index),
         }
     }
 
-    pub fn sw(&self, store: &Store) -> Node {
+    pub fn sw(&self, store: &mut Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
             NodeBase::Leaf { .. } => unreachable!(),
+            NodeBase::LevelOne { cells } => {
+                store.create_leaf(if cells & node::LEVEL_ONE_SW_MASK > 0 {
+                    Cell::Alive
+                } else {
+                    Cell::Dead
+                })
+            }
+            NodeBase::LevelTwo { cells } => store
+                .create_level_one_from_cells((cells.to_be_bytes()[1] >> 2) & node::LEVEL_ONE_MASK),
             NodeBase::Interior { sw_index, .. } => store.node(sw_index),
         }
     }
@@ -151,6 +192,26 @@ mod tests {
 
     mod subnode {
         use super::*;
+
+        #[test]
+        fn ne_lvl2() {
+            let mut store = Store::new();
+            let node = store
+                .create_empty(2)
+                .set_cell(&mut store, 0, -1, Cell::Alive)
+                .set_cell(&mut store, 0, -2, Cell::Alive)
+                .set_cell(&mut store, 1, -1, Cell::Alive)
+                .set_cell(&mut store, 1, -2, Cell::Alive);
+
+            let expected = store
+                .create_empty(1)
+                .set_cell(&mut store, -1, -1, Cell::Alive)
+                .set_cell(&mut store, -1, 0, Cell::Alive)
+                .set_cell(&mut store, 0, -1, Cell::Alive)
+                .set_cell(&mut store, 0, 0, Cell::Alive);
+
+            assert_eq!(node.ne(&mut store), expected);
+        }
 
         #[test]
         fn ne() {

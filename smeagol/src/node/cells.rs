@@ -1,7 +1,10 @@
-use crate::{node::NodeBase, Cell, Node, NodeTemplate, Store};
+use crate::{
+    node::{self, NodeBase},
+    Cell, Node, NodeTemplate, Store,
+};
 
 impl Node {
-    pub fn get_cell(&self, store: &Store, x: i64, y: i64) -> Cell {
+    pub fn get_cell(&self, store: &mut Store, x: i64, y: i64) -> Cell {
         assert!(x >= self.min_coord());
         assert!(y >= self.min_coord());
         assert!(x <= self.max_coord());
@@ -15,47 +18,70 @@ impl Node {
                     Cell::Dead
                 }
             }
-            NodeBase::Interior { .. } => {
-                if self.level == 1 {
-                    match (x, y) {
-                        (-1, -1) => {
-                            // nw
-                            self.nw(store).get_cell(store, 0, 0)
+            NodeBase::LevelOne { cells } => {
+                match (x, y) {
+                    (-1, -1) => {
+                        // nw
+                        if cells & node::LEVEL_ONE_NW_MASK > 0 {
+                            Cell::Alive
+                        } else {
+                            Cell::Dead
                         }
-                        (-1, 0) => {
-                            // sw
-                            self.sw(store).get_cell(store, 0, 0)
-                        }
-                        (0, -1) => {
-                            // ne
-                            self.ne(store).get_cell(store, 0, 0)
-                        }
-                        (0, 0) => {
-                            // se
-                            self.se(store).get_cell(store, 0, 0)
-                        }
-                        _ => unreachable!(),
                     }
+                    (-1, 0) => {
+                        // sw
+                        if cells & node::LEVEL_ONE_SW_MASK > 0 {
+                            Cell::Alive
+                        } else {
+                            Cell::Dead
+                        }
+                    }
+                    (0, -1) => {
+                        // ne
+                        if cells & node::LEVEL_ONE_NE_MASK > 0 {
+                            Cell::Alive
+                        } else {
+                            Cell::Dead
+                        }
+                    }
+                    (0, 0) => {
+                        // se
+                        if cells & node::LEVEL_ONE_SE_MASK > 0 {
+                            Cell::Alive
+                        } else {
+                            Cell::Dead
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            NodeBase::LevelTwo { cells } => {
+                // x and y range from -2 to 1 inclusive
+                if cells & (1 << (15 - ((4 * (y + 2)) + (x + 2)))) > 0 {
+                    Cell::Alive
                 } else {
-                    // quarter side length
-                    let offset = 1 << (self.level - 2);
-                    match (x < 0, y < 0) {
-                        (true, true) => {
-                            // nw
-                            self.nw(store).get_cell(store, x + offset, y + offset)
-                        }
-                        (true, false) => {
-                            // sw
-                            self.sw(store).get_cell(store, x + offset, y - offset)
-                        }
-                        (false, true) => {
-                            // ne
-                            self.ne(store).get_cell(store, x - offset, y + offset)
-                        }
-                        (false, false) => {
-                            // se
-                            self.se(store).get_cell(store, x - offset, y - offset)
-                        }
+                    Cell::Dead
+                }
+            }
+            NodeBase::Interior { .. } => {
+                // quarter side length
+                let offset = 1 << (self.level - 2);
+                match (x < 0, y < 0) {
+                    (true, true) => {
+                        // nw
+                        self.nw(store).get_cell(store, x + offset, y + offset)
+                    }
+                    (true, false) => {
+                        // sw
+                        self.sw(store).get_cell(store, x + offset, y - offset)
+                    }
+                    (false, true) => {
+                        // ne
+                        self.ne(store).get_cell(store, x - offset, y + offset)
+                    }
+                    (false, false) => {
+                        // se
+                        self.se(store).get_cell(store, x - offset, y - offset)
                     }
                 }
             }
@@ -70,67 +96,83 @@ impl Node {
 
         match self.base {
             NodeBase::Leaf { .. } => store.create_leaf(cell),
+            NodeBase::LevelOne { cells } => {
+                match (x, y) {
+                    (-1, -1) => {
+                        // nw
+                        match cell {
+                            Cell::Alive => store.create_level_one_from_cells(cells | node::LEVEL_ONE_NW_MASK),
+                            Cell::Dead => store.create_level_one_from_cells(cells & !node::LEVEL_ONE_NW_MASK),
+                        }
+                    }
+                    (-1, 0) => {
+                        // sw
+                        match cell {
+                            Cell::Alive => store.create_level_one_from_cells(cells | node::LEVEL_ONE_SW_MASK),
+                            Cell::Dead => store.create_level_one_from_cells(cells & !node::LEVEL_ONE_SW_MASK),
+                        }
+                    }
+                    (0, -1) => {
+                        // ne
+                        match cell {
+                            Cell::Alive => store.create_level_one_from_cells(cells | node::LEVEL_ONE_NE_MASK),
+                            Cell::Dead => store.create_level_one_from_cells(cells & !node::LEVEL_ONE_NE_MASK),
+                        }
+                    }
+                    (0, 0) => {
+                        // se
+                        match cell {
+                            Cell::Alive => store.create_level_one_from_cells(cells | node::LEVEL_ONE_SE_MASK),
+                            Cell::Dead => store.create_level_one_from_cells(cells & !node::LEVEL_ONE_SE_MASK),
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            NodeBase::LevelTwo { cells } => {
+                println!("{:?}", (x, y));
+                let magic = 1 << (15 - ((4 * (y + 2)) + (x + 2)));
+                println!("{:016b}", magic);
+                match cell {
+                    Cell::Alive => store.create_level_two_from_cells(cells | magic),
+                    Cell::Dead => store.create_level_two_from_cells(cells & !magic),
+                }
+            }
             NodeBase::Interior { .. } => {
                 let ne = self.ne(store);
                 let nw = self.nw(store);
                 let se = self.se(store);
                 let sw = self.sw(store);
 
-                if self.level == 1 {
-                    match (x, y) {
-                        (-1, -1) => {
-                            // nw
-                            let nw = nw.set_cell(store, 0, 0, cell);
-                            store.create_interior(NodeTemplate { ne, nw, se, sw })
-                        }
-                        (-1, 0) => {
-                            // sw
-                            let sw = sw.set_cell(store, 0, 0, cell);
-                            store.create_interior(NodeTemplate { ne, nw, se, sw })
-                        }
-                        (0, -1) => {
-                            // ne
-                            let ne = ne.set_cell(store, 0, 0, cell);
-                            store.create_interior(NodeTemplate { ne, nw, se, sw })
-                        }
-                        (0, 0) => {
-                            // se
-                            let se = se.set_cell(store, 0, 0, cell);
-                            store.create_interior(NodeTemplate { ne, nw, se, sw })
-                        }
-                        _ => unreachable!(),
+                // quarter side length
+                let offset = 1 << (self.level - 2);
+                match (x < 0, y < 0) {
+                    (true, true) => {
+                        // nw
+                        let nw = nw.set_cell(store, x + offset, y + offset, cell);
+                        store.create_interior(NodeTemplate { ne, nw, se, sw })
                     }
-                } else {
-                    // quarter side length
-                    let offset = 1 << (self.level - 2);
-                    match (x < 0, y < 0) {
-                        (true, true) => {
-                            // nw
-                            let nw = nw.set_cell(store, x + offset, y + offset, cell);
-                            store.create_interior(NodeTemplate { ne, nw, se, sw })
-                        }
-                        (true, false) => {
-                            // sw
-                            let sw = sw.set_cell(store, x + offset, y - offset, cell);
-                            store.create_interior(NodeTemplate { ne, nw, se, sw })
-                        }
-                        (false, true) => {
-                            // ne
-                            let ne = ne.set_cell(store, x - offset, y + offset, cell);
-                            store.create_interior(NodeTemplate { ne, nw, se, sw })
-                        }
-                        (false, false) => {
-                            // se
-                            let se = se.set_cell(store, x - offset, y - offset, cell);
-                            store.create_interior(NodeTemplate { ne, nw, se, sw })
-                        }
+                    (true, false) => {
+                        // sw
+                        let sw = sw.set_cell(store, x + offset, y - offset, cell);
+                        store.create_interior(NodeTemplate { ne, nw, se, sw })
+                    }
+                    (false, true) => {
+                        // ne
+                        let ne = ne.set_cell(store, x - offset, y + offset, cell);
+                        store.create_interior(NodeTemplate { ne, nw, se, sw })
+                    }
+                    (false, false) => {
+                        // se
+                        let se = se.set_cell(store, x - offset, y - offset, cell);
+                        store.create_interior(NodeTemplate { ne, nw, se, sw })
                     }
                 }
             }
         }
     }
 
-    pub fn get_alive_cells(&self, store: &Store) -> Vec<(i64, i64)> {
+    pub fn get_alive_cells(&self, store: &mut Store) -> Vec<(i64, i64)> {
         match self.base {
             NodeBase::Leaf { alive } => {
                 if alive {
@@ -139,6 +181,36 @@ impl Node {
                     vec![]
                 }
             }
+
+            NodeBase::LevelOne { cells } => {
+                let mut alive_cells = Vec::with_capacity(4);
+                if cells & node::LEVEL_ONE_NE_MASK > 0 {
+                    alive_cells.push((0, -1));
+                }
+                if cells & node::LEVEL_ONE_NW_MASK > 0 {
+                    alive_cells.push((-1, -1));
+                }
+                if cells & node::LEVEL_ONE_SE_MASK > 0 {
+                    alive_cells.push((0, 0));
+                }
+                if cells & node::LEVEL_ONE_SW_MASK > 0 {
+                    alive_cells.push((-1, 0));
+                }
+                alive_cells
+            }
+
+            NodeBase::LevelTwo { cells } => {
+                let mut alive_cells = Vec::with_capacity(self.population(&store) as usize);
+                for x in -2..=1 {
+                    for y in -2..=1 {
+                        if cells & (1 << (15 - ((4 * (y + 2)) + (x + 2)))) > 0 {
+                            alive_cells.push((x, y)); 
+                        }
+                    }
+                }
+                alive_cells
+            }
+
             NodeBase::Interior { .. } => {
                 let pop = self.population(store);
                 let mut alive_cells = Vec::with_capacity(pop as usize);
@@ -200,6 +272,13 @@ impl Node {
     }
 
     pub fn set_cells_alive(&self, store: &mut Store, coords: &mut [(i64, i64)]) -> Node {
+        for &(x, y) in coords.iter() {
+            assert!(x >= self.min_coord());
+            assert!(y >= self.min_coord());
+            assert!(x <= self.max_coord());
+            assert!(y <= self.max_coord());
+        }
+
         self.set_cells_alive_recursive(store, coords, 0, 0)
     }
 
@@ -214,13 +293,6 @@ impl Node {
             return *self;
         }
 
-        for &(x, y) in coords.iter() {
-            assert!(x >= self.min_coord() + offset_x);
-            assert!(y >= self.min_coord() + offset_y);
-            assert!(x <= self.max_coord() + offset_x);
-            assert!(y <= self.max_coord() + offset_y);
-        }
-
         match self.base {
             NodeBase::Leaf { .. } => {
                 assert!(coords.len() == 1);
@@ -228,6 +300,38 @@ impl Node {
                 assert_eq!(coords[0].1 - offset_y, 0);
                 store.create_leaf(Cell::Alive)
             }
+
+            NodeBase::LevelOne { mut cells } => {
+                for (x, y) in coords {
+                    match (x, y) {
+                        (-1, -1) => {
+                            // nw
+                            cells = cells | node::LEVEL_ONE_NW_MASK;
+                        }
+                        (-1, 0) => {
+                            // sw
+                            cells = cells | node::LEVEL_ONE_SW_MASK;
+                        }
+                        (0, -1) => {
+                            // ne
+                            cells = cells | node::LEVEL_ONE_NE_MASK;
+                        }
+                        (0, 0) => {
+                            // se
+                            cells = cells | node::LEVEL_ONE_SE_MASK;
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+                store.create_level_one_from_cells(cells)
+            }
+
+            NodeBase::LevelTwo { mut cells } => {
+                for &mut (x, y) in coords {
+                    cells = cells | (1 << (15 - ((4 * (y - offset_y + 2)) + (x - offset_x + 2))));
+                }
+                store.create_level_two_from_cells(cells)
+            },
 
             NodeBase::Interior { .. } => {
                 let vert_cutoff = partition_vert(coords, offset_y);
@@ -239,61 +343,35 @@ impl Node {
                 let horiz_cutoff = partition_horiz(south, offset_x);
                 let (southwest, southeast) = south.split_at_mut(horiz_cutoff);
 
-                if self.level == 1 {
-                    let nw = self.nw(store).set_cells_alive_recursive(
-                        store,
-                        northwest,
-                        offset_x - 1,
-                        offset_y - 1,
-                    );
-                    let ne = self.ne(store).set_cells_alive_recursive(
-                        store,
-                        northeast,
-                        offset_x,
-                        offset_y - 1,
-                    );
-                    let sw = self.sw(store).set_cells_alive_recursive(
-                        store,
-                        southwest,
-                        offset_x - 1,
-                        offset_y,
-                    );
-                    let se = self
-                        .se(store)
-                        .set_cells_alive_recursive(store, southeast, offset_x, offset_y);
+                // quarter side length
+                let offset = 1 << (self.level - 2);
 
-                    store.create_interior(NodeTemplate { ne, nw, se, sw })
-                } else {
-                    // quarter side length
-                    let offset = 1 << (self.level - 2);
+                let nw = self.nw(store).set_cells_alive_recursive(
+                    store,
+                    northwest,
+                    offset_x - offset,
+                    offset_y - offset,
+                );
+                let ne = self.ne(store).set_cells_alive_recursive(
+                    store,
+                    northeast,
+                    offset_x + offset,
+                    offset_y - offset,
+                );
+                let sw = self.sw(store).set_cells_alive_recursive(
+                    store,
+                    southwest,
+                    offset_x - offset,
+                    offset_y + offset,
+                );
+                let se = self.se(store).set_cells_alive_recursive(
+                    store,
+                    southeast,
+                    offset_x + offset,
+                    offset_y + offset,
+                );
 
-                    let nw = self.nw(store).set_cells_alive_recursive(
-                        store,
-                        northwest,
-                        offset_x - offset,
-                        offset_y - offset,
-                    );
-                    let ne = self.ne(store).set_cells_alive_recursive(
-                        store,
-                        northeast,
-                        offset_x + offset,
-                        offset_y - offset,
-                    );
-                    let sw = self.sw(store).set_cells_alive_recursive(
-                        store,
-                        southwest,
-                        offset_x - offset,
-                        offset_y + offset,
-                    );
-                    let se = self.se(store).set_cells_alive_recursive(
-                        store,
-                        southeast,
-                        offset_x + offset,
-                        offset_y + offset,
-                    );
-
-                    store.create_interior(NodeTemplate { ne, nw, se, sw })
-                }
+                store.create_interior(NodeTemplate { ne, nw, se, sw })
             }
         }
     }
@@ -335,10 +413,10 @@ mod tests {
             .set_cells_alive(&mut store, &mut coords);
 
         for &(x, y) in &coords {
-            assert_eq!(node.get_cell(&store, x, y), Cell::Alive);
+            assert_eq!(node.get_cell(&mut store, x, y), Cell::Alive);
         }
 
-        let mut alive_cells = node.get_alive_cells(&store);
+        let mut alive_cells = node.get_alive_cells(&mut store);
         assert_eq!(alive_cells.len(), 5);
         coords.sort();
         alive_cells.sort();
@@ -351,17 +429,17 @@ mod tests {
 
         for x in empty.min_coord()..=empty.max_coord() {
             for y in empty.min_coord()..=empty.max_coord() {
-                assert_eq!(empty.get_cell(&store, x, y), Cell::Dead);
+                assert_eq!(empty.get_cell(&mut store, x, y), Cell::Dead);
 
                 let one_alive = empty.set_cell(&mut store, x, y, Cell::Alive);
-                assert_eq!(one_alive.get_cell(&store, x, y), Cell::Alive);
+                assert_eq!(one_alive.get_cell(&mut store, x, y), Cell::Alive);
 
-                let alive_cells = one_alive.get_alive_cells(&store);
+                let alive_cells = one_alive.get_alive_cells(&mut store);
                 assert_eq!(alive_cells.len(), 1);
                 assert_eq!(alive_cells[0], (x, y));
 
                 let dead_again = one_alive.set_cell(&mut store, x, y, Cell::Dead);
-                assert_eq!(dead_again.get_cell(&store, x, y), Cell::Dead);
+                assert_eq!(dead_again.get_cell(&mut store, x, y), Cell::Dead);
             }
         }
     }
