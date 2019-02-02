@@ -140,9 +140,10 @@ impl Node {
                 }
             }
             NodeBase::Interior { .. } => {
-                let mut alive_cells = vec![];
+                let pop = self.population(store);
+                let mut alive_cells = Vec::with_capacity(pop as usize);
 
-                if self.contains_alive_cells {
+                if pop > 0 {
                     if self.level == 1 {
                         alive_cells.extend(
                             self.nw(store)
@@ -199,12 +200,6 @@ impl Node {
     }
 
     pub fn set_cells_alive(&self, store: &mut Store, coords: &mut [(i64, i64)]) -> Node {
-        for &(x, y) in coords.iter() {
-            assert!(x >= self.min_coord());
-            assert!(y >= self.min_coord());
-            assert!(x <= self.max_coord());
-            assert!(y <= self.max_coord());
-        }
         self.set_cells_alive_recursive(store, coords, 0, 0)
     }
 
@@ -219,11 +214,18 @@ impl Node {
             return *self;
         }
 
+        for &(x, y) in coords.iter() {
+            assert!(x >= self.min_coord() + offset_x);
+            assert!(y >= self.min_coord() + offset_y);
+            assert!(x <= self.max_coord() + offset_x);
+            assert!(y <= self.max_coord() + offset_y);
+        }
+
         match self.base {
             NodeBase::Leaf { .. } => {
-                debug_assert!(coords.len() == 1);
-                debug_assert_eq!(coords[0].0 - offset_x, 0);
-                debug_assert_eq!(coords[0].1 - offset_y, 0);
+                assert!(coords.len() == 1);
+                assert_eq!(coords[0].0 - offset_x, 0);
+                assert_eq!(coords[0].1 - offset_y, 0);
                 store.create_leaf(Cell::Alive)
             }
 

@@ -21,12 +21,6 @@ impl Life {
         }
     }
 
-    pub fn random_fill(level: u8, fill: f64) -> Self {
-        let mut store = Store::new();
-        let root = store.create_random(level, fill);
-        Self { root, store, generation: 0 }
-    }
-
     fn from_rle(rle: crate::rle::Rle) -> Result<Self, crate::rle::RleError> {
         let mut alive_cells = rle
             .alive_cells()
@@ -80,8 +74,8 @@ impl Life {
         self.generation
     }
 
-    pub fn population(&mut self) -> u128 {
-        self.root.population(&mut self.store)
+    pub fn population(&self) -> u128 {
+        self.root.population(&self.store)
     }
 }
 
@@ -121,34 +115,34 @@ impl Life {
 impl Life {
     fn pad(&mut self) {
         while self.root.level() < 3
-            || self.root.ne(&mut self.store).population(&mut self.store)
+            || self.root.ne(&mut self.store).population(&self.store)
                 != self
                     .root
                     .ne(&mut self.store)
                     .sw(&mut self.store)
                     .sw(&mut self.store)
-                    .population(&mut self.store)
-            || self.root.nw(&mut self.store).population(&mut self.store)
+                    .population(&self.store)
+            || self.root.nw(&mut self.store).population(&self.store)
                 != self
                     .root
                     .nw(&mut self.store)
                     .se(&mut self.store)
                     .se(&mut self.store)
-                    .population(&mut self.store)
-            || self.root.se(&mut self.store).population(&mut self.store)
+                    .population(&self.store)
+            || self.root.se(&mut self.store).population(&self.store)
                 != self
                     .root
                     .se(&mut self.store)
                     .nw(&mut self.store)
                     .nw(&mut self.store)
-                    .population(&mut self.store)
-            || self.root.sw(&mut self.store).population(&mut self.store)
+                    .population(&self.store)
+            || self.root.sw(&mut self.store).population(&self.store)
                 != self
                     .root
                     .sw(&mut self.store)
                     .ne(&mut self.store)
                     .ne(&mut self.store)
-                    .population(&mut self.store)
+                    .population(&self.store)
         {
             self.root = self.root.expand(&mut self.store);
         }

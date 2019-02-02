@@ -5,12 +5,8 @@ impl Node {
         self.level
     }
 
-    pub fn population(&self, store: &mut Store) -> u128 {
+    pub fn population(&self, store: &Store) -> u128 {
         store.population(&self)
-    }
-
-    pub fn contains_alive_cells(&self) -> bool {
-        self.contains_alive_cells
     }
 
     pub fn min_coord(&self) -> i64 {
