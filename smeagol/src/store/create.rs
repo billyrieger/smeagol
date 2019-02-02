@@ -2,7 +2,7 @@ use crate::{Cell, Node, NodeTemplate, Store};
 
 impl Store {
     pub fn create_leaf(&mut self, cell: Cell) -> Node {
-        let node = Node::new_leaf(cell);
+        let node = Node::new_leaf(cell.is_alive());
         self.add_node(node, if cell.is_alive() { 1 } else { 0 });
         node
     }
@@ -27,22 +27,8 @@ impl Store {
 
         match level {
             0 => {
-                let mut cells = 0u8;
-                if template.nw.population(&self) == 1 {
-                    cells |= 0b_0010_0000;
-                }
-                if template.ne.population(&self) == 1 {
-                    cells |= 0b_0001_0000;
-                }
-                if template.sw.population(&self) == 1 {
-                    cells |= 0b_0000_0010;
-                }
-                if template.se.population(&self) == 1 {
-                    cells |= 0b_0000_0001;
-                }
-
-                let node = Node::new_level_one(cells);
-                self.add_node(node, u128::from(cells.count_ones()));
+                let (node, population) = Node::create_level_one(template.ne, template.nw, template.se, template.sw);
+                self.add_node(node, population);
                 node
             }
             1 => {

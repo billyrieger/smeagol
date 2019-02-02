@@ -3,8 +3,6 @@ mod evolve;
 mod properties;
 mod subregion;
 
-use crate::Cell;
-
 const MAX_LEVEL: u8 = 64;
 
 const LEVEL_ONE_MASK: u8 = 0b_0011_0011;
@@ -13,11 +11,12 @@ const LEVEL_ONE_NE_MASK: u8 = 0b_0001_0000;
 const LEVEL_ONE_SW_MASK: u8 = 0b_0000_0010;
 const LEVEL_ONE_SE_MASK: u8 = 0b_0000_0001;
 
+/// The inner enum representing a type of node.
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
 enum NodeBase {
     /// A level zero (1 by 1) node.
     Leaf {
-        /// Whether or not the cell is alive.
+        /// Whether or not the only cell in the node is alive.
         alive: bool,
     },
 
@@ -39,8 +38,8 @@ enum NodeBase {
         /// 00ab_00cd
         /// ```
         ///
-        /// The gaps make combining level one nodes into a level two node easier.
-        /// Idea shamelessly stolen from [here](https://github.com/rntz/rust-hashlife/blob/master/hashlife.rs).
+        /// The gaps make combining level one nodes into a level two node easier. Idea shamelessly
+        /// stolen from [here](https://github.com/rntz/rust-hashlife/blob/master/hashlife.rs).
         cells: u8,
     },
 
@@ -81,6 +80,8 @@ enum NodeBase {
     },
 }
 
+impl Eq for Node {}
+
 impl std::hash::Hash for Node {
     fn hash<H>(&self, state: &mut H)
     where
@@ -90,7 +91,13 @@ impl std::hash::Hash for Node {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+impl PartialEq for Node {
+    fn eq(&self, other: &Node) -> bool {
+        self.base == other.base
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct Node {
     base: NodeBase,
     level: u8,
@@ -98,10 +105,10 @@ pub struct Node {
 
 /// Internal node creation methods.
 impl Node {
-    pub(crate) fn new_leaf(cell: Cell) -> Self {
+    pub(crate) fn new_leaf(alive: bool) -> Self {
         Self {
             base: NodeBase::Leaf {
-                alive: cell.is_alive(),
+                alive
             },
             level: 0,
         }
@@ -118,6 +125,55 @@ impl Node {
         Self {
             base: NodeBase::LevelTwo { cells },
             level: 2,
+        }
+    }
+
+    pub(crate) fn new_interior(level: u8, indices: [usize; 4]) -> Self {
+        if level > MAX_LEVEL {
+            panic!("cannot create a node with level above {}", MAX_LEVEL);
+        }
+        Self {
+            base: NodeBase::Interior {
+                ne_index: indices[0],
+                nw_index: indices[1],
+                se_index: indices[2],
+                sw_index: indices[3],
+            },
+            level,
+        }
+    }
+
+    pub(crate) fn create_level_one(ne: Node, nw: Node, se: Node, sw: Node) -> (Self, u128) {
+        match (ne.base, nw.base, se.base, sw.base) {
+            (
+                NodeBase::Leaf { alive: ne_alive },
+                NodeBase::Leaf { alive: nw_alive },
+                NodeBase::Leaf { alive: se_alive },
+                NodeBase::Leaf { alive: sw_alive },
+            ) => {
+                let mut cells = 0u8;
+                if nw_alive {
+                    cells |= 0b_0010_0000;
+                }
+                if ne_alive {
+                    cells |= 0b_0001_0000;
+                }
+                if sw_alive {
+                    cells |= 0b_0000_0010;
+                }
+                if se_alive {
+                    cells |= 0b_0000_0001;
+                }
+
+                (
+                    Self {
+                        base: NodeBase::LevelOne { cells },
+                        level: 1,
+                    },
+                    cells.count_ones() as u128,
+                )
+            }
+            _ => panic!(),
         }
     }
 
@@ -141,21 +197,6 @@ impl Node {
                 )
             }
             _ => panic!(),
-        }
-    }
-
-    pub(crate) fn new_interior(level: u8, indices: [usize; 4]) -> Self {
-        if level > MAX_LEVEL {
-            panic!("cannot create a node with level above {}", MAX_LEVEL);
-        }
-        Self {
-            base: NodeBase::Interior {
-                ne_index: indices[0],
-                nw_index: indices[1],
-                se_index: indices[2],
-                sw_index: indices[3],
-            },
-            level,
         }
     }
 }

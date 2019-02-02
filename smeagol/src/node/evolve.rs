@@ -302,7 +302,7 @@ impl Node {
         let se_center = 1 << (15 - 10);
 
         let board = match self.base {
-            NodeBase::LevelTwo {cells} => cells,
+            NodeBase::LevelTwo { cells } => cells,
             _ => unreachable!(),
         };
 

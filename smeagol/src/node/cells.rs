@@ -101,29 +101,45 @@ impl Node {
                     (-1, -1) => {
                         // nw
                         match cell {
-                            Cell::Alive => store.create_level_one_from_cells(cells | node::LEVEL_ONE_NW_MASK),
-                            Cell::Dead => store.create_level_one_from_cells(cells & !node::LEVEL_ONE_NW_MASK),
+                            Cell::Alive => {
+                                store.create_level_one_from_cells(cells | node::LEVEL_ONE_NW_MASK)
+                            }
+                            Cell::Dead => {
+                                store.create_level_one_from_cells(cells & !node::LEVEL_ONE_NW_MASK)
+                            }
                         }
                     }
                     (-1, 0) => {
                         // sw
                         match cell {
-                            Cell::Alive => store.create_level_one_from_cells(cells | node::LEVEL_ONE_SW_MASK),
-                            Cell::Dead => store.create_level_one_from_cells(cells & !node::LEVEL_ONE_SW_MASK),
+                            Cell::Alive => {
+                                store.create_level_one_from_cells(cells | node::LEVEL_ONE_SW_MASK)
+                            }
+                            Cell::Dead => {
+                                store.create_level_one_from_cells(cells & !node::LEVEL_ONE_SW_MASK)
+                            }
                         }
                     }
                     (0, -1) => {
                         // ne
                         match cell {
-                            Cell::Alive => store.create_level_one_from_cells(cells | node::LEVEL_ONE_NE_MASK),
-                            Cell::Dead => store.create_level_one_from_cells(cells & !node::LEVEL_ONE_NE_MASK),
+                            Cell::Alive => {
+                                store.create_level_one_from_cells(cells | node::LEVEL_ONE_NE_MASK)
+                            }
+                            Cell::Dead => {
+                                store.create_level_one_from_cells(cells & !node::LEVEL_ONE_NE_MASK)
+                            }
                         }
                     }
                     (0, 0) => {
                         // se
                         match cell {
-                            Cell::Alive => store.create_level_one_from_cells(cells | node::LEVEL_ONE_SE_MASK),
-                            Cell::Dead => store.create_level_one_from_cells(cells & !node::LEVEL_ONE_SE_MASK),
+                            Cell::Alive => {
+                                store.create_level_one_from_cells(cells | node::LEVEL_ONE_SE_MASK)
+                            }
+                            Cell::Dead => {
+                                store.create_level_one_from_cells(cells & !node::LEVEL_ONE_SE_MASK)
+                            }
                         }
                     }
                     _ => unreachable!(),
@@ -204,7 +220,7 @@ impl Node {
                 for x in -2..=1 {
                     for y in -2..=1 {
                         if cells & (1 << (15 - ((4 * (y + 2)) + (x + 2)))) > 0 {
-                            alive_cells.push((x, y)); 
+                            alive_cells.push((x, y));
                         }
                     }
                 }
@@ -331,7 +347,7 @@ impl Node {
                     cells = cells | (1 << (15 - ((4 * (y - offset_y + 2)) + (x - offset_x + 2))));
                 }
                 store.create_level_two_from_cells(cells)
-            },
+            }
 
             NodeBase::Interior { .. } => {
                 let vert_cutoff = partition_vert(coords, offset_y);
