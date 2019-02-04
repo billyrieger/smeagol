@@ -4,6 +4,11 @@ use crate::{
 };
 
 impl Node {
+    /// Gets the cell at the given coordinates.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either `x` or `y` is outside the range `node.min_coord()..=node.max_coord()`.
     pub fn get_cell(&self, store: &mut Store, x: i64, y: i64) -> Cell {
         assert!(x >= self.min_coord());
         assert!(y >= self.min_coord());
@@ -197,7 +202,7 @@ impl Node {
             }
 
             NodeBase::LevelOne { cells } => {
-                let mut alive_cells = Vec::with_capacity(4);
+                let mut alive_cells = Vec::with_capacity(self.population(&store) as usize);
                 if cells & node::LEVEL_ONE_NE_MASK > 0 {
                     alive_cells.push((0, -1));
                 }
@@ -230,54 +235,32 @@ impl Node {
                 let mut alive_cells = Vec::with_capacity(pop as usize);
 
                 if pop > 0 {
-                    if self.level == 1 {
-                        alive_cells.extend(
-                            self.nw(store)
-                                .get_alive_cells(store)
-                                .into_iter()
-                                .map(|(x, y)| (x - 1, y - 1)),
-                        );
-                        alive_cells.extend(
-                            self.ne(store)
-                                .get_alive_cells(store)
-                                .into_iter()
-                                .map(|(x, y)| (x, y - 1)),
-                        );
-                        alive_cells.extend(
-                            self.sw(store)
-                                .get_alive_cells(store)
-                                .into_iter()
-                                .map(|(x, y)| (x - 1, y)),
-                        );
-                        alive_cells.extend(self.se(store).get_alive_cells(store));
-                    } else {
-                        // quarter side length
-                        let offset = 1 << (self.level - 2);
-                        alive_cells.extend(
-                            self.nw(store)
-                                .get_alive_cells(store)
-                                .into_iter()
-                                .map(|(x, y)| (x - offset, y - offset)),
-                        );
-                        alive_cells.extend(
-                            self.ne(store)
-                                .get_alive_cells(store)
-                                .into_iter()
-                                .map(|(x, y)| (x + offset, y - offset)),
-                        );
-                        alive_cells.extend(
-                            self.sw(store)
-                                .get_alive_cells(store)
-                                .into_iter()
-                                .map(|(x, y)| (x - offset, y + offset)),
-                        );
-                        alive_cells.extend(
-                            self.se(store)
-                                .get_alive_cells(store)
-                                .into_iter()
-                                .map(|(x, y)| (x + offset, y + offset)),
-                        );
-                    }
+                    // quarter side length
+                    let offset = 1 << (self.level - 2);
+                    alive_cells.extend(
+                        self.nw(store)
+                            .get_alive_cells(store)
+                            .into_iter()
+                            .map(|(x, y)| (x - offset, y - offset)),
+                    );
+                    alive_cells.extend(
+                        self.ne(store)
+                            .get_alive_cells(store)
+                            .into_iter()
+                            .map(|(x, y)| (x + offset, y - offset)),
+                    );
+                    alive_cells.extend(
+                        self.sw(store)
+                            .get_alive_cells(store)
+                            .into_iter()
+                            .map(|(x, y)| (x - offset, y + offset)),
+                    );
+                    alive_cells.extend(
+                        self.se(store)
+                            .get_alive_cells(store)
+                            .into_iter()
+                            .map(|(x, y)| (x + offset, y + offset)),
+                    );
                 }
 
                 alive_cells
@@ -417,8 +400,24 @@ fn partition_vert(coords: &mut [(i64, i64)], pivot: i64) -> usize {
 mod tests {
     use super::*;
 
+    fn set_alive_helper(level: u8, mut coords: Vec<(i64, i64)>) {
+        let mut store = Store::new();
+        let node = store
+            .create_empty(level)
+            .set_cells_alive(&mut store, &mut coords);
+
+        for &(x, y) in &coords {
+            assert_eq!(node.get_cell(&mut store, x, y), Cell::Alive);
+        }
+
+        let mut alive_cells = node.get_alive_cells(&mut store);
+        coords.sort();
+        alive_cells.sort();
+        assert_eq!(coords, alive_cells);
+    }
+
     #[test]
-    fn set_alive() {
+    fn set_alive_lvl4() {
         let mut coords = vec![(0, 0), (1, 1), (-2, 3), (1, -1), (-4, -5)];
 
         let mut store = Store::new();
@@ -456,6 +455,27 @@ mod tests {
                 assert_eq!(dead_again.get_cell(&mut store, x, y), Cell::Dead);
             }
         }
+    }
+
+    #[test]
+    fn set_alive_leaf() {
+        set_alive_helper(0, vec![]);
+        set_alive_helper(0, vec![(0, 0)]);
+    }
+
+    #[test]
+    fn set_alive_lvl1() {
+        set_alive_helper(1, vec![]);
+        set_alive_helper(1, vec![(0, 0)]);
+        set_alive_helper(1, vec![(0, 0), (-1, -1)]);
+    }
+
+    #[test]
+    fn set_alive_lvl2() {
+        set_alive_helper(2, vec![]);
+        set_alive_helper(2, vec![(0, 0)]);
+        set_alive_helper(2, vec![(0, 0), (-1, -1)]);
+        set_alive_helper(2, vec![(0, 0), (-1, -1), (-1, 0), (1, 0)]);
     }
 
     #[test]
