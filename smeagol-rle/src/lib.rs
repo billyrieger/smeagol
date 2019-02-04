@@ -7,7 +7,8 @@ use nom::{line_ending, not_line_ending};
 /// Matches any amount of whitespace.
 named!(whitespace, take_while!(|c: u8| (c as char).is_whitespace()));
 
-/// Matches a comment line in an RLE file, returning the comment without the leading `#`.
+/// Matches a comment line in an RLE file, returning the comment without the leading `#` or
+/// trailing newline.
 named!(comment_line<&[u8], &[u8]>,
     do_parse!(
         char!('#') >>
@@ -107,13 +108,22 @@ struct PatternUnit {
     tag: char,
 }
 
-/// An RLE pattern.
+/// A run-length encoded Life pattern.
 pub struct Rle {
     units: Vec<PatternUnit>,
 }
 
 impl Rle {
     /// Loads an RLE pattern from the given file.
+    ///
+    /// # Examples
+    ///
+    /// ```should_panic
+    /// # fn main() -> Result<(), smeagol_rle::RleError> {
+    /// let rle = smeagol_rle::Rle::from_file("./glider.rle")?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn from_file<P>(path: P) -> Result<Self, RleError>
     where
         P: AsRef<std::path::Path>,
@@ -131,12 +141,34 @@ impl Rle {
     }
 
     /// Reads an RLE pattern from the given byte array.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), smeagol_rle::RleError> {
+    /// let rle = smeagol_rle::Rle::from_pattern(b"bob$2bo$3o!")?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn from_pattern(pattern_str: &[u8]) -> Result<Self, RleError> {
         let (_rest, units) = pattern(pattern_str).map_err(|e| e.into_error_kind())?;
         Ok(Self { units })
     }
 
     /// Returns a `Vec` containing the coordinates of alive cells in the RLE pattern.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), smeagol_rle::RleError> {
+    /// let rle = smeagol_rle::Rle::from_pattern(b"bob$2bo$3o!")?;
+    ///
+    /// for (x, y) in rle.alive_cells() {
+    ///     // do something
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn alive_cells(&self) -> Vec<(u32, u32)> {
         let mut cells = vec![];
         // origin is at northwest corner
