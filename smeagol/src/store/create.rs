@@ -3,20 +3,20 @@ use crate::{Cell, Node, NodeTemplate, Store};
 impl Store {
     pub fn create_leaf(&mut self, cell: Cell) -> Node {
         let node = Node::new_leaf(cell.is_alive());
-        self.add_node(node, if cell.is_alive() { 1 } else { 0 });
-        node
+        let index = self.add_node(node, if cell.is_alive() { 1 } else { 0 });
+        node.set_index(index)
     }
 
     pub fn create_level_one_from_cells(&mut self, cells: u8) -> Node {
         let node = Node::new_level_one(cells);
-        self.add_node(node, u128::from(cells.count_ones()));
-        node
+        let index = self.add_node(node, u128::from(cells.count_ones()));
+        node.set_index(index)
     }
 
     pub fn create_level_two_from_cells(&mut self, cells: u16) -> Node {
         let node = Node::new_level_two(cells);
-        self.add_node(node, u128::from(cells.count_ones()));
-        node
+        let index = self.add_node(node, u128::from(cells.count_ones()));
+        node.set_index(index)
     }
 
     pub fn create_interior(&mut self, template: NodeTemplate) -> Node {
@@ -29,20 +29,20 @@ impl Store {
             0 => {
                 let (node, population) =
                     Node::create_level_one(template.ne, template.nw, template.se, template.sw);
-                self.add_node(node, population);
-                node
+                let index = self.add_node(node, population);
+                node.set_index(index)
             }
             1 => {
                 let (node, population) =
                     Node::create_level_two(template.ne, template.nw, template.se, template.sw);
-                self.add_node(node, population);
-                node
+                let index = self.add_node(node, population);
+                node.set_index(index)
             }
             _ => {
-                let ne_index = self.indices[&template.ne];
-                let nw_index = self.indices[&template.nw];
-                let se_index = self.indices[&template.se];
-                let sw_index = self.indices[&template.sw];
+                let ne_index = template.ne.index();
+                let nw_index = template.nw.index();
+                let se_index = template.se.index();
+                let sw_index = template.sw.index();
 
                 let population = self.populations[ne_index]
                     + self.populations[nw_index]
@@ -50,8 +50,8 @@ impl Store {
                     + self.populations[sw_index];
 
                 let node = Node::new_interior(level + 1, [ne_index, nw_index, se_index, sw_index]);
-                self.add_node(node, population);
-                node
+                let index = self.add_node(node, population);
+                node.set_index(index)
             }
         }
     }
@@ -70,12 +70,15 @@ impl Store {
         }
     }
 
-    fn add_node(&mut self, node: Node, population: u128) {
-        if !self.indices.contains_key(&node) {
+    fn add_node(&mut self, node: Node, population: u128) -> usize {
+        if let Some(index) = self.indices.get(&node).cloned() {
+            index
+        } else {
             let index = self.nodes.len();
-            self.nodes.push(node);
-            self.populations.push(population);
             self.indices.insert(node, index);
+            self.nodes.push(node.set_index(index));
+            self.populations.push(population);
+            index
         }
     }
 }

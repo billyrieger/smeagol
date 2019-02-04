@@ -672,7 +672,12 @@ mod tests {
                     expected = expected.set_cell(&mut store, x, y, Cell::Alive);
                 }
 
-                assert_eq!(glider.step(&mut store, cutoff), expected);
+                println!("{:?}", glider.get_alive_cells(&mut store));
+                let step = glider.step(&mut store, cutoff);
+                println!("{:?}", step.get_alive_cells(&mut store));
+                println!("{:?}", expected.get_alive_cells(&mut store));
+
+                assert_eq!(step, expected);
             }
         }
     }

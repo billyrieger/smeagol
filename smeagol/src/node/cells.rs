@@ -146,9 +146,7 @@ impl Node {
                 }
             }
             NodeBase::LevelTwo { cells } => {
-                println!("{:?}", (x, y));
                 let magic = 1 << (15 - ((4 * (y + 2)) + (x + 2)));
-                println!("{:016b}", magic);
                 match cell {
                     Cell::Alive => store.create_level_two_from_cells(cells | magic),
                     Cell::Dead => store.create_level_two_from_cells(cells & !magic),

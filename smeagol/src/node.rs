@@ -101,6 +101,7 @@ impl PartialEq for Node {
 pub struct Node {
     base: NodeBase,
     level: u8,
+    index: Option<usize>,
 }
 
 /// Internal node creation methods.
@@ -109,6 +110,7 @@ impl Node {
         Self {
             base: NodeBase::Leaf { alive },
             level: 0,
+            index: None,
         }
     }
 
@@ -116,6 +118,7 @@ impl Node {
         Self {
             base: NodeBase::LevelOne { cells },
             level: 1,
+            index: None,
         }
     }
 
@@ -123,6 +126,7 @@ impl Node {
         Self {
             base: NodeBase::LevelTwo { cells },
             level: 2,
+            index: None,
         }
     }
 
@@ -138,6 +142,7 @@ impl Node {
                 sw_index: indices[3],
             },
             level,
+            index: None,
         }
     }
 
@@ -167,6 +172,7 @@ impl Node {
                     Self {
                         base: NodeBase::LevelOne { cells },
                         level: 1,
+                        index: None,
                     },
                     cells.count_ones() as u128,
                 )
@@ -190,11 +196,23 @@ impl Node {
                     Self {
                         base: NodeBase::LevelTwo { cells },
                         level: 2,
+                        index: None,
                     },
                     cells.count_ones() as u128,
                 )
             }
             _ => panic!(),
+        }
+    }
+
+    pub(crate) fn index(&self) -> usize {
+        self.index.unwrap()
+    }
+
+    pub(crate) fn set_index(&self, index: usize) -> Node {
+        Self {
+            index: Some(index),
+            ..*self
         }
     }
 }

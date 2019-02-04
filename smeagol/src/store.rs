@@ -30,7 +30,7 @@ impl Store {
     }
 
     pub(crate) fn population(&self, node: &Node) -> u128 {
-        self.populations[self.indices[node]]
+        self.populations[node.index()]
     }
 
     pub(crate) fn node(&self, index: usize) -> Node {
@@ -44,7 +44,7 @@ impl Store {
     }
 
     pub(crate) fn add_step(&mut self, node: Node, step_size: u64, result: Node) {
-        self.steps.insert((node, step_size), self.indices[&result]);
+        self.steps.insert((node, step_size), result.index());
     }
 
     pub(crate) fn level_2_step(&self, node: Node) -> Option<Node> {
@@ -54,6 +54,6 @@ impl Store {
     }
 
     pub(crate) fn add_level_2_step(&mut self, node: Node, result: Node) {
-        self.level_2_steps.insert(node, self.indices[&result]);
+        self.level_2_steps.insert(node, result.index());
     }
 }
