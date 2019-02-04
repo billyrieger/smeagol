@@ -447,15 +447,17 @@ mod tests {
     fn set_alive_lvl1() {
         set_alive_helper(1, vec![]);
         set_alive_helper(1, vec![(0, 0)]);
-        set_alive_helper(1, vec![(0, 0), (-1, -1)]);
+        set_alive_helper(1, vec![(-1, -1), (0, 0)]);
+        set_alive_helper(1, vec![(-1, -1), (-1, 0), (0, -1), (0, 0)]);
     }
 
     #[test]
     fn set_alive_lvl2() {
         set_alive_helper(2, vec![]);
         set_alive_helper(2, vec![(0, 0)]);
-        set_alive_helper(2, vec![(0, 0), (-1, -1)]);
-        set_alive_helper(2, vec![(0, 0), (-1, -1), (-1, 0), (1, 0)]);
+        set_alive_helper(2, vec![(-1, -1), (0, 0)]);
+        set_alive_helper(2, vec![(-1, -1), (-1, 0), (0, -1), (0, 0)]);
+        set_alive_helper(2, vec![(-2, -2), (1, 1)]);
     }
 
     #[test]
