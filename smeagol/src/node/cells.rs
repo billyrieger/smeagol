@@ -484,17 +484,17 @@ mod tests {
     }
 
     #[test]
-    fn get_set_level_1() {
+    fn get_set_lvl1() {
         get_set_helper(1)
     }
 
     #[test]
-    fn get_set_level_2() {
+    fn get_set_lvl2() {
         get_set_helper(2)
     }
 
     #[test]
-    fn get_set_level_3() {
+    fn get_set_lvl3() {
         get_set_helper(3)
     }
 
