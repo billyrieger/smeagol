@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate nom;
+
 use std::io::Read;
 
 use nom::{line_ending, not_line_ending};

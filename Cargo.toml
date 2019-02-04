@@ -2,4 +2,5 @@
 members = [
     "smeagol",
     "smeagol-cli",
+    "smeagol-rle",
 ]

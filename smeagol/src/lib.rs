@@ -1,11 +1,5 @@
-#[cfg(feature = "import-rle")]
-#[macro_use]
-extern crate nom;
-
 mod life;
 mod node;
-#[cfg(feature = "import-rle")]
-mod rle;
 mod store;
 
 pub use self::{

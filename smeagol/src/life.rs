@@ -1,5 +1,6 @@
 use crate::{Cell, Node, Store};
 use png::HasParameters;
+use smeagol_rle as rle;
 
 #[derive(Clone, Debug)]
 pub struct Life {
@@ -21,7 +22,7 @@ impl Life {
         }
     }
 
-    fn from_rle(rle: crate::rle::Rle) -> Result<Self, crate::rle::RleError> {
+    fn from_rle(rle: rle::Rle) -> Result<Self, rle::RleError> {
         let mut alive_cells = rle
             .alive_cells()
             .into_iter()
@@ -56,17 +57,17 @@ impl Life {
     }
 
     #[cfg(feature = "import-rle")]
-    pub fn from_rle_pattern(pattern: &[u8]) -> Result<Self, crate::rle::RleError> {
-        let rle = crate::rle::Rle::from_pattern(pattern)?;
+    pub fn from_rle_pattern(pattern: &[u8]) -> Result<Self, rle::RleError> {
+        let rle = rle::Rle::from_pattern(pattern)?;
         Self::from_rle(rle)
     }
 
     #[cfg(feature = "import-rle")]
-    pub fn from_rle_file<P>(path: P) -> Result<Self, crate::rle::RleError>
+    pub fn from_rle_file<P>(path: P) -> Result<Self, rle::RleError>
     where
         P: AsRef<std::path::Path>,
     {
-        let rle = crate::rle::Rle::from_file(path)?;
+        let rle = rle::Rle::from_file(path)?;
         Self::from_rle(rle)
     }
 

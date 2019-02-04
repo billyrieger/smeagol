@@ -9,12 +9,11 @@ default = ["export-png", "import-rle"]
 
 export-png = ["png"]
 export-svg = ["svg"]
-import-rle = ["btoi", "nom"]
+import-rle = ["smeagol-rle"]
 
 [dependencies]
 hashbrown = "0.1"
-btoi = { version = "0.4", optional = true }
-nom = { version = "4.2", optional = true }
+smeagol-rle = { path = "../smeagol-rle", optional = true }
 png = { version = "0.14", optional = true }
 svg = { version = "0.5.12", optional = true }
 

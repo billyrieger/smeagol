@@ -416,26 +416,6 @@ mod tests {
         assert_eq!(coords, alive_cells);
     }
 
-    #[test]
-    fn set_alive_lvl4() {
-        let mut coords = vec![(0, 0), (1, 1), (-2, 3), (1, -1), (-4, -5)];
-
-        let mut store = Store::new();
-        let node = store
-            .create_empty(4)
-            .set_cells_alive(&mut store, &mut coords);
-
-        for &(x, y) in &coords {
-            assert_eq!(node.get_cell(&mut store, x, y), Cell::Alive);
-        }
-
-        let mut alive_cells = node.get_alive_cells(&mut store);
-        assert_eq!(alive_cells.len(), 5);
-        coords.sort();
-        alive_cells.sort();
-        assert_eq!(coords, alive_cells);
-    }
-
     fn get_set_helper(level: u8) {
         let mut store = Store::new();
         let empty = store.create_empty(level);
