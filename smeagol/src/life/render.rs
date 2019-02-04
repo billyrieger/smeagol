@@ -4,14 +4,14 @@ use png::HasParameters;
 /// Methods to render a Life board.
 impl Life {
     #[cfg(feature = "export-png")]
-    pub fn save_png<P>(&self, path: P)
+    pub fn save_png<P>(&mut self, path: P)
     where
         P: AsRef<std::path::Path>,
     {
         let file = std::fs::File::create(path).unwrap();
         let writer = std::io::BufWriter::new(file);
 
-        let alive_cells = self.root.get_alive_cells(&self.store);
+        let alive_cells = self.root.get_alive_cells(&mut self.store);
         if alive_cells.len() > 0 {
             let x_min = alive_cells.iter().map(|(x, _)| x).min().cloned().unwrap();
             let y_min = alive_cells.iter().map(|(_, y)| y).min().cloned().unwrap();
@@ -38,12 +38,16 @@ impl Life {
             writer.write_image_data(&data).unwrap();
         }
     }
+}
 
-    #[cfg(feature = "export-png")]
-    pub fn render_png<P>(&self, path: P)
-    where
-        P: AsRef<std::path::Path>,
-    {
-        
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn save_png() {
+        let mut life = Life::from_rle_pattern(b"bob$2bo$3o!").unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+        life.save_png(temp_dir.path().join("glider.rle"));
     }
 }

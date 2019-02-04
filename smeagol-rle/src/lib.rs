@@ -77,9 +77,12 @@ named!(rle<&[u8], (Vec<&[u8]>, (u32, u32), Vec<PatternUnit>)>,
     )
 );
 
+/// An error than can occur.
 #[derive(Debug)]
 pub enum RleError {
+    /// An IO error.
     Io(std::io::Error),
+    /// A parsing error.
     Nom(nom::ErrorKind),
 }
 
@@ -170,7 +173,7 @@ mod tests {
 
     #[test]
     fn from_file() {
-        let _rle = Rle::from_file("./assets/breeder1.rle").unwrap();
+        Rle::from_file("./assets/breeder1.rle").unwrap();
     }
 
     #[test]
@@ -181,17 +184,19 @@ mod tests {
 
     #[test]
     fn from_pattern() {
-        let _rle = Rle::from_pattern(b"3b2o$2bobo$2bo2b$obo2b$2o!").unwrap();
+        // integral sign
+        Rle::from_pattern(b"3b2o$2bobo$2bo2b$obo2b$2o!").unwrap();
     }
 
     #[test]
     #[should_panic]
     fn from_pattern_err() {
-        let _rle = Rle::from_pattern(b"foo").unwrap();
+        Rle::from_pattern(b"foo").unwrap();
     }
 
     #[test]
     fn alive_cells() {
+        // glider
         let rle = Rle::from_pattern(b"bob$2bo$3o!").unwrap();
         let alive_cells = vec![(1, 0), (2, 1), (0, 2), (1, 2), (2, 2)];
         assert_eq!(rle.alive_cells(), alive_cells);
