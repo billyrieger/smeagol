@@ -5,7 +5,9 @@ authors = ["Billy Rieger <wrieger@protonmail.com>"]
 edition = "2018"
 
 [dependencies]
+braille = "1.0"
 clap = "2.32"
+cursive = "0.9"
 smeagol = { path = "../smeagol" }
 
 [dev-dependencies]
