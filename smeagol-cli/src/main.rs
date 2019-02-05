@@ -48,3 +48,42 @@ fn main() {
         println!("{}\n{}\n", life.generation(), life.population());
     }
 }
+
+#[cfg(test)]
+mod test {
+    use assert_cmd::prelude::*;
+    use std::process::Command;
+
+    #[test]
+    fn no_args() {
+        let mut cmd = Command::cargo_bin("smeagol").unwrap();
+        cmd.assert().code(1).stderr(
+            "error: The following required arguments were not provided:
+    --input <input>
+
+USAGE:
+    smeagol [OPTIONS] --input <input>
+
+For more information try --help
+",
+        );
+    }
+
+    #[test]
+    fn no_steps() {
+        let cmd = Command::cargo_bin("smeagol").unwrap().args(&["-i", "./assets/breeder1.rle", "-n", "0"]).unwrap();
+        cmd.assert().success().stdout("loaded\n");
+    }
+
+    #[test]
+    fn zero_step_size() {
+        let cmd = Command::cargo_bin("smeagol").unwrap().args(&["-i", "./assets/breeder1.rle", "-n", "1", "-s", "0"]).unwrap();
+        cmd.assert().success().stdout("loaded\n0\n4060\n\n");
+    }
+
+    #[test]
+    fn one_step() {
+        let cmd = Command::cargo_bin("smeagol").unwrap().args(&["-i", "./assets/breeder1.rle", "-n", "1", "-s", "1"]).unwrap();
+        cmd.assert().success().stdout("loaded\n1\n3963\n\n");
+    }
+}

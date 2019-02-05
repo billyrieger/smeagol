@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate nom;
 
-use std::io::Read;
 use nom::{line_ending, not_line_ending};
+use std::io::Read;
 
 /// Matches any amount of whitespace.
 named!(whitespace, take_while!(|c: u8| (c as char).is_whitespace()));

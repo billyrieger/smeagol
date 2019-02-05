@@ -21,7 +21,7 @@ impl Life {
             let height = y_max - y_min + 1;
 
             // white rectangle
-            let mut data = vec![255u8; (width * height) as usize]; 
+            let mut data = vec![255u8; (width * height) as usize];
             for &(x, y) in &alive_cells {
                 let offset_x = x - x_min;
                 let offset_y = y - y_min;

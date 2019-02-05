@@ -8,6 +8,9 @@ edition = "2018"
 clap = "2.32"
 smeagol = { path = "../smeagol" }
 
+[dev-dependencies]
+assert_cmd = "0.11"
+
 [[bin]]
 name = "smeagol"
 path = "src/main.rs"
