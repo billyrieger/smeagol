@@ -278,6 +278,262 @@ impl Node {
         self.set_cells_alive_recursive(store, coords, 0, 0)
     }
 
+    pub fn contains_alive_cells(
+        &self,
+        store: &mut Store,
+        min: (i64, i64),
+        max: (i64, i64),
+    ) -> bool {
+        assert!(min.0 >= self.min_coord());
+        assert!(min.1 >= self.min_coord());
+        assert!(min.0 <= self.max_coord());
+        assert!(min.1 <= self.max_coord());
+        assert!(max.0 >= self.min_coord());
+        assert!(max.1 >= self.min_coord());
+        assert!(max.0 <= self.max_coord());
+        assert!(max.1 <= self.max_coord());
+        assert!(min.0 <= max.0);
+        assert!(min.1 <= max.1);
+
+        if self.population(store) == 0 {
+            false
+        } else {
+            match self.base {
+                NodeBase::Leaf { alive } => alive,
+
+                NodeBase::LevelOne { .. } => {
+                    match (min.0 < 0, min.1 < 0) {
+                        (true, true) => {
+                            // upper-left corner is in northwest
+                            match (max.0 < 0, max.1 < 0) {
+                                (true, true) => {
+                                    // lower-right corner is in northwest
+                                    self.nw(store).contains_alive_cells(store, (0, 0), (0, 0))
+                                }
+                                (true, false) => {
+                                    // lower-right corner is in southwest
+                                    // split rectangle between two nodes
+                                    self.nw(store).contains_alive_cells(store, (0, 0), (0, 0))
+                                        || self.sw(store).contains_alive_cells(
+                                            store,
+                                            (0, 0),
+                                            (0, 0),
+                                        )
+                                }
+                                (false, true) => {
+                                    // lower-right corner is in northeast
+                                    // split rectangle between two nodes
+                                    self.nw(store).contains_alive_cells(store, (0, 0), (0, 0))
+                                        || self.ne(store).contains_alive_cells(
+                                            store,
+                                            (0, 0),
+                                            (0, 0),
+                                        )
+                                }
+                                (false, false) => {
+                                    // lower-right corner is in southeast
+                                    // split rectangle between four nodes
+                                    self.ne(store).contains_alive_cells(store, (0, 0), (0, 0))
+                                        || self.nw(store).contains_alive_cells(
+                                            store,
+                                            (0, 0),
+                                            (0, 0),
+                                        )
+                                        || self.se(store).contains_alive_cells(
+                                            store,
+                                            (0, 0),
+                                            (0, 0),
+                                        )
+                                        || self.sw(store).contains_alive_cells(
+                                            store,
+                                            (0, 0),
+                                            (0, 0),
+                                        )
+                                }
+                            }
+                        }
+                        (true, false) => {
+                            // upper-left corner is in southwest
+                            if max.0 < 0 {
+                                // lower-right corner is in southwest
+                                self.sw(store).contains_alive_cells(store, (0, 0), (0, 0))
+                            } else {
+                                // lower-right corner is in southeast
+                                // split rectangle between two nodes
+                                self.sw(store).contains_alive_cells(store, (0, 0), (0, 0))
+                                    || self.se(store).contains_alive_cells(store, (0, 0), (0, 0))
+                            }
+                        }
+                        (false, true) => {
+                            // upper-left corner is in northeast
+                            if max.1 < 0 {
+                                // lower-right corner is in northeast
+                                self.ne(store).contains_alive_cells(store, (0, 0), (0, 0))
+                            } else {
+                                // lower-right corner is in southeast
+                                // split rectangle between two nodes
+                                self.ne(store).contains_alive_cells(store, (0, 0), (0, 0))
+                                    || self.se(store).contains_alive_cells(store, (0, 0), (0, 0))
+                            }
+                        }
+                        (false, false) => {
+                            // upper-left corner is in southeast
+                            // implying lower-right corner is in southeast too
+                            self.se(store).contains_alive_cells(store, (0, 0), (0, 0))
+                        }
+                    }
+                }
+
+                NodeBase::LevelTwo { .. } | NodeBase::Interior { .. } => {
+                    // quarter side length
+                    let offset = 1 << (self.level - 2);
+
+                    match (min.0 < 0, min.1 < 0) {
+                        (true, true) => {
+                            // upper-left corner is in northwest
+                            match (max.0 < 0, max.1 < 0) {
+                                (true, true) => {
+                                    // lower-right corner is in northwest
+                                    let offset_min = (min.0 + offset, min.1 + offset);
+                                    let offset_max = (max.0 + offset, max.1 + offset);
+                                    self.nw(store)
+                                        .contains_alive_cells(store, offset_min, offset_max)
+                                }
+                                (true, false) => {
+                                    // lower-right corner is in southwest
+                                    // split rectangle between two nodes
+                                    let nw_offset_min = (min.0 + offset, min.1 + offset);
+                                    let nw_offset_max = (max.0 + offset, -1 + offset);
+                                    let sw_offset_min = (min.0 + offset, 0 - offset);
+                                    let sw_offset_max = (max.0 + offset, max.1 - offset);
+                                    self.nw(store).contains_alive_cells(
+                                        store,
+                                        nw_offset_min,
+                                        nw_offset_max,
+                                    ) || self.sw(store).contains_alive_cells(
+                                        store,
+                                        sw_offset_min,
+                                        sw_offset_max,
+                                    )
+                                }
+                                (false, true) => {
+                                    // lower-right corner is in northeast
+                                    // split rectangle between two nodes
+                                    let nw_offset_min = (min.0 + offset, min.1 + offset);
+                                    let nw_offset_max = (-1 + offset, max.1 + offset);
+                                    let ne_offset_min = (0 - offset, min.1 + offset);
+                                    let ne_offset_max = (max.0 - offset, max.1 + offset);
+                                    self.nw(store).contains_alive_cells(
+                                        store,
+                                        nw_offset_min,
+                                        nw_offset_max,
+                                    ) || self.ne(store).contains_alive_cells(
+                                        store,
+                                        ne_offset_min,
+                                        ne_offset_max,
+                                    )
+                                }
+                                (false, false) => {
+                                    // lower-right corner is in southeast
+                                    // split rectangle between four nodes
+                                    let nw_offset_min = (min.0 + offset, min.1 + offset);
+                                    let nw_offset_max = (-1 + offset, -1 + offset);
+
+                                    let ne_offset_min = (0 - offset, min.1 + offset);
+                                    let ne_offset_max = (max.0 - offset, -1 + offset);
+
+                                    let sw_offset_min = (min.0 + offset, 0 - offset);
+                                    let sw_offset_max = (-1 + offset, max.1 - offset);
+
+                                    let se_offset_min = (0 - offset, 0 - offset);
+                                    let se_offset_max = (max.0 - offset, max.1 - offset);
+
+                                    self.ne(store).contains_alive_cells(
+                                        store,
+                                        ne_offset_min,
+                                        ne_offset_max,
+                                    ) || self.nw(store).contains_alive_cells(
+                                        store,
+                                        nw_offset_min,
+                                        nw_offset_max,
+                                    ) || self.se(store).contains_alive_cells(
+                                        store,
+                                        se_offset_min,
+                                        se_offset_max,
+                                    ) || self.sw(store).contains_alive_cells(
+                                        store,
+                                        sw_offset_min,
+                                        sw_offset_max,
+                                    )
+                                }
+                            }
+                        }
+                        (true, false) => {
+                            // upper-left corner is in southwest
+                            if max.0 < 0 {
+                                // lower-right corner is in southwest
+                                let offset_min = (min.0 + offset, min.1 - offset);
+                                let offset_max = (max.0 + offset, max.1 - offset);
+                                self.sw(store)
+                                    .contains_alive_cells(store, offset_min, offset_max)
+                            } else {
+                                // lower-right corner is in southeast
+                                // split rectangle between two nodes
+                                let sw_offset_min = (min.0 + offset, min.1 - offset);
+                                let sw_offset_max = (-1 + offset, max.1 - offset);
+                                let se_offset_min = (0 - offset, min.1 - offset);
+                                let se_offset_max = (max.0 - offset, max.1 - offset);
+                                self.sw(store).contains_alive_cells(
+                                    store,
+                                    sw_offset_min,
+                                    sw_offset_max,
+                                ) || self.se(store).contains_alive_cells(
+                                    store,
+                                    se_offset_min,
+                                    se_offset_max,
+                                )
+                            }
+                        }
+                        (false, true) => {
+                            // upper-left corner is in northeast
+                            if max.1 < 0 {
+                                // lower-right corner is in northeast
+                                let offset_min = (min.0 - offset, min.1 + offset);
+                                let offset_max = (max.0 - offset, max.1 + offset);
+                                self.ne(store)
+                                    .contains_alive_cells(store, offset_min, offset_max)
+                            } else {
+                                // lower-right corner is in southeast
+                                // split rectangle between two nodes
+                                let ne_offset_min = (min.0 - offset, min.1 + offset);
+                                let ne_offset_max = (max.0 - offset, -1 + offset);
+                                let se_offset_min = (min.0 - offset, 0 - offset);
+                                let se_offset_max = (max.0 - offset, max.1 - offset);
+                                self.ne(store).contains_alive_cells(
+                                    store,
+                                    ne_offset_min,
+                                    ne_offset_max,
+                                ) || self.se(store).contains_alive_cells(
+                                    store,
+                                    se_offset_min,
+                                    se_offset_max,
+                                )
+                            }
+                        }
+                        (false, false) => {
+                            // upper-left corner is in southeast
+                            // implying lower-right corner is in southeast too
+                            let offset_min = (min.0 - offset, min.1 - offset);
+                            let offset_max = (max.0 - offset, max.1 - offset);
+                            self.se(store)
+                                .contains_alive_cells(store, offset_min, offset_max)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn set_cells_alive_recursive(
         &self,
         store: &mut Store,
@@ -398,6 +654,39 @@ fn partition_vert(coords: &mut [(i64, i64)], pivot: i64) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn contains_alive_cells() {
+        let mut store = Store::new();
+        let empty = store.create_empty(3);
+        assert!(!empty.contains_alive_cells(
+            &mut store,
+            (empty.min_coord(), empty.min_coord()),
+            (empty.max_coord(), empty.max_coord())
+        ));
+
+        for x in empty.min_coord()..=empty.max_coord() {
+            for y in empty.min_coord()..=empty.max_coord() {
+                let one_alive = empty.set_cell(&mut store, x, y, Cell::Alive);
+                assert!(one_alive.contains_alive_cells(&mut store, (x, y), (x, y)));
+                assert!(one_alive.contains_alive_cells(
+                    &mut store,
+                    (empty.min_coord(), y),
+                    (empty.max_coord(), y)
+                ));
+                assert!(one_alive.contains_alive_cells(
+                    &mut store,
+                    (x, empty.min_coord()),
+                    (x, empty.max_coord())
+                ));
+                assert!(one_alive.contains_alive_cells(
+                    &mut store,
+                    (empty.min_coord(), empty.min_coord()),
+                    (empty.max_coord(), empty.max_coord())
+                ));
+            }
+        }
+    }
 
     fn set_alive_helper(level: u8, mut coords: Vec<(i64, i64)>) {
         let mut store = Store::new();

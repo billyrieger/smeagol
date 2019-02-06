@@ -111,6 +111,10 @@ impl Life {
     pub fn get_alive_cells(&mut self) -> Vec<(i64, i64)> {
         self.root.get_alive_cells(&mut self.store)
     }
+
+    pub fn contains_alive_cells(&mut self, min: (i64, i64), max: (i64, i64)) -> bool {
+        self.root.contains_alive_cells(&mut self.store, min, max)
+    }
 }
 
 /// Methods to evolve a Life board according to Life rules.
