@@ -201,7 +201,7 @@ fn main() {
     let mut siv = cursive::Cursive::default();
 
     let life = Arc::new(Mutex::new(
-        smeagol::Life::from_rle_file("/home/billy/Downloads/all/breeder1.rle").unwrap(),
+        smeagol::Life::from_rle_file(std::env::args().nth(1).unwrap()).unwrap(),
     ));
     let is_running = Arc::new(AtomicBool::new(false));
     let jump_factor = Arc::new(Mutex::new(0u8));

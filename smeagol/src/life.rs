@@ -113,6 +113,13 @@ impl Life {
     }
 
     pub fn contains_alive_cells(&mut self, min: (i64, i64), max: (i64, i64)) -> bool {
+        while min.0 < self.root.min_coord()
+            || max.0 > self.root.max_coord()
+            || min.1 < self.root.min_coord()
+            || max.1 > self.root.max_coord()
+        {
+            self.root = self.root.expand(&mut self.store);
+        }
         self.root.contains_alive_cells(&mut self.store, min, max)
     }
 }
