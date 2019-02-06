@@ -107,8 +107,7 @@ impl cursive::view::View for LifeView {
         let height = printer.output_size.y;
         let front_color = cursive::theme::Color::Light(cursive::theme::BaseColor::White);
         let back_color = cursive::theme::Color::Dark(cursive::theme::BaseColor::Black);
-        let mut alive_coords = std::collections::HashSet::new();
-        alive_coords.extend(self.life.lock().unwrap().get_alive_cells());
+        let mut life = self.life.lock().unwrap();
         for x in 0..width {
             for y in 0..height {
                 printer.with_color(
@@ -117,42 +116,42 @@ impl cursive::view::View for LifeView {
                         printer.print((x as u32, y as u32), {
                             let x_offset = 2 * (x as i64 + self.center.0 - (width / 2) as i64);
                             let y_offset = 4 * (y as i64 + self.center.1 - (height / 2) as i64);
-                            let a = if alive_coords.contains(&(x_offset, y_offset)) {
+                            let a = if life.contains_alive_cells((x_offset, y_offset), (x_offset, y_offset)) {
                                 1
                             } else {
                                 0
                             };
-                            let b = if alive_coords.contains(&(x_offset + 1, y_offset)) {
+                            let b = if life.contains_alive_cells((x_offset + 1, y_offset), (x_offset + 1, y_offset)) {
                                 1
                             } else {
                                 0
                             };
-                            let c = if alive_coords.contains(&(x_offset, y_offset + 1)) {
+                            let c = if life.contains_alive_cells((x_offset, y_offset + 1), (x_offset, y_offset + 1)) {
                                 1
                             } else {
                                 0
                             };
-                            let d = if alive_coords.contains(&(x_offset + 1, y_offset + 1)) {
+                            let d = if life.contains_alive_cells((x_offset + 1, y_offset + 1), (x_offset + 1, y_offset + 1)) {
                                 1
                             } else {
                                 0
                             };
-                            let e = if alive_coords.contains(&(x_offset, y_offset + 2)) {
+                            let e = if life.contains_alive_cells((x_offset, y_offset + 2), (x_offset, y_offset + 2)) {
                                 1
                             } else {
                                 0
                             };
-                            let f = if alive_coords.contains(&(x_offset + 1, y_offset + 2)) {
+                            let f = if life.contains_alive_cells((x_offset + 1, y_offset + 2), (x_offset + 1, y_offset + 2)) {
                                 1
                             } else {
                                 0
                             };
-                            let g = if alive_coords.contains(&(x_offset, y_offset + 3)) {
+                            let g = if life.contains_alive_cells((x_offset, y_offset + 3), (x_offset, y_offset + 3)) {
                                 1
                             } else {
                                 0
                             };
-                            let h = if alive_coords.contains(&(x_offset + 1, y_offset + 3)) {
+                            let h = if life.contains_alive_cells((x_offset + 1, y_offset + 3), (x_offset + 1, y_offset + 3)) {
                                 1
                             } else {
                                 0
