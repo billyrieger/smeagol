@@ -1,5 +1,6 @@
-use std::{
-    sync::{atomic::Ordering, Arc, Mutex},
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
 };
 
 struct LifeView {
@@ -117,18 +118,18 @@ fn main() {
     let mut siv = cursive::Cursive::default();
 
     let life = Arc::new(Mutex::new(
-        smeagol::Life::from_rle_file("/home/billy/Downloads/all/breeder1.rle").unwrap(),
+        smeagol::Life::from_rle_file("/home/billy/Downloads/all/glider.rle").unwrap(),
     ));
-    let is_running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let is_running = Arc::new(AtomicBool::new(false));
 
     siv.add_fullscreen_layer(cursive::view::Boxable::full_screen(LifeView::new(
         life.clone(),
     )));
     siv.add_global_callback(' ', enclose!((is_running) move |_| is_running.store(!is_running.load(Ordering::SeqCst), Ordering::SeqCst)));
-    // siv.add_global_callback(
-    //     cursive::event::Key::Tab,
-    //     enclose!((life) move |_| life.lock().step(32)),
-    // );
+    siv.add_global_callback(
+        cursive::event::Key::Tab,
+        enclose!((life) move |_| life.lock().unwrap().step(32)),
+    );
     siv.set_fps(30);
     let sink = siv.cb_sink().clone();
 

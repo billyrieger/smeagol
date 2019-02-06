@@ -5,15 +5,14 @@ use crate::{
 
 impl Node {
     /// Gets the cell at the given coordinates.
-    ///
-    /// # Panics
-    ///
-    /// Panics if either `x` or `y` is outside the range `node.min_coord()..=node.max_coord()`.
     pub fn get_cell(&self, store: &mut Store, x: i64, y: i64) -> Cell {
-        assert!(x >= self.min_coord());
-        assert!(y >= self.min_coord());
-        assert!(x <= self.max_coord());
-        assert!(y <= self.max_coord());
+        if x < self.min_coord()
+            || y < self.min_coord()
+            || x > self.max_coord()
+            || y > self.max_coord()
+        {
+            return Cell::Dead;
+        }
 
         match self.base {
             NodeBase::Leaf { alive } => {
