@@ -282,6 +282,22 @@ fn main() {
         }),
     );
     siv.add_global_callback(
+        'k',
+        enclose!((jump_factor) move |_| {
+            let mut jump_factor = jump_factor.lock().unwrap();
+            *jump_factor += 1;
+        }),
+    );
+    siv.add_global_callback(
+        'j',
+        enclose!((jump_factor) move |_| {
+            let mut jump_factor = jump_factor.lock().unwrap();
+            if *jump_factor > 0 {
+                *jump_factor -= 1;
+            }
+        }),
+    );
+    siv.add_global_callback(
         '-',
         enclose!((zoom) move |_| {
             let mut zoom = zoom.lock().unwrap();
