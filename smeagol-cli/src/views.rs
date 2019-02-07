@@ -134,7 +134,11 @@ pub struct LifeView {
 }
 
 impl LifeView {
-    fn new(life: Arc<Mutex<smeagol::Life>>, center: Arc<Mutex<(i64, i64)>>, scale: Arc<Mutex<u64>>) -> Self {
+    fn new(
+        life: Arc<Mutex<smeagol::Life>>,
+        center: Arc<Mutex<(i64, i64)>>,
+        scale: Arc<Mutex<u64>>,
+    ) -> Self {
         Self {
             life,
             center,
@@ -333,14 +337,31 @@ pub fn main_view(state: &State) -> cursive::views::LinearLayout {
         )))
         .child(
             cursive::views::LinearLayout::horizontal()
-                .child(cursive::views::PaddedView::new(((1, 1), (0, 0)), GenerationView::new(state.life.clone())))
+                .child(cursive::views::PaddedView::new(
+                    ((1, 1), (0, 0)),
+                    GenerationView::new(state.life.clone()),
+                ))
                 .child(cursive::views::TextView::new("|"))
-                .child(cursive::views::PaddedView::new(((1, 1), (0, 0)), PopulationView::new(state.life.clone())))
+                .child(cursive::views::PaddedView::new(
+                    ((1, 1), (0, 0)),
+                    PopulationView::new(state.life.clone()),
+                ))
                 .child(cursive::views::TextView::new("|"))
-                .child(cursive::views::PaddedView::new(((1, 1), (0, 0)), StepView::new(state.step.clone())))
-                .child(cursive::view::Boxable::full_width(cursive::views::DummyView))
-                .child(cursive::views::PaddedView::new(((1, 1), (0, 0)), CenterView::new(state.center.clone())))
+                .child(cursive::views::PaddedView::new(
+                    ((1, 1), (0, 0)),
+                    StepView::new(state.step.clone()),
+                ))
+                .child(cursive::view::Boxable::full_width(
+                    cursive::views::DummyView,
+                ))
+                .child(cursive::views::PaddedView::new(
+                    ((1, 1), (0, 0)),
+                    CenterView::new(state.center.clone()),
+                ))
                 .child(cursive::views::TextView::new("|"))
-                .child(cursive::views::PaddedView::new(((1, 1), (0, 0)), ScaleView::new(state.scale.clone())))
+                .child(cursive::views::PaddedView::new(
+                    ((1, 1), (0, 0)),
+                    ScaleView::new(state.scale.clone()),
+                )),
         )
 }
