@@ -222,6 +222,22 @@ impl cursive::view::View for LifeView {
     fn on_event(&mut self, event: cursive::event::Event) -> cursive::event::EventResult {
         let zoom_factor = 1 << *self.zoom.lock().unwrap();
         match event {
+            cursive::event::Event::Char('h') => {
+                self.center.0 -= zoom_factor;
+                cursive::event::EventResult::Consumed(None)
+            }
+            cursive::event::Event::Char('l') => {
+                self.center.0 += zoom_factor;
+                cursive::event::EventResult::Consumed(None)
+            }
+            cursive::event::Event::Char('k') => {
+                self.center.1 -= zoom_factor;
+                cursive::event::EventResult::Consumed(None)
+            }
+            cursive::event::Event::Char('j') => {
+                self.center.1 += zoom_factor;
+                cursive::event::EventResult::Consumed(None)
+            }
             cursive::event::Event::Key(cursive::event::Key::Left) => {
                 self.center.0 -= zoom_factor;
                 cursive::event::EventResult::Consumed(None)
@@ -283,14 +299,14 @@ fn main() {
         }),
     );
     siv.add_global_callback(
-        'k',
+        '}',
         enclose!((jump_factor) move |_| {
             let mut jump_factor = jump_factor.lock().unwrap();
             *jump_factor += 1;
         }),
     );
     siv.add_global_callback(
-        'j',
+        '{',
         enclose!((jump_factor) move |_| {
             let mut jump_factor = jump_factor.lock().unwrap();
             if *jump_factor > 0 {
