@@ -5,7 +5,7 @@ use crate::{
 
 impl Node {
     /// Gets the cell at the given coordinates.
-    pub fn get_cell(&self, store: &mut Store, x: i64, y: i64) -> Cell {
+    pub fn get_cell(&self, store: &Store, x: i64, y: i64) -> Cell {
         if x < self.min_coord()
             || y < self.min_coord()
             || x > self.max_coord()

@@ -339,29 +339,29 @@ pub fn main_view(state: &State) -> cursive::views::LinearLayout {
         .child(
             cursive::views::LinearLayout::horizontal()
                 .child(cursive::views::PaddedView::new(
-                        padding,
+                    padding,
                     GenerationView::new(state.life.clone()),
                 ))
                 .child(cursive::views::TextView::new("|"))
                 .child(cursive::views::PaddedView::new(
-                        padding,
+                    padding,
                     PopulationView::new(state.life.clone()),
                 ))
                 .child(cursive::views::TextView::new("|"))
                 .child(cursive::views::PaddedView::new(
-                        padding,
+                    padding,
                     StepView::new(state.step.clone()),
                 ))
                 .child(cursive::view::Boxable::full_width(
                     cursive::views::DummyView,
                 ))
                 .child(cursive::views::PaddedView::new(
-                        padding,
+                    padding,
                     CenterView::new(state.center.clone()),
                 ))
                 .child(cursive::views::TextView::new("|"))
                 .child(cursive::views::PaddedView::new(
-                        padding,
+                    padding,
                     ScaleView::new(state.scale.clone()),
                 )),
         )

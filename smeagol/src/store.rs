@@ -48,9 +48,7 @@ impl Store {
     }
 
     pub(crate) fn level_2_step(&self, node: Node) -> Option<Node> {
-        self.level_2_steps
-            .get(&node)
-            .cloned()
+        self.level_2_steps.get(&node).cloned()
     }
 
     pub(crate) fn add_level_2_step(&mut self, node: Node, result: Node) {

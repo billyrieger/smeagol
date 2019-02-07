@@ -84,7 +84,7 @@ impl Life {
 /// Methods to get and set individual cells.
 impl Life {
     /// Gets the cell at the given coordinates.
-    pub fn get_cell(&mut self, x: i64, y: i64) -> Cell {
+    pub fn get_cell(&self, x: i64, y: i64) -> Cell {
         if x < self.root.min_coord()
             || x > self.root.max_coord()
             || y < self.root.min_coord()
@@ -92,7 +92,7 @@ impl Life {
         {
             Cell::Dead
         } else {
-            self.root.get_cell(&mut self.store, x, y)
+            self.root.get_cell(&self.store, x, y)
         }
     }
 
@@ -128,33 +128,33 @@ impl Life {
 impl Life {
     fn pad(&mut self) {
         while self.root.level() < 3
-            || self.root.ne(&mut self.store).population(&self.store)
+            || self.root.ne(&self.store).population(&self.store)
                 != self
                     .root
-                    .ne(&mut self.store)
-                    .sw(&mut self.store)
-                    .sw(&mut self.store)
+                    .ne(&self.store)
+                    .sw(&self.store)
+                    .sw(&self.store)
                     .population(&self.store)
-            || self.root.nw(&mut self.store).population(&self.store)
+            || self.root.nw(&self.store).population(&self.store)
                 != self
                     .root
-                    .nw(&mut self.store)
-                    .se(&mut self.store)
-                    .se(&mut self.store)
+                    .nw(&self.store)
+                    .se(&self.store)
+                    .se(&self.store)
                     .population(&self.store)
-            || self.root.se(&mut self.store).population(&self.store)
+            || self.root.se(&self.store).population(&self.store)
                 != self
                     .root
-                    .se(&mut self.store)
-                    .nw(&mut self.store)
-                    .nw(&mut self.store)
+                    .se(&self.store)
+                    .nw(&self.store)
+                    .nw(&self.store)
                     .population(&self.store)
-            || self.root.sw(&mut self.store).population(&self.store)
+            || self.root.sw(&self.store).population(&self.store)
                 != self
                     .root
-                    .sw(&mut self.store)
-                    .ne(&mut self.store)
-                    .ne(&mut self.store)
+                    .sw(&self.store)
+                    .ne(&self.store)
+                    .ne(&self.store)
                     .population(&self.store)
         {
             self.root = self.root.expand(&mut self.store);

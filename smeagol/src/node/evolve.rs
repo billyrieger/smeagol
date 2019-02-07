@@ -1,4 +1,7 @@
-use crate::{node::{self, NodeBase }, Cell, Node, NodeTemplate, Store};
+use crate::{
+    node::{self, NodeBase},
+    Node, NodeTemplate, Store,
+};
 
 impl Node {
     /// For a level `n` node, returns the center subnode of the node `2^(n-2)` ticks into the
@@ -410,6 +413,7 @@ impl Node {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Cell;
 
     mod level_2 {
         use super::*;

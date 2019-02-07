@@ -1,13 +1,11 @@
 use crate::{Cell, Node, NodeTemplate, Store};
 
 impl Store {
-    pub fn create_leaf(&mut self, cell: Cell) -> Node {
-        let node = Node::new_leaf(cell.is_alive());
-        let index = self.add_node(node, if cell.is_alive() { 1 } else { 0 });
-        node.set_index(index)
+    pub fn create_leaf(&self, cell: Cell) -> Node {
+        Node::new_leaf(cell.is_alive())
     }
 
-    pub fn create_level_one_from_cells(&mut self, cells: u8) -> Node {
+    pub fn create_level_one_from_cells(&self, cells: u8) -> Node {
         Node::new_level_one(cells)
     }
 

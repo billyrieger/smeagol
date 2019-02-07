@@ -43,7 +43,7 @@ impl Node {
         store.create_interior(NodeTemplate { ne, nw, se, sw })
     }
 
-    pub fn ne(&self, store: &mut Store) -> Node {
+    pub fn ne(&self, store: &Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
             NodeBase::Leaf { .. } => unreachable!(),
@@ -61,7 +61,7 @@ impl Node {
         }
     }
 
-    pub fn nw(&self, store: &mut Store) -> Node {
+    pub fn nw(&self, store: &Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
             NodeBase::Leaf { .. } => unreachable!(),
@@ -78,7 +78,7 @@ impl Node {
         }
     }
 
-    pub fn se(&self, store: &mut Store) -> Node {
+    pub fn se(&self, store: &Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
             NodeBase::Leaf { .. } => unreachable!(),
@@ -96,7 +96,7 @@ impl Node {
         }
     }
 
-    pub fn sw(&self, store: &mut Store) -> Node {
+    pub fn sw(&self, store: &Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
             NodeBase::Leaf { .. } => unreachable!(),
