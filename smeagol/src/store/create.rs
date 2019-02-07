@@ -8,9 +8,7 @@ impl Store {
     }
 
     pub fn create_level_one_from_cells(&mut self, cells: u8) -> Node {
-        let node = Node::new_level_one(cells);
-        let index = self.add_node(node, u128::from(cells.count_ones()));
-        node.set_index(index)
+        Node::new_level_one(cells)
     }
 
     pub fn create_level_two_from_cells(&mut self, cells: u16) -> Node {
@@ -27,10 +25,9 @@ impl Store {
 
         match level {
             0 => {
-                let (node, population) =
+                let (node, _) =
                     Node::create_level_one(template.ne, template.nw, template.se, template.sw);
-                let index = self.add_node(node, population);
-                node.set_index(index)
+                node
             }
             1 => {
                 let (node, population) =

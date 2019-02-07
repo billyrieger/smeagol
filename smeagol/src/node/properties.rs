@@ -1,4 +1,4 @@
-use crate::{node::MAX_LEVEL, Node, Store};
+use crate::{node::{NodeBase, MAX_LEVEL }, Node, Store};
 
 impl Node {
     pub fn level(&self) -> u8 {
@@ -6,7 +6,12 @@ impl Node {
     }
 
     pub fn population(&self, store: &Store) -> u128 {
-        store.population(&self)
+        match self.base {
+            NodeBase::Leaf { alive } => if alive {1} else {0},
+            NodeBase::LevelOne { cells } => u128::from(cells.count_ones()),
+            NodeBase::LevelTwo { cells } => u128::from(cells.count_ones()),
+            _ => store.population(&self)
+        }
     }
 
     pub fn min_coord(&self) -> i64 {

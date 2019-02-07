@@ -156,16 +156,16 @@ impl Node {
             ) => {
                 let mut cells = 0u8;
                 if nw_alive {
-                    cells |= 0b_0010_0000;
+                    cells |= LEVEL_ONE_NW_MASK
                 }
                 if ne_alive {
-                    cells |= 0b_0001_0000;
+                    cells |= LEVEL_ONE_NE_MASK;
                 }
                 if sw_alive {
-                    cells |= 0b_0000_0010;
+                    cells |= LEVEL_ONE_SW_MASK;
                 }
                 if se_alive {
-                    cells |= 0b_0000_0001;
+                    cells |= LEVEL_ONE_SE_MASK;
                 }
 
                 (

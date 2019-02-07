@@ -184,9 +184,7 @@ impl Node {
             std::cmp::Ordering::Less => unreachable!(),
             std::cmp::Ordering::Equal => {
                 // when level == level_cutoff, a step is equivalent to a jump
-                let jump = self.jump(store);
-                store.add_step(*self, step_size, jump);
-                jump
+                self.jump(store)
             }
             std::cmp::Ordering::Greater => {
                 // +---+---+---+---+---+---+---+---+

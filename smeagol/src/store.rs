@@ -14,7 +14,7 @@ pub struct Store {
     nodes: Vec<Node>,
     populations: Vec<u128>,
     indices: hashbrown::HashMap<Node, usize>,
-    level_2_steps: hashbrown::HashMap<Node, usize>,
+    level_2_steps: hashbrown::HashMap<Node, Node>,
     steps: hashbrown::HashMap<(Node, u64), usize>,
 }
 
@@ -50,11 +50,11 @@ impl Store {
     pub(crate) fn level_2_step(&self, node: Node) -> Option<Node> {
         self.level_2_steps
             .get(&node)
-            .map(|&index| self.nodes[index])
+            .cloned()
     }
 
     pub(crate) fn add_level_2_step(&mut self, node: Node, result: Node) {
-        self.level_2_steps.insert(node, result.index());
+        self.level_2_steps.insert(node, result);
     }
 }
 
