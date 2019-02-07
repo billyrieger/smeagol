@@ -90,13 +90,15 @@ impl cursive::view::View for JumpView {
 struct LifeView {
     life: Arc<Mutex<smeagol::Life>>,
     center: (i64, i64),
+    zoom: Arc<Mutex<u8>>,
 }
 
 impl LifeView {
-    fn new(life: Arc<Mutex<smeagol::Life>>) -> Self {
+    fn new(life: Arc<Mutex<smeagol::Life>>, zoom: Arc<Mutex<u8>>) -> Self {
         Self {
             life,
             center: (0, 0),
+            zoom,
         }
     }
 }
@@ -108,50 +110,102 @@ impl cursive::view::View for LifeView {
         let front_color = cursive::theme::Color::Light(cursive::theme::BaseColor::White);
         let back_color = cursive::theme::Color::Dark(cursive::theme::BaseColor::Black);
         let mut life = self.life.lock().unwrap();
+        let zoom_factor = 1 << *self.zoom.lock().unwrap();
+        let zoom_factor_minus_1 = zoom_factor - 1;
         for x in 0..width {
             for y in 0..height {
                 printer.with_color(
                     cursive::theme::ColorStyle::new(front_color, back_color),
                     |printer| {
                         printer.print((x as u32, y as u32), {
-                            let x_offset = 2 * (x as i64 + self.center.0 - (width / 2) as i64);
-                            let y_offset = 4 * (y as i64 + self.center.1 - (height / 2) as i64);
-                            let a = if life.contains_alive_cells((x_offset, y_offset), (x_offset, y_offset)) {
+                            let x_offset =
+                                2 * (x as i64 + self.center.0 - (width / 2) as i64) * zoom_factor;
+                            let y_offset =
+                                4 * (y as i64 + self.center.1 - (height / 2) as i64) * zoom_factor;
+                            let a = if life.contains_alive_cells(
+                                (x_offset, y_offset),
+                                (
+                                    x_offset + zoom_factor_minus_1,
+                                    y_offset + zoom_factor_minus_1,
+                                ),
+                            ) {
                                 1
                             } else {
                                 0
                             };
-                            let b = if life.contains_alive_cells((x_offset + 1, y_offset), (x_offset + 1, y_offset)) {
+                            let b = if life.contains_alive_cells(
+                                (x_offset + zoom_factor, y_offset),
+                                (
+                                    x_offset + zoom_factor + zoom_factor_minus_1,
+                                    y_offset + zoom_factor_minus_1,
+                                ),
+                            ) {
                                 1
                             } else {
                                 0
                             };
-                            let c = if life.contains_alive_cells((x_offset, y_offset + 1), (x_offset, y_offset + 1)) {
+                            let c = if life.contains_alive_cells(
+                                (x_offset, y_offset + 1 * zoom_factor),
+                                (
+                                    x_offset + zoom_factor_minus_1,
+                                    y_offset + 1 * zoom_factor + zoom_factor_minus_1,
+                                ),
+                            ) {
                                 1
                             } else {
                                 0
                             };
-                            let d = if life.contains_alive_cells((x_offset + 1, y_offset + 1), (x_offset + 1, y_offset + 1)) {
+                            let d = if life.contains_alive_cells(
+                                (x_offset + zoom_factor, y_offset + 1 * zoom_factor),
+                                (
+                                    x_offset + zoom_factor + zoom_factor_minus_1,
+                                    y_offset + 1 * zoom_factor + zoom_factor_minus_1,
+                                ),
+                            ) {
                                 1
                             } else {
                                 0
                             };
-                            let e = if life.contains_alive_cells((x_offset, y_offset + 2), (x_offset, y_offset + 2)) {
+                            let e = if life.contains_alive_cells(
+                                (x_offset, y_offset + 2 * zoom_factor),
+                                (
+                                    x_offset + zoom_factor_minus_1,
+                                    y_offset + 2 * zoom_factor + zoom_factor_minus_1,
+                                ),
+                            ) {
                                 1
                             } else {
                                 0
                             };
-                            let f = if life.contains_alive_cells((x_offset + 1, y_offset + 2), (x_offset + 1, y_offset + 2)) {
+                            let f = if life.contains_alive_cells(
+                                (x_offset + zoom_factor, y_offset + 2 * zoom_factor),
+                                (
+                                    x_offset + zoom_factor + zoom_factor_minus_1,
+                                    y_offset + 2 * zoom_factor + zoom_factor_minus_1,
+                                ),
+                            ) {
                                 1
                             } else {
                                 0
                             };
-                            let g = if life.contains_alive_cells((x_offset, y_offset + 3), (x_offset, y_offset + 3)) {
+                            let g = if life.contains_alive_cells(
+                                (x_offset, y_offset + 3 * zoom_factor),
+                                (
+                                    x_offset + zoom_factor_minus_1,
+                                    y_offset + 3 * zoom_factor + zoom_factor_minus_1,
+                                ),
+                            ) {
                                 1
                             } else {
                                 0
                             };
-                            let h = if life.contains_alive_cells((x_offset + 1, y_offset + 3), (x_offset + 1, y_offset + 3)) {
+                            let h = if life.contains_alive_cells(
+                                (x_offset + zoom_factor, y_offset + 3 * zoom_factor),
+                                (
+                                    x_offset + zoom_factor + zoom_factor_minus_1,
+                                    y_offset + 3 * zoom_factor + zoom_factor_minus_1,
+                                ),
+                            ) {
                                 1
                             } else {
                                 0
@@ -205,11 +259,13 @@ fn main() {
     ));
     let is_running = Arc::new(AtomicBool::new(false));
     let jump_factor = Arc::new(Mutex::new(0u8));
+    let zoom = Arc::new(Mutex::new(0u8));
 
     siv.add_fullscreen_layer(
         cursive::views::LinearLayout::vertical()
             .child(cursive::view::Boxable::full_screen(LifeView::new(
                 life.clone(),
+                zoom.clone(),
             )))
             .child(
                 cursive::views::LinearLayout::horizontal()
@@ -225,18 +281,18 @@ fn main() {
         }),
     );
     siv.add_global_callback(
-        '+',
-        enclose!((jump_factor) move |_| {
-            let mut j = jump_factor.lock().unwrap();
-            *j += 1;
+        '-',
+        enclose!((zoom) move |_| {
+            let mut zoom = zoom.lock().unwrap();
+            *zoom += 1;
         }),
     );
     siv.add_global_callback(
-        '-',
-        enclose!((jump_factor) move |_| {
-            let mut j = jump_factor.lock().unwrap();
-            if *j > 0 {
-                *j -= 1;
+        '+',
+        enclose!((zoom) move |_| {
+            let mut zoom = zoom.lock().unwrap();
+            if *zoom > 0 {
+                *zoom -= 1;
             }
         }),
     );
