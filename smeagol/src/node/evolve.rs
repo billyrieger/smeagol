@@ -1,4 +1,4 @@
-use crate::{node::NodeBase, Cell, Node, NodeTemplate, Store};
+use crate::{node::{self, NodeBase }, Cell, Node, NodeTemplate, Store};
 
 impl Node {
     /// For a level `n` node, returns the center subnode of the node `2^(n-2)` ticks into the
@@ -297,49 +297,43 @@ impl Node {
         let ne_bitmask = 0b0111_0101_0111_0000;
         let sw_bitmask = 0b0000_1110_1010_1110;
         let se_bitmask = 0b0000_0111_0101_0111;
-        let nw_center = 1 << (15 - 5);
-        let ne_center = 1 << (15 - 6);
-        let sw_center = 1 << (15 - 9);
-        let se_center = 1 << (15 - 10);
+        let nw_center = 1 << 10;
+        let ne_center = 1 << 9;
+        let sw_center = 1 << 6;
+        let se_center = 1 << 5;
 
         let board = match self.base {
             NodeBase::LevelTwo { cells } => cells,
             _ => unreachable!(),
         };
 
+        let mut new_board = 0u8;
+
         // nw
         let nw_neighbors = (nw_bitmask & board).count_ones();
-        let nw = if nw_neighbors == 3 || (nw_neighbors == 2 && (board & nw_center > 0)) {
-            store.create_leaf(Cell::Alive)
-        } else {
-            store.create_leaf(Cell::Dead)
-        };
+        if nw_neighbors == 3 || (nw_neighbors == 2 && (board & nw_center > 0)) {
+            new_board |= node::LEVEL_ONE_NW_MASK;
+        }
 
         // ne
         let ne_neighbors = (ne_bitmask & board).count_ones();
-        let ne = if ne_neighbors == 3 || (ne_neighbors == 2 && (board & ne_center > 0)) {
-            store.create_leaf(Cell::Alive)
-        } else {
-            store.create_leaf(Cell::Dead)
-        };
+        if ne_neighbors == 3 || (ne_neighbors == 2 && (board & ne_center > 0)) {
+            new_board |= node::LEVEL_ONE_NE_MASK;
+        }
 
-        // ns
+        // sw
         let sw_neighbors = (sw_bitmask & board).count_ones();
-        let sw = if sw_neighbors == 3 || (sw_neighbors == 2 && (board & sw_center > 0)) {
-            store.create_leaf(Cell::Alive)
-        } else {
-            store.create_leaf(Cell::Dead)
-        };
+        if sw_neighbors == 3 || (sw_neighbors == 2 && (board & sw_center > 0)) {
+            new_board |= node::LEVEL_ONE_SW_MASK;
+        }
 
-        // ne
+        // se
         let se_neighbors = (se_bitmask & board).count_ones();
-        let se = if se_neighbors == 3 || (se_neighbors == 2 && (board & se_center > 0)) {
-            store.create_leaf(Cell::Alive)
-        } else {
-            store.create_leaf(Cell::Dead)
-        };
+        if se_neighbors == 3 || (se_neighbors == 2 && (board & se_center > 0)) {
+            new_board |= node::LEVEL_ONE_SE_MASK;
+        }
 
-        let step = store.create_interior(NodeTemplate { ne, nw, se, sw });
+        let step = store.create_level_one_from_cells(new_board);
 
         store.add_level_2_step(*self, step);
 
@@ -673,10 +667,7 @@ mod tests {
                     expected = expected.set_cell(&mut store, x, y, Cell::Alive);
                 }
 
-                println!("{:?}", glider.get_alive_cells(&mut store));
                 let step = glider.step(&mut store, cutoff);
-                println!("{:?}", step.get_alive_cells(&mut store));
-                println!("{:?}", expected.get_alive_cells(&mut store));
 
                 assert_eq!(step, expected);
             }
