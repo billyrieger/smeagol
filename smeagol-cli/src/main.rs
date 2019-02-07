@@ -119,9 +119,9 @@ impl cursive::view::View for LifeView {
                     |printer| {
                         printer.print((x as u32, y as u32), {
                             let x_offset =
-                                2 * (x as i64 + self.center.0 - (width / 2) as i64) * zoom_factor;
+                                2 * (x as i64 - (width / 2) as i64) * zoom_factor + self.center.0;
                             let y_offset =
-                                4 * (y as i64 + self.center.1 - (height / 2) as i64) * zoom_factor;
+                                4 * (y as i64 - (height / 2) as i64) * zoom_factor + self.center.1;
                             let a = if life.contains_alive_cells(
                                 (x_offset, y_offset),
                                 (
@@ -219,21 +219,22 @@ impl cursive::view::View for LifeView {
     }
 
     fn on_event(&mut self, event: cursive::event::Event) -> cursive::event::EventResult {
+        let zoom_factor = 1 << *self.zoom.lock().unwrap();
         match event {
             cursive::event::Event::Key(cursive::event::Key::Left) => {
-                self.center.0 -= 1;
+                self.center.0 -= zoom_factor;
                 cursive::event::EventResult::Consumed(None)
             }
             cursive::event::Event::Key(cursive::event::Key::Right) => {
-                self.center.0 += 1;
+                self.center.0 += zoom_factor;
                 cursive::event::EventResult::Consumed(None)
             }
             cursive::event::Event::Key(cursive::event::Key::Up) => {
-                self.center.1 -= 1;
+                self.center.1 -= zoom_factor;
                 cursive::event::EventResult::Consumed(None)
             }
             cursive::event::Event::Key(cursive::event::Key::Down) => {
-                self.center.1 += 1;
+                self.center.1 += zoom_factor;
                 cursive::event::EventResult::Consumed(None)
             }
             _ => cursive::event::EventResult::Ignored,
