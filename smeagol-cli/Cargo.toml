@@ -7,7 +7,8 @@ edition = "2018"
 [dependencies]
 braille = "1.0"
 clap = "2.32"
-cursive = "0.9"
+cursive = "0.10"
+lazy_static = "1.2"
 smeagol = { path = "../smeagol" }
 
 [dev-dependencies]
