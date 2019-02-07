@@ -541,7 +541,7 @@ impl Node {
         offset_x: i64,
         offset_y: i64,
     ) -> Node {
-        if coords.len() == 0 {
+        if coords.is_empty() {
             return *self;
         }
 
@@ -558,19 +558,19 @@ impl Node {
                     match (x, y) {
                         (-1, -1) => {
                             // nw
-                            cells = cells | node::LEVEL_ONE_NW_MASK;
+                            cells |= node::LEVEL_ONE_NW_MASK;
                         }
                         (-1, 0) => {
                             // sw
-                            cells = cells | node::LEVEL_ONE_SW_MASK;
+                            cells |= node::LEVEL_ONE_SW_MASK;
                         }
                         (0, -1) => {
                             // ne
-                            cells = cells | node::LEVEL_ONE_NE_MASK;
+                            cells |= node::LEVEL_ONE_NE_MASK;
                         }
                         (0, 0) => {
                             // se
-                            cells = cells | node::LEVEL_ONE_SE_MASK;
+                            cells |= node::LEVEL_ONE_SE_MASK;
                         }
                         _ => unreachable!(),
                     }
@@ -580,7 +580,7 @@ impl Node {
 
             NodeBase::LevelTwo { mut cells } => {
                 for &mut (x, y) in coords {
-                    cells = cells | (1 << (15 - ((4 * (y - offset_y + 2)) + (x - offset_x + 2))));
+                    cells |= 1 << (15 - ((4 * (y - offset_y + 2)) + (x - offset_x + 2)));
                 }
                 store.create_level_two_from_cells(cells)
             }

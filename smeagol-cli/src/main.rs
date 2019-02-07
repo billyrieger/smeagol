@@ -103,6 +103,7 @@ impl LifeView {
     }
 }
 
+#[allow(clippy::many_single_char_names)]
 impl cursive::view::View for LifeView {
     fn draw(&self, printer: &cursive::Printer) {
         let width = printer.output_size.x;
@@ -145,10 +146,10 @@ impl cursive::view::View for LifeView {
                                 0
                             };
                             let c = if life.contains_alive_cells(
-                                (x_offset, y_offset + 1 * zoom_factor),
+                                (x_offset, y_offset + zoom_factor),
                                 (
                                     x_offset + zoom_factor_minus_1,
-                                    y_offset + 1 * zoom_factor + zoom_factor_minus_1,
+                                    y_offset + zoom_factor + zoom_factor_minus_1,
                                 ),
                             ) {
                                 1
@@ -156,10 +157,10 @@ impl cursive::view::View for LifeView {
                                 0
                             };
                             let d = if life.contains_alive_cells(
-                                (x_offset + zoom_factor, y_offset + 1 * zoom_factor),
+                                (x_offset + zoom_factor, y_offset + zoom_factor),
                                 (
                                     x_offset + zoom_factor + zoom_factor_minus_1,
-                                    y_offset + 1 * zoom_factor + zoom_factor_minus_1,
+                                    y_offset + zoom_factor + zoom_factor_minus_1,
                                 ),
                             ) {
                                 1

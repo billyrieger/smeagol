@@ -174,7 +174,7 @@ impl Node {
                         level: 1,
                         index: None,
                     },
-                    cells.count_ones() as u128,
+                    u128::from(cells.count_ones()),
                 )
             }
             _ => panic!(),
@@ -198,7 +198,7 @@ impl Node {
                         level: 2,
                         index: None,
                     },
-                    cells.count_ones() as u128,
+                    u128::from(cells.count_ones()),
                 )
             }
             _ => panic!(),

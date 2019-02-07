@@ -27,13 +27,13 @@ impl Life {
         let mut alive_cells = rle
             .alive_cells()
             .into_iter()
-            .map(|(x, y)| (x as i64, y as i64))
+            .map(|(x, y)| (i64::from(x), i64::from(y)))
             .collect::<Vec<_>>();
 
         let mut store = Store::new();
         let mut root = store.create_empty(3);
 
-        if alive_cells.len() > 0 {
+        if !alive_cells.is_empty() {
             let x_min = alive_cells.iter().min_by_key(|&(x, _)| x).unwrap().0;
             let x_max = alive_cells.iter().max_by_key(|&(x, _)| x).unwrap().0;
             let y_min = alive_cells.iter().min_by_key(|&(_, y)| y).unwrap().1;
@@ -181,6 +181,12 @@ impl Life {
             step /= 2;
             power += 1;
         }
+    }
+}
+
+impl Default for Life {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -12,7 +12,7 @@ impl Life {
         let writer = std::io::BufWriter::new(file);
 
         let alive_cells = self.root.get_alive_cells(&mut self.store);
-        if alive_cells.len() > 0 {
+        if !alive_cells.is_empty() {
             let x_min = alive_cells.iter().map(|(x, _)| x).min().cloned().unwrap();
             let y_min = alive_cells.iter().map(|(_, y)| y).min().cloned().unwrap();
             let x_max = alive_cells.iter().map(|(x, _)| x).max().cloned().unwrap();

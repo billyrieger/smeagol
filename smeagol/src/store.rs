@@ -57,3 +57,9 @@ impl Store {
         self.level_2_steps.insert(node, result.index());
     }
 }
+
+impl Default for Store {
+    fn default() -> Self {
+        Self::new()
+    }
+}

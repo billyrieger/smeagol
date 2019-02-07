@@ -168,6 +168,7 @@ impl Node {
     /// # Panics
     ///
     /// For a level `n` node, panics if `n < cutoff` or `cutoff < 2`.
+    #[allow(clippy::many_single_char_names)]
     pub fn step(&self, store: &mut Store, level_cutoff: u8) -> Node {
         assert!(self.level >= level_cutoff);
         assert!(level_cutoff >= 2);
