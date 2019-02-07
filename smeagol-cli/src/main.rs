@@ -315,7 +315,7 @@ fn main() {
     );
     siv.add_global_callback(
         cursive::event::Key::Tab,
-        enclose!((life) move |_| life.lock().unwrap().step(32)),
+        enclose!((life, jump_factor) move |_| life.lock().unwrap().step(1 << *jump_factor.lock().unwrap())),
     );
     siv.set_fps(30);
     let sink = siv.cb_sink().clone();
