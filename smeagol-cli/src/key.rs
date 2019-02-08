@@ -28,16 +28,16 @@ lazy_static::lazy_static! {
             },
             KeyCommand {
                 keys: vec![Key::Left, Key::Char('h')],
-                action: Action::PanDown,
+                action: Action::PanLeft,
                 description: "pan left"
             },
             KeyCommand {
                 keys: vec![Key::Right, Key::Char('l')],
-                action: Action::PanDown,
+                action: Action::PanRight,
                 description: "pan right"
             },
             KeyCommand {
-                keys: vec![Key::Enter],
+                keys: vec![Key::Char(' ')],
                 action: Action::ToggleSimulation,
                 description: "start/stop simulation"
             },

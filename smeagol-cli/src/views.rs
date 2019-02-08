@@ -1,5 +1,34 @@
 use crate::State;
-use std::sync::{Arc, Mutex};
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex};
+
+struct IsRunningView {
+    is_running: Arc<AtomicBool>,
+}
+
+impl IsRunningView {
+    pub fn new(is_running: Arc<AtomicBool>) -> Self {
+        Self { is_running }
+    }
+
+    fn format(&self) -> String {
+        if self.is_running.load(Ordering::SeqCst) {
+            "running".to_owned()
+        } else {
+            "stopped".to_owned()
+        }
+    }
+}
+
+impl cursive::view::View for IsRunningView {
+    fn draw(&self, printer: &cursive::Printer) {
+        printer.print((0, 0), &self.format());
+    }
+
+    fn required_size(&mut self, _: cursive::vec::Vec2) -> cursive::vec::Vec2 {
+        // (width, height)
+        (self.format().len(), 1).into()
+    }
+}
 
 struct GenerationView {
     life: Arc<Mutex<smeagol::Life>>,
@@ -270,62 +299,6 @@ impl cursive::view::View for LifeView {
             }
         }
     }
-
-    fn on_event(&mut self, event: cursive::event::Event) -> cursive::event::EventResult {
-        let scale = *self.scale.lock().unwrap() as i64;
-        let mut center = self.center.lock().unwrap();
-        match event {
-            cursive::event::Event::Char('H') => {
-                center.0 -= scale;
-                cursive::event::EventResult::Consumed(None)
-            }
-            cursive::event::Event::Char('L') => {
-                center.0 += scale;
-                cursive::event::EventResult::Consumed(None)
-            }
-            cursive::event::Event::Char('K') => {
-                center.1 -= scale;
-                cursive::event::EventResult::Consumed(None)
-            }
-            cursive::event::Event::Char('J') => {
-                center.1 += scale;
-                cursive::event::EventResult::Consumed(None)
-            }
-            cursive::event::Event::Char('h') => {
-                center.0 -= 4 * scale;
-                cursive::event::EventResult::Consumed(None)
-            }
-            cursive::event::Event::Char('l') => {
-                center.0 += 4 * scale;
-                cursive::event::EventResult::Consumed(None)
-            }
-            cursive::event::Event::Char('k') => {
-                center.1 -= 4 * scale;
-                cursive::event::EventResult::Consumed(None)
-            }
-            cursive::event::Event::Char('j') => {
-                center.1 += 4 * scale;
-                cursive::event::EventResult::Consumed(None)
-            }
-            cursive::event::Event::Key(cursive::event::Key::Left) => {
-                center.0 -= 4 * scale;
-                cursive::event::EventResult::Consumed(None)
-            }
-            cursive::event::Event::Key(cursive::event::Key::Right) => {
-                center.0 += 4 * scale;
-                cursive::event::EventResult::Consumed(None)
-            }
-            cursive::event::Event::Key(cursive::event::Key::Up) => {
-                center.1 -= 4 * scale;
-                cursive::event::EventResult::Consumed(None)
-            }
-            cursive::event::Event::Key(cursive::event::Key::Down) => {
-                center.1 += 4 * scale;
-                cursive::event::EventResult::Consumed(None)
-            }
-            _ => cursive::event::EventResult::Ignored,
-        }
-    }
 }
 
 pub fn main_view(state: &State) -> cursive::views::LinearLayout {
@@ -351,6 +324,11 @@ pub fn main_view(state: &State) -> cursive::views::LinearLayout {
                 .child(cursive::views::PaddedView::new(
                     padding,
                     StepView::new(state.step.clone()),
+                ))
+                .child(cursive::views::TextView::new("|"))
+                .child(cursive::views::PaddedView::new(
+                    padding,
+                    IsRunningView::new(state.is_running.clone()),
                 ))
                 .child(cursive::view::Boxable::full_width(
                     cursive::views::DummyView,
