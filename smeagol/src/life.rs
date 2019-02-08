@@ -23,6 +23,7 @@ impl Life {
         }
     }
 
+    #[cfg(feature = "import-rle")]
     fn from_rle(rle: rle::Rle) -> Result<Self, rle::RleError> {
         let mut alive_cells = rle
             .alive_cells()
@@ -108,8 +109,8 @@ impl Life {
         self.root = self.root.set_cell(&mut self.store, x, y, cell);
     }
 
-    pub fn get_alive_cells(&mut self) -> Vec<(i64, i64)> {
-        self.root.get_alive_cells(&mut self.store)
+    pub fn get_alive_cells(&self) -> Vec<(i64, i64)> {
+        self.root.get_alive_cells(&self.store)
     }
 
     pub fn contains_alive_cells(&mut self, min: (i64, i64), max: (i64, i64)) -> bool {
@@ -120,7 +121,7 @@ impl Life {
         {
             self.root = self.root.expand(&mut self.store);
         }
-        self.root.contains_alive_cells(&mut self.store, min, max)
+        self.root.contains_alive_cells(&self.store, min, max)
     }
 }
 
@@ -161,7 +162,7 @@ impl Life {
         }
     }
 
-    pub fn step_pow_2(&mut self, step_log_2: u8) {
+    fn step_pow_2(&mut self, step_log_2: u8) {
         self.pad();
         let level_cutoff = step_log_2 + 2;
         while self.root.level() < level_cutoff {

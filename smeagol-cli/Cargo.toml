@@ -10,6 +10,7 @@ clap = "2.32"
 cursive = "0.10"
 lazy_static = "1.2"
 smeagol = { path = "../smeagol" }
+termion = "1.5"
 
 [dev-dependencies]
 assert_cmd = "0.11"

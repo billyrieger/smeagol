@@ -190,7 +190,7 @@ impl Node {
         }
     }
 
-    pub fn get_alive_cells(&self, store: &mut Store) -> Vec<(i64, i64)> {
+    pub fn get_alive_cells(&self, store: &Store) -> Vec<(i64, i64)> {
         match self.base {
             NodeBase::Leaf { alive } => {
                 if alive {
@@ -278,12 +278,7 @@ impl Node {
         self.set_cells_alive_recursive(store, coords, 0, 0)
     }
 
-    pub fn contains_alive_cells(
-        &self,
-        store: &mut Store,
-        min: (i64, i64),
-        max: (i64, i64),
-    ) -> bool {
+    pub fn contains_alive_cells(&self, store: &Store, min: (i64, i64), max: (i64, i64)) -> bool {
         assert!(min.0 >= self.min_coord());
         assert!(min.1 >= self.min_coord());
         assert!(min.0 <= self.max_coord());
