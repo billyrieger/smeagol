@@ -114,15 +114,14 @@ enum NodeBase {
 /// # let x = 0;
 /// # let y = 0;
 /// let quadrant = match (x < 0, y < 0) {
-///    (true, true) => "northwest",
-///    (true, false) => "southwest",
-///    (false, true) => "northeast",
-///    (false, false) => "southeast",
+///     (true, true) => "northwest",
+///     (true, false) => "southwest",
+///     (false, true) => "northeast",
+///     (false, false) => "southeast",
 /// };
 /// ```
 ///
 /// For level 0 node (leaf node), the only valid coordinate is `(0, 0)`.
-///
 #[derive(Clone, Copy, Debug)]
 pub struct Node {
     base: NodeBase,
@@ -142,7 +141,9 @@ impl Node {
 
     pub(crate) fn new_level_one(cells: u8) -> Self {
         Self {
-            base: NodeBase::LevelOne { cells: cells & LEVEL_ONE_MASK },
+            base: NodeBase::LevelOne {
+                cells: cells & LEVEL_ONE_MASK,
+            },
             level: 1,
             index: None,
         }
@@ -259,4 +260,3 @@ impl PartialEq for Node {
         self.base == other.base
     }
 }
-

@@ -77,7 +77,7 @@ impl Store {
     ///
     /// ```
     /// let mut store = smeagol::Store::new();
-    /// 
+    ///
     /// let ne = store.create_random_filled(3, 0.5);
     /// let nw = store.create_random_filled(3, 0.5);
     /// let se = store.create_random_filled(3, 0.5);
@@ -126,7 +126,7 @@ impl Store {
     ///
     /// ```
     /// let mut store = smeagol::Store::new();
-    /// 
+    ///
     /// // 16 by 16 grid of dead cells
     /// let empty = store.create_empty(4);
     /// assert_eq!(empty.population(&store), 0);

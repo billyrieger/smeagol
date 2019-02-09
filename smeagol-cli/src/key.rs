@@ -169,7 +169,11 @@ fn decrease_scale(scale: &Arc<Mutex<u64>>) {
     }
 }
 
-fn zoom_to_fit(life: &Arc<Mutex<smeagol::Life>>, center: &Arc<Mutex<(i64, i64)>>, scale: &Arc<Mutex<u64>>) {
+fn zoom_to_fit(
+    life: &Arc<Mutex<smeagol::Life>>,
+    center: &Arc<Mutex<(i64, i64)>>,
+    scale: &Arc<Mutex<u64>>,
+) {
     let alive_cells = life.lock().unwrap().get_alive_cells();
     if !alive_cells.is_empty() {
         let (output_width, output_height) = term_size::dimensions().unwrap();
@@ -183,8 +187,7 @@ fn zoom_to_fit(life: &Arc<Mutex<smeagol::Life>>, center: &Arc<Mutex<(i64, i64)>>
         let height = (y_max - y_min + 1) as f64;
         let new_scale = ((width / ((output_width as f64) * 2.))
             .ceil()
-            .max((height / ((output_height as f64) * 4.)).ceil())
-            as u64)
+            .max((height / ((output_height as f64) * 4.)).ceil()) as u64)
             .next_power_of_two();
         *center.lock().unwrap() = new_center;
         *scale.lock().unwrap() = new_scale;

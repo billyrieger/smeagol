@@ -356,13 +356,38 @@ pub fn add_main_view(siv: &mut cursive::Cursive, state: &State) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cursive::view::View;
+
+    #[test]
+    fn life_view() {
+        let theme = cursive::theme::Theme::default();
+        let backend = cursive::backend::dummy::Backend::init();
+        let printer = cursive::Printer::new((1, 1), &theme, &*backend);
+
+        let view = LifeView::new(
+            Arc::new(Mutex::new(smeagol::Life::new())),
+            Arc::new(Mutex::new((0, 0))),
+            Arc::new(Mutex::new(1)),
+        );
+        view.draw(&printer);
+    }
 
     #[test]
     fn is_running_view() {
-        let running = IsRunningView::new(Arc::new(AtomicBool::new(true)));
-        let stopped = IsRunningView::new(Arc::new(AtomicBool::new(false)));
+        let theme = cursive::theme::Theme::default();
+        let backend = cursive::backend::dummy::Backend::init();
+        let printer = cursive::Printer::new((1, 1), &theme, &*backend);
+
+        let mut running = IsRunningView::new(Arc::new(AtomicBool::new(true)));
+        let mut stopped = IsRunningView::new(Arc::new(AtomicBool::new(false)));
 
         assert_eq!(running.format(), "running".to_owned());
         assert_eq!(stopped.format(), "stopped".to_owned());
+
+        running.draw(&printer);
+        stopped.draw(&printer);
+
+        assert_eq!(running.required_size((0, 0).into()), ("running".len(), 1).into());
+        assert_eq!(stopped.required_size((0, 0).into()), ("running".len(), 1).into());
     }
 }
