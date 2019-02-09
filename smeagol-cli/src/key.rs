@@ -192,7 +192,10 @@ fn quit(siv: &mut cursive::Cursive) {
 
 fn show_help(siv: &mut cursive::Cursive) {
     let mut stack = siv.find_id::<cursive::views::StackView>("stack").unwrap();
-    if stack.get(cursive::views::LayerPosition::FromBack(1)).is_some() {
+    if stack
+        .get(cursive::views::LayerPosition::FromBack(1))
+        .is_some()
+    {
         stack.pop_layer();
     } else {
         let mut help_list = cursive::views::ListView::new();
@@ -208,7 +211,10 @@ fn show_help(siv: &mut cursive::Cursive) {
                 cursive::views::TextView::new(key_command.description),
             );
         }
-        stack.add_layer(cursive::views::IdView::new("help", cursive::views::PaddedView::new(((2, 2), (1, 1)), help_list)));
+        stack.add_layer(cursive::views::IdView::new(
+            "help",
+            cursive::views::PaddedView::new(((2, 2), (1, 1)), help_list),
+        ));
     }
 }
 
