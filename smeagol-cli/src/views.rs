@@ -1,5 +1,8 @@
 use crate::State;
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 
 struct IsRunningView {
     is_running: Arc<AtomicBool>,
@@ -343,4 +346,18 @@ pub fn main_view(state: &State) -> cursive::views::LinearLayout {
                     ScaleView::new(state.scale.clone()),
                 )),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_running_view() {
+        let running = IsRunningView::new(Arc::new(AtomicBool::new(true)));
+        let stopped = IsRunningView::new(Arc::new(AtomicBool::new(false)));
+
+        assert_eq!(running.format(), "running".to_owned());
+        assert_eq!(stopped.format(), "stopped".to_owned());
+    }
 }

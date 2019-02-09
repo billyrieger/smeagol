@@ -77,7 +77,6 @@ pub enum Key {
     Down,
     Left,
     Right,
-    Enter,
 }
 
 impl Key {
@@ -88,7 +87,6 @@ impl Key {
             Key::Down => cursive::event::Event::Key(cursive::event::Key::Down),
             Key::Left => cursive::event::Event::Key(cursive::event::Key::Left),
             Key::Right => cursive::event::Event::Key(cursive::event::Key::Right),
-            Key::Enter => cursive::event::Event::Key(cursive::event::Key::Enter),
         }
     }
 }
@@ -115,6 +113,8 @@ pub struct KeyCommand {
 }
 
 const MOVEMENT_FACTOR: u64 = 4;
+const MIN_SCALE: u64 = 1;
+const MAX_SCALE: u64 = 1 << 48;
 
 fn pan_down(center: &Arc<Mutex<(i64, i64)>>, scale: &Arc<Mutex<u64>>) {
     let mut center = center.lock().unwrap();
@@ -142,14 +142,14 @@ fn toggle_simulation(is_running: &Arc<AtomicBool>) {
 
 fn increase_scale(scale: &Arc<Mutex<u64>>) {
     let mut scale = scale.lock().unwrap();
-    if *scale < (1 << 63) {
+    if *scale < MAX_SCALE {
         *scale <<= 1;
     }
 }
 
 fn decrease_scale(scale: &Arc<Mutex<u64>>) {
     let mut scale = scale.lock().unwrap();
-    if *scale > 1 {
+    if *scale > MIN_SCALE {
         *scale >>= 1;
     }
 }
@@ -253,5 +253,55 @@ pub fn setup_key_commands(siv: &mut cursive::Cursive, state: &State) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn change_scale() {
+        let scale = Arc::new(Mutex::new(8));
+
+        increase_scale(&scale);
+        assert_eq!(*scale.lock().unwrap(), 16);
+
+        decrease_scale(&scale);
+        assert_eq!(*scale.lock().unwrap(), 8);
+
+        let min_scale = Arc::new(Mutex::new(MIN_SCALE));
+        decrease_scale(&min_scale);
+        assert_eq!(*min_scale.lock().unwrap(), MIN_SCALE);
+
+        let max_scale = Arc::new(Mutex::new(MAX_SCALE));
+        increase_scale(&max_scale);
+        assert_eq!(*max_scale.lock().unwrap(), MAX_SCALE);
+    }
+
+    #[test]
+    fn pan() {
+        let center = Arc::new(Mutex::new((0, 0)));
+        let scale = Arc::new(Mutex::new(4));
+
+        pan_down(&center, &scale);
+        assert_eq!(*center.lock().unwrap(), (0, 4 * MOVEMENT_FACTOR as i64));
+
+        pan_up(&center, &scale);
+        assert_eq!(*center.lock().unwrap(), (0, 0));
+
+        pan_right(&center, &scale);
+        assert_eq!(*center.lock().unwrap(), (4 * MOVEMENT_FACTOR as i64, 0));
+
+        pan_left(&center, &scale);
+        assert_eq!(*center.lock().unwrap(), (0, 0));
+    }
+
+    #[test]
+    fn dummy_setup_key_commands() {
+        let mut siv = cursive::Cursive::dummy();
+        let life = smeagol::Life::new();
+        let state = State::new_centered(life, 20, 20);
+        setup_key_commands(&mut siv, &state);
     }
 }
