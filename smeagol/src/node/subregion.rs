@@ -3,6 +3,7 @@ use crate::{
     Cell, Node, NodeTemplate, Store,
 };
 
+/// Methods for extracting subregions of a node.
 impl Node {
     pub fn expand(&self, store: &mut Store) -> Node {
         assert!(self.level >= 1);
@@ -43,6 +44,21 @@ impl Node {
         store.create_interior(NodeTemplate { ne, nw, se, sw })
     }
 
+    /// Returns the northeast quadrant of the node.  
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+
+    /// |   | * |
+    /// +---+---+
+    /// |   |   |
+    /// +---+---+
+    /// ```
     pub fn ne(&self, store: &Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
@@ -61,6 +77,21 @@ impl Node {
         }
     }
 
+    /// Returns the northwest quadrant of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+
+    /// | * |   |
+    /// +---+---+
+    /// |   |   |
+    /// +---+---+
+    /// ```
     pub fn nw(&self, store: &Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
@@ -78,6 +109,21 @@ impl Node {
         }
     }
 
+    /// Returns the southeast quadrant of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+
+    /// |   |   |
+    /// +---+---+
+    /// |   | * |
+    /// +---+---+
+    /// ```
     pub fn se(&self, store: &Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
@@ -96,6 +142,21 @@ impl Node {
         }
     }
 
+    /// Returns the southwest quadrant of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+
+    /// |   |   |
+    /// +---+---+
+    /// | * |   |
+    /// +---+---+
+    /// ```
     pub fn sw(&self, store: &Store) -> Node {
         assert!(self.level >= 1);
         match self.base {
@@ -113,6 +174,23 @@ impl Node {
         }
     }
 
+    /// Returns the center subnode of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the level of the node is less than 2.
+    ///
+    /// ```txt
+    /// +---+---+---+---+
+    /// |   |   |   |   |
+    /// +---+---+---+---+
+    /// |   | * | * |   |
+    /// +---+---+---+---+
+    /// |   | * | * |   |
+    /// +---+---+---+---+
+    /// |   |   |   |   |
+    /// +---+---+---+---+
+    /// ```
     pub fn center_subnode(&self, store: &mut Store) -> Node {
         assert!(self.level >= 2);
 
@@ -124,6 +202,33 @@ impl Node {
         store.create_interior(NodeTemplate { ne, nw, se, sw })
     }
 
+    /// Returns the north subsubnode of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the level of the node is less than 3.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   | * | * |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   | * | * |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// ```
     pub fn north_subsubnode(&self, store: &mut Store) -> Node {
         assert!(self.level >= 3);
 
@@ -133,6 +238,33 @@ impl Node {
         Self::centered_horiz(store, e, w)
     }
 
+    /// Returns the south subsubnode of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the level of the node is less than 3.
+    ///
+    /// # Diagram
+    ///  
+    /// ```txt
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   | * | * |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   | * | * |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// ```
     pub fn south_subsubnode(&self, store: &mut Store) -> Node {
         assert!(self.level >= 3);
 
@@ -142,6 +274,33 @@ impl Node {
         Self::centered_horiz(store, e, w)
     }
 
+    /// Returns the east subsubnode of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the level of the node is less than 3.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   | * | * |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   | * | * |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// ```
     pub fn east_subsubnode(&self, store: &mut Store) -> Node {
         assert!(self.level >= 3);
 
@@ -151,6 +310,33 @@ impl Node {
         Self::centered_vert(store, n, s)
     }
 
+    /// Returns the west subsubnode of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the level of the node is less than 3.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   | * | * |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   | * | * |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// ```
     pub fn west_subsubnode(&self, store: &mut Store) -> Node {
         assert!(self.level >= 3);
 
@@ -160,6 +346,27 @@ impl Node {
         Self::centered_vert(store, n, s)
     }
 
+    /// Given two horizontally adjacent nodes, returns the subnode halfway
+    /// between them.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the nodes have different levels or the level of the nodes is
+    /// less than 2.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   | * | * |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   | * | * |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// ```
     fn centered_horiz(store: &mut Store, e: Node, w: Node) -> Node {
         assert_eq!(e.level, w.level);
         assert!(e.level >= 2);
@@ -172,6 +379,35 @@ impl Node {
         store.create_interior(NodeTemplate { ne, nw, se, sw })
     }
 
+    /// Given two vertically adjacent nodes, returns the subnode halfway between
+    /// them.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the nodes have different levels or the level of the nodes is
+    /// less than 2.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+---+---+
+    /// |   |   |   |   |
+    /// +---+---+---+---+
+    /// |   |   |   |   |
+    /// +---+---+---+---+
+    /// |   |   |   |   |
+    /// +---+---+---+---+
+    /// |   | * | * |   |
+    /// +---+---+---+---+
+    /// |   | * | * |   |
+    /// +---+---+---+---+
+    /// |   |   |   |   |
+    /// +---+---+---+---+
+    /// |   |   |   |   |
+    /// +---+---+---+---+
+    /// |   |   |   |   |
+    /// +---+---+---+---+
+    /// ```
     fn centered_vert(store: &mut Store, n: Node, s: Node) -> Node {
         assert_eq!(n.level, s.level);
         assert!(n.level >= 2);

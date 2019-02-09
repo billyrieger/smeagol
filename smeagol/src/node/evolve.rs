@@ -4,7 +4,7 @@ use crate::{
 };
 
 impl Node {
-    /// For a level `n` node, returns the center subnode of the node `2^(n-2)` ticks into the
+    /// For a level `n` node, returns the center subnode of the node `2^(n-2)` generations into the
     /// future.
     ///
     /// # Panics
@@ -166,7 +166,7 @@ impl Node {
         final_jump
     }
 
-    /// Returns the center subnode of the node `2^(cutoff-2)` ticks into the future.
+    /// Returns the center subnode of the node `2^(cutoff-2)` generations into the future.
     ///
     /// # Panics
     ///
@@ -282,7 +282,7 @@ impl Node {
         }
     }
 
-    /// Steps a level two node one tick into the future.
+    /// Steps a level two node one generation into the future.
     ///
     /// # Panics
     ///

@@ -5,15 +5,6 @@ use std::sync::{
     Arc, Mutex,
 };
 
-macro_rules! enclose {
-    ( ($( $x:ident ),*) $y:expr ) => {
-        {
-            $(let $x = $x.clone();)*
-            $y
-        }
-    };
-}
-
 lazy_static::lazy_static! {
     static ref KEY_COMMANDS: Vec<KeyCommand> = {
         vec![
@@ -46,6 +37,11 @@ lazy_static::lazy_static! {
                 keys: vec![Key::Char(']')],
                 action: Action::DecreaseScale,
                 description: "zoom in"
+            },
+            KeyCommand {
+                keys: vec![Key::Char('f')],
+                action: Action::ZoomToFit,
+                description: "zoom to fit"
             },
             KeyCommand {
                 keys: vec![Key::Char(' ')],
@@ -121,6 +117,7 @@ pub enum Action {
     ToggleSimulation,
     Quit,
     ShowHelp,
+    ZoomToFit,
 }
 
 #[derive(Clone, Debug)]
@@ -169,6 +166,31 @@ fn decrease_scale(scale: &Arc<Mutex<u64>>) {
     let mut scale = scale.lock().unwrap();
     if *scale > MIN_SCALE {
         *scale >>= 1;
+    }
+}
+
+fn zoom_to_fit(life: &Arc<Mutex<smeagol::Life>>, center: &Arc<Mutex<(i64, i64)>>, scale: &Arc<Mutex<u64>>) {
+    let alive_cells = life.lock().unwrap().get_alive_cells();
+    if !alive_cells.is_empty() {
+        let (output_width, output_height) = term_size::dimensions().unwrap();
+        let x_min = alive_cells.iter().map(|(x, _)| x).min().cloned().unwrap();
+        let y_min = alive_cells.iter().map(|(_, y)| y).min().cloned().unwrap();
+        let x_max = alive_cells.iter().map(|(x, _)| x).max().cloned().unwrap();
+        let y_max = alive_cells.iter().map(|(_, y)| y).max().cloned().unwrap();
+
+        let new_center = ((x_min + x_max) / 2, (y_min + y_max) / 2);
+        let width = (x_max - x_min + 1) as f64;
+        let height = (y_max - y_min + 1) as f64;
+        let new_scale = ((width / ((output_width as f64) * 2.))
+            .ceil()
+            .max((height / ((output_height as f64) * 4.)).ceil())
+            as u64)
+            .next_power_of_two();
+        *center.lock().unwrap() = new_center;
+        *scale.lock().unwrap() = new_scale;
+    } else {
+        *center.lock().unwrap() = (0, 0);
+        *scale.lock().unwrap() = 1;
     }
 }
 
@@ -267,6 +289,14 @@ pub fn setup_key_commands(siv: &mut cursive::Cursive, state: &State) {
                         key.into_event(),
                         enclose!((state) move |_: &mut cursive::Cursive| {
                             decrease_scale(&state.scale)
+                        }),
+                    );
+                }
+                Action::ZoomToFit => {
+                    siv.add_global_callback(
+                        key.into_event(),
+                        enclose!((state) move |_: &mut cursive::Cursive| {
+                            zoom_to_fit(&state.life, &state.center, &state.scale)
                         }),
                     );
                 }

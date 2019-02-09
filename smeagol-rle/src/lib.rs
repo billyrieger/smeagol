@@ -1,3 +1,4 @@
+//! Crate for working with run-length encoded (RLE) Life patterns.
 #[macro_use]
 extern crate nom;
 
@@ -118,9 +119,9 @@ impl Rle {
     ///
     /// # Examples
     ///
-    /// ```should_panic
+    /// ```
     /// # fn main() -> Result<(), smeagol_rle::RleError> {
-    /// let rle = smeagol_rle::Rle::from_file("./glider.rle")?;
+    /// let rle = smeagol_rle::Rle::from_file("./assets/breeder1.rle")?;
     /// # Ok(())
     /// # }
     /// ```
