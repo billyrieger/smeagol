@@ -1,4 +1,5 @@
 use crate::State;
+use itertools::Itertools;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
@@ -37,21 +38,6 @@ lazy_static::lazy_static! {
                 description: "pan right"
             },
             KeyCommand {
-                keys: vec![Key::Char(' ')],
-                action: Action::ToggleSimulation,
-                description: "start/stop simulation"
-            },
-            KeyCommand {
-                keys: vec![Key::Char('='), Key::Char('+')],
-                action: Action::IncreaseStep,
-                description: "increase step size by a factor of 2"
-            },
-            KeyCommand {
-                keys: vec![Key::Char('-'), Key::Char('_')],
-                action: Action::DecreaseStep,
-                description: "decrease step size by a factor of 2"
-            },
-            KeyCommand {
                 keys: vec![Key::Char('[')],
                 action: Action::IncreaseScale,
                 description: "zoom out"
@@ -62,9 +48,29 @@ lazy_static::lazy_static! {
                 description: "zoom in"
             },
             KeyCommand {
+                keys: vec![Key::Char(' ')],
+                action: Action::ToggleSimulation,
+                description: "start/stop simulation"
+            },
+            KeyCommand {
+                keys: vec![Key::Char('=')],
+                action: Action::IncreaseStep,
+                description: "increase step size by a factor of 2"
+            },
+            KeyCommand {
+                keys: vec![Key::Char('-')],
+                action: Action::DecreaseStep,
+                description: "decrease step size by a factor of 2"
+            },
+            KeyCommand {
                 keys: vec![Key::Char('q')],
                 action: Action::Quit,
                 description: "quit"
+            },
+            KeyCommand {
+                keys: vec![Key::Char('?')],
+                action: Action::ShowHelp,
+                description: "toggle help"
             },
         ]
     };
@@ -89,6 +95,17 @@ impl Key {
             Key::Right => cursive::event::Event::Key(cursive::event::Key::Right),
         }
     }
+
+    fn display(self) -> String {
+        match self {
+            Key::Char(' ') => "<space>".to_owned(),
+            Key::Char(c) => format!("{}", c),
+            Key::Up => "↑".to_owned(),
+            Key::Down => "↓".to_owned(),
+            Key::Left => "←".to_owned(),
+            Key::Right => "→".to_owned(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -103,6 +120,7 @@ pub enum Action {
     DecreaseScale,
     ToggleSimulation,
     Quit,
+    ShowHelp,
 }
 
 #[derive(Clone, Debug)]
@@ -170,6 +188,28 @@ fn decrease_step(step: &Arc<Mutex<u64>>) {
 
 fn quit(siv: &mut cursive::Cursive) {
     siv.quit()
+}
+
+fn show_help(siv: &mut cursive::Cursive) {
+    let mut stack = siv.find_id::<cursive::views::StackView>("stack").unwrap();
+    if stack.get(cursive::views::LayerPosition::FromBack(1)).is_some() {
+        stack.pop_layer();
+    } else {
+        let mut help_list = cursive::views::ListView::new();
+        for key_command in KEY_COMMANDS.iter() {
+            let label = key_command
+                .keys
+                .iter()
+                .map(|key| key.display())
+                .intersperse(", ".to_owned())
+                .collect::<String>();
+            help_list.add_child(
+                &label,
+                cursive::views::TextView::new(key_command.description),
+            );
+        }
+        stack.add_layer(cursive::views::IdView::new("help", cursive::views::PaddedView::new(((2, 2), (1, 1)), help_list)));
+    }
 }
 
 pub fn setup_key_commands(siv: &mut cursive::Cursive, state: &State) {
@@ -250,6 +290,9 @@ pub fn setup_key_commands(siv: &mut cursive::Cursive, state: &State) {
                 }
                 Action::Quit => {
                     siv.add_global_callback(key.into_event(), quit);
+                }
+                Action::ShowHelp => {
+                    siv.add_global_callback(key.into_event(), show_help);
                 }
             }
         }

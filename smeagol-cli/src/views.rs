@@ -304,48 +304,53 @@ impl cursive::view::View for LifeView {
     }
 }
 
-pub fn main_view(state: &State) -> cursive::views::LinearLayout {
+pub fn add_main_view(siv: &mut cursive::Cursive, state: &State) {
     let padding = ((1, 1), (0, 0));
-    cursive::views::LinearLayout::vertical()
-        .child(cursive::view::Boxable::full_screen(LifeView::new(
-            state.life.clone(),
-            state.center.clone(),
-            state.scale.clone(),
-        )))
-        .child(
-            cursive::views::LinearLayout::horizontal()
-                .child(cursive::views::PaddedView::new(
-                    padding,
-                    GenerationView::new(state.life.clone()),
-                ))
-                .child(cursive::views::TextView::new("|"))
-                .child(cursive::views::PaddedView::new(
-                    padding,
-                    PopulationView::new(state.life.clone()),
-                ))
-                .child(cursive::views::TextView::new("|"))
-                .child(cursive::views::PaddedView::new(
-                    padding,
-                    StepView::new(state.step.clone()),
-                ))
-                .child(cursive::views::TextView::new("|"))
-                .child(cursive::views::PaddedView::new(
-                    padding,
-                    IsRunningView::new(state.is_running.clone()),
-                ))
-                .child(cursive::view::Boxable::full_width(
-                    cursive::views::DummyView,
-                ))
-                .child(cursive::views::PaddedView::new(
-                    padding,
-                    CenterView::new(state.center.clone()),
-                ))
-                .child(cursive::views::TextView::new("|"))
-                .child(cursive::views::PaddedView::new(
-                    padding,
-                    ScaleView::new(state.scale.clone()),
-                )),
-        )
+    let mut stack = cursive::views::StackView::new();
+    stack.add_fullscreen_layer(
+        cursive::views::LinearLayout::vertical()
+            .child(cursive::view::Boxable::full_screen(LifeView::new(
+                state.life.clone(),
+                state.center.clone(),
+                state.scale.clone(),
+            )))
+            .child(
+                cursive::views::LinearLayout::horizontal()
+                    .child(cursive::views::PaddedView::new(
+                        padding,
+                        GenerationView::new(state.life.clone()),
+                    ))
+                    .child(cursive::views::TextView::new("|"))
+                    .child(cursive::views::PaddedView::new(
+                        padding,
+                        PopulationView::new(state.life.clone()),
+                    ))
+                    .child(cursive::views::TextView::new("|"))
+                    .child(cursive::views::PaddedView::new(
+                        padding,
+                        StepView::new(state.step.clone()),
+                    ))
+                    .child(cursive::views::TextView::new("|"))
+                    .child(cursive::views::PaddedView::new(
+                        padding,
+                        IsRunningView::new(state.is_running.clone()),
+                    ))
+                    .child(cursive::view::Boxable::full_width(
+                        cursive::views::DummyView,
+                    ))
+                    .child(cursive::views::PaddedView::new(
+                        padding,
+                        CenterView::new(state.center.clone()),
+                    ))
+                    .child(cursive::views::TextView::new("|"))
+                    .child(cursive::views::PaddedView::new(
+                        padding,
+                        ScaleView::new(state.scale.clone()),
+                    )),
+            ),
+    );
+    let stack_with_id = cursive::views::IdView::new("stack", stack);
+    siv.add_fullscreen_layer(stack_with_id)
 }
 
 #[cfg(test)]

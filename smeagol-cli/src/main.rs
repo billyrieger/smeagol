@@ -11,10 +11,8 @@ fn run(siv: &mut cursive::Cursive) -> Result<(), Error> {
 
     let state = smeagol_cli::State::new_centered(life, term_width as u64, term_height as u64);
 
-    siv.add_fullscreen_layer(smeagol_cli::views::main_view(&state));
-
+    smeagol_cli::views::add_main_view(siv, &state);
     smeagol_cli::key::setup_key_commands(siv, &state);
-
     smeagol_cli::start_smeagol_thread(siv, &state);
 
     siv.run();

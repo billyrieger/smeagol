@@ -8,6 +8,7 @@ edition = "2018"
 braille = "1.0"
 clap = "2.32"
 cursive = "0.10"
+itertools = "0.8"
 lazy_static = "1.2"
 smeagol = { path = "../smeagol" }
 term_size = "0.3"
