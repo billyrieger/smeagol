@@ -67,7 +67,7 @@ pub fn start_smeagol_thread(siv: &mut cursive::Cursive, state: &State) {
     let sink = siv.cb_sink().clone();
 
     std::thread::spawn(enclose!((state, sink) move || loop {
-        let delay = state.delay_millis.lock().unwrap().clone();
+        let delay = *state.delay_millis.lock().unwrap();
         std::thread::sleep(std::time::Duration::from_millis(delay));
         if state.is_running.load(Ordering::SeqCst) {
             state.life.lock().unwrap().step(*state.step.lock().unwrap());

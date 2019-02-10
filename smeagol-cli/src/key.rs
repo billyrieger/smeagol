@@ -29,6 +29,26 @@ lazy_static::lazy_static! {
                 description: "pan right"
             },
             KeyCommand {
+                keys: vec![Key::ShiftUp, Key::Char('K')],
+                action: Action::PanUpSmall,
+                description: "pan up (small)"
+            },
+            KeyCommand {
+                keys: vec![Key::ShiftDown, Key::Char('J')],
+                action: Action::PanDownSmall,
+                description: "pan down (small)"
+            },
+            KeyCommand {
+                keys: vec![Key::ShiftLeft, Key::Char('H')],
+                action: Action::PanLeftSmall,
+                description: "pan left (small)"
+            },
+            KeyCommand {
+                keys: vec![Key::ShiftRight, Key::Char('L')],
+                action: Action::PanRightSmall,
+                description: "pan right (small)"
+            },
+            KeyCommand {
                 keys: vec![Key::Char('[')],
                 action: Action::IncreaseScale,
                 description: "zoom out"
@@ -44,7 +64,7 @@ lazy_static::lazy_static! {
                 description: "zoom to fit (might be slow)"
             },
             KeyCommand {
-                keys: vec![Key::Char(' ')],
+                keys: vec![Key::Enter],
                 action: Action::ToggleSimulation,
                 description: "start/stop simulation"
             },
@@ -85,20 +105,30 @@ lazy_static::lazy_static! {
 #[derive(Clone, Copy, Debug)]
 pub enum Key {
     Char(char),
+    Enter,
     Up,
     Down,
     Left,
     Right,
+    ShiftUp,
+    ShiftDown,
+    ShiftLeft,
+    ShiftRight,
 }
 
 impl Key {
     fn into_event(self) -> cursive::event::Event {
         match self {
             Key::Char(c) => cursive::event::Event::Char(c),
+            Key::Enter => cursive::event::Event::Key(cursive::event::Key::Enter),
             Key::Up => cursive::event::Event::Key(cursive::event::Key::Up),
             Key::Down => cursive::event::Event::Key(cursive::event::Key::Down),
             Key::Left => cursive::event::Event::Key(cursive::event::Key::Left),
             Key::Right => cursive::event::Event::Key(cursive::event::Key::Right),
+            Key::ShiftUp => cursive::event::Event::Shift(cursive::event::Key::Up),
+            Key::ShiftDown => cursive::event::Event::Shift(cursive::event::Key::Down),
+            Key::ShiftLeft => cursive::event::Event::Shift(cursive::event::Key::Left),
+            Key::ShiftRight => cursive::event::Event::Shift(cursive::event::Key::Right),
         }
     }
 
@@ -106,10 +136,15 @@ impl Key {
         match self {
             Key::Char(' ') => "<space>".to_owned(),
             Key::Char(c) => format!("{}", c),
+            Key::Enter => "<enter>".to_owned(),
             Key::Up => "↑".to_owned(),
             Key::Down => "↓".to_owned(),
             Key::Left => "←".to_owned(),
             Key::Right => "→".to_owned(),
+            Key::ShiftUp => "<shift> ↑".to_owned(),
+            Key::ShiftDown => "<shift> ↓".to_owned(),
+            Key::ShiftLeft => "<shift> ←".to_owned(),
+            Key::ShiftRight => "<shift> →".to_owned(),
         }
     }
 }
@@ -120,6 +155,10 @@ pub enum Action {
     PanRight,
     PanUp,
     PanDown,
+    PanLeftSmall,
+    PanRightSmall,
+    PanUpSmall,
+    PanDownSmall,
     IncreaseStep,
     DecreaseStep,
     IncreaseScale,
@@ -164,6 +203,26 @@ fn pan_right(center: &Arc<Mutex<(i64, i64)>>, scale: &Arc<Mutex<u64>>) {
     center.0 += (MOVEMENT_FACTOR * *scale.lock().unwrap()) as i64;
 }
 
+fn pan_down_small(center: &Arc<Mutex<(i64, i64)>>, scale: &Arc<Mutex<u64>>) {
+    let mut center = center.lock().unwrap();
+    center.1 += *scale.lock().unwrap() as i64;
+}
+
+fn pan_up_small(center: &Arc<Mutex<(i64, i64)>>, scale: &Arc<Mutex<u64>>) {
+    let mut center = center.lock().unwrap();
+    center.1 -= *scale.lock().unwrap() as i64;
+}
+
+fn pan_left_small(center: &Arc<Mutex<(i64, i64)>>, scale: &Arc<Mutex<u64>>) {
+    let mut center = center.lock().unwrap();
+    center.0 -= *scale.lock().unwrap() as i64;
+}
+
+fn pan_right_small(center: &Arc<Mutex<(i64, i64)>>, scale: &Arc<Mutex<u64>>) {
+    let mut center = center.lock().unwrap();
+    center.0 += *scale.lock().unwrap() as i64;
+}
+
 fn toggle_simulation(is_running: &Arc<AtomicBool>) {
     is_running.store(!is_running.load(Ordering::SeqCst), Ordering::SeqCst);
 }
@@ -200,7 +259,7 @@ fn zoom_to_fit(
         let height = (y_max - y_min + 1) as f64;
         let new_scale = ((width / ((output_width as f64) * 2.))
             .ceil()
-            .max((height / ((output_height as f64) * 4.)).ceil()) as u64)
+            .max((height / (((output_height - 1) as f64) * 4.)).ceil()) as u64)
             .next_power_of_two();
         *center.lock().unwrap() = new_center;
         *scale.lock().unwrap() = new_scale;
@@ -303,6 +362,38 @@ pub fn setup_key_commands(siv: &mut cursive::Cursive, state: &State) {
                         key.into_event(),
                         enclose!((state) move |_: &mut cursive::Cursive| {
                             pan_right(&state.center, &state.scale)
+                        }),
+                    );
+                }
+                Action::PanDownSmall => {
+                    siv.add_global_callback(
+                        key.into_event(),
+                        enclose!((state) move |_: &mut cursive::Cursive| {
+                            pan_down_small(&state.center, &state.scale)
+                        }),
+                    );
+                }
+                Action::PanUpSmall => {
+                    siv.add_global_callback(
+                        key.into_event(),
+                        enclose!((state) move |_: &mut cursive::Cursive| {
+                            pan_up_small(&state.center, &state.scale)
+                        }),
+                    );
+                }
+                Action::PanLeftSmall => {
+                    siv.add_global_callback(
+                        key.into_event(),
+                        enclose!((state) move |_: &mut cursive::Cursive| {
+                            pan_left_small(&state.center, &state.scale)
+                        }),
+                    );
+                }
+                Action::PanRightSmall => {
+                    siv.add_global_callback(
+                        key.into_event(),
+                        enclose!((state) move |_: &mut cursive::Cursive| {
+                            pan_right_small(&state.center, &state.scale)
                         }),
                     );
                 }

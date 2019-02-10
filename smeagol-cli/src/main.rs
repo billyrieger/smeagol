@@ -9,7 +9,7 @@ fn run(siv: &mut cursive::Cursive) -> Result<(), Error> {
     let life = smeagol::Life::from_rle_file(std::env::args().nth(1).ok_or(Error::NoInputFile)?)
         .map_err(|_| Error::CannotReadFile)?;
 
-    let state = smeagol_cli::State::new_centered(life, term_width as u64, term_height as u64);
+    let state = smeagol_cli::State::new_centered(life, term_width as u64, (term_height - 1) as u64);
 
     smeagol_cli::views::add_main_view(siv, &state);
     smeagol_cli::key::setup_key_commands(siv, &state);

@@ -87,11 +87,11 @@ enum NodeBase {
 ///
 /// # Introduction
 ///
-/// A level `n` node represents a `2^n` by `2^n` square grid of alive or dead cells. A level 0 node
+/// A level `n` node represents a `2^n` by `2^n` square grid of dead or alive cells. A level 0 node
 /// is called a leaf node, which contains a single cell. Leaf nodes (as well as level 1 and 2
 /// nodes) store their cells directly as bits. Higher-level nodes take a different approach: each
 /// node is itself composed of four smaller nodes, one for each quadrant. A node only has to store
-/// the indices of the four children nodes, since all nodes live in the store.
+/// the indices of its four children nodes, since all nodes live in the store.
 ///
 /// # Coordinate system
 ///
