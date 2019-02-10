@@ -83,6 +83,31 @@ impl cursive::view::View for PopulationView {
     }
 }
 
+struct DelayView {
+    delay: Arc<Mutex<u64>>,
+}
+
+impl DelayView {
+    fn new(delay: Arc<Mutex<u64>>) -> Self {
+        Self { delay }
+    }
+
+    fn format(&self) -> String {
+        format!("delay: {} ms", self.delay.lock().unwrap())
+    }
+}
+
+impl cursive::view::View for DelayView {
+    fn draw(&self, printer: &cursive::Printer) {
+        printer.print((0, 0), &self.format());
+    }
+
+    fn required_size(&mut self, _: cursive::vec::Vec2) -> cursive::vec::Vec2 {
+        // (width, height)
+        (self.format().len(), 1).into()
+    }
+}
+
 struct StepView {
     step: Arc<Mutex<u64>>,
 }
@@ -329,6 +354,11 @@ pub fn add_main_view(siv: &mut cursive::Cursive, state: &State) {
                     .child(cursive::views::PaddedView::new(
                         padding,
                         StepView::new(state.step.clone()),
+                    ))
+                    .child(cursive::views::TextView::new("|"))
+                    .child(cursive::views::PaddedView::new(
+                        padding,
+                        DelayView::new(state.delay_millis.clone()),
                     ))
                     .child(cursive::views::TextView::new("|"))
                     .child(cursive::views::PaddedView::new(

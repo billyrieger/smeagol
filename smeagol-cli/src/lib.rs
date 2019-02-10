@@ -22,6 +22,7 @@ pub struct State {
     pub step: Arc<Mutex<u64>>,
     pub scale: Arc<Mutex<u64>>,
     pub center: Arc<Mutex<(i64, i64)>>,
+    pub delay_millis: Arc<Mutex<u64>>,
 }
 
 impl State {
@@ -47,6 +48,7 @@ impl State {
                 step: Arc::new(Mutex::new(1)),
                 scale: Arc::new(Mutex::new(scale)),
                 center: Arc::new(Mutex::new(center)),
+                delay_millis: Arc::new(Mutex::new(32)),
             }
         } else {
             Self {
@@ -55,6 +57,7 @@ impl State {
                 step: Arc::new(Mutex::new(1)),
                 scale: Arc::new(Mutex::new(1)),
                 center: Arc::new(Mutex::new((0, 0))),
+                delay_millis: Arc::new(Mutex::new(32)),
             }
         }
     }
@@ -64,7 +67,8 @@ pub fn start_smeagol_thread(siv: &mut cursive::Cursive, state: &State) {
     let sink = siv.cb_sink().clone();
 
     std::thread::spawn(enclose!((state, sink) move || loop {
-        std::thread::sleep(std::time::Duration::from_millis(33));
+        let delay = state.delay_millis.lock().unwrap().clone();
+        std::thread::sleep(std::time::Duration::from_millis(delay));
         if state.is_running.load(Ordering::SeqCst) {
             state.life.lock().unwrap().step(*state.step.lock().unwrap());
             // need to send something to trigger a redraw

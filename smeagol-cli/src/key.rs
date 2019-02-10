@@ -41,7 +41,7 @@ lazy_static::lazy_static! {
             KeyCommand {
                 keys: vec![Key::Char('f')],
                 action: Action::ZoomToFit,
-                description: "zoom to fit"
+                description: "zoom to fit (might be slow)"
             },
             KeyCommand {
                 keys: vec![Key::Char(' ')],
@@ -49,14 +49,24 @@ lazy_static::lazy_static! {
                 description: "start/stop simulation"
             },
             KeyCommand {
-                keys: vec![Key::Char('=')],
+                keys: vec![Key::Char('9')],
+                action: Action::DecreaseStep,
+                description: "decrease step size"
+            },
+            KeyCommand {
+                keys: vec![Key::Char('0')],
                 action: Action::IncreaseStep,
-                description: "increase step size by a factor of 2"
+                description: "increase step size"
             },
             KeyCommand {
                 keys: vec![Key::Char('-')],
-                action: Action::DecreaseStep,
-                description: "decrease step size by a factor of 2"
+                action: Action::DecreaseDelay,
+                description: "decrease frame delay"
+            },
+            KeyCommand {
+                keys: vec![Key::Char('=')],
+                action: Action::IncreaseDelay,
+                description: "increase frame delay"
             },
             KeyCommand {
                 keys: vec![Key::Char('q')],
@@ -115,6 +125,8 @@ pub enum Action {
     IncreaseScale,
     DecreaseScale,
     ToggleSimulation,
+    IncreaseDelay,
+    DecreaseDelay,
     Quit,
     ShowHelp,
     ZoomToFit,
@@ -130,6 +142,7 @@ pub struct KeyCommand {
 const MOVEMENT_FACTOR: u64 = 4;
 const MIN_SCALE: u64 = 1;
 const MAX_SCALE: u64 = 1 << 48;
+const MAX_STEP: u64 = 1 << 48;
 
 fn pan_down(center: &Arc<Mutex<(i64, i64)>>, scale: &Arc<Mutex<u64>>) {
     let mut center = center.lock().unwrap();
@@ -174,13 +187,13 @@ fn zoom_to_fit(
     center: &Arc<Mutex<(i64, i64)>>,
     scale: &Arc<Mutex<u64>>,
 ) {
-    let alive_cells = life.lock().unwrap().get_alive_cells();
-    if !alive_cells.is_empty() {
+    let life = life.lock().unwrap();
+    if life.population() > 0 {
         let (output_width, output_height) = term_size::dimensions().unwrap();
-        let x_min = alive_cells.iter().map(|(x, _)| x).min().cloned().unwrap();
-        let y_min = alive_cells.iter().map(|(_, y)| y).min().cloned().unwrap();
-        let x_max = alive_cells.iter().map(|(x, _)| x).max().cloned().unwrap();
-        let y_max = alive_cells.iter().map(|(_, y)| y).max().cloned().unwrap();
+        let x_min = life.min_alive_x().unwrap();
+        let y_min = life.min_alive_y().unwrap();
+        let x_max = life.max_alive_x().unwrap();
+        let y_max = life.max_alive_y().unwrap();
 
         let new_center = ((x_min + x_max) / 2, (y_min + y_max) / 2);
         let width = (x_max - x_min + 1) as f64;
@@ -199,7 +212,7 @@ fn zoom_to_fit(
 
 fn increase_step(step: &Arc<Mutex<u64>>) {
     let mut step = step.lock().unwrap();
-    if *step < (1 << 63) {
+    if *step < MAX_STEP {
         *step <<= 1;
     }
 }
@@ -208,6 +221,20 @@ fn decrease_step(step: &Arc<Mutex<u64>>) {
     let mut step = step.lock().unwrap();
     if *step > 1 {
         *step >>= 1;
+    }
+}
+
+fn increase_delay(delay: &Arc<Mutex<u64>>) {
+    let mut delay = delay.lock().unwrap();
+    if *delay < (1 << 10) {
+        *delay <<= 1;
+    }
+}
+
+fn decrease_delay(delay: &Arc<Mutex<u64>>) {
+    let mut delay = delay.lock().unwrap();
+    if *delay > 1 {
+        *delay >>= 1;
     }
 }
 
@@ -324,6 +351,22 @@ pub fn setup_key_commands(siv: &mut cursive::Cursive, state: &State) {
                         key.into_event(),
                         enclose!((state) move |_: &mut cursive::Cursive| {
                             toggle_simulation(&state.is_running)
+                        }),
+                    );
+                }
+                Action::IncreaseDelay => {
+                    siv.add_global_callback(
+                        key.into_event(),
+                        enclose!((state) move |_: &mut cursive::Cursive| {
+                            increase_delay(&state.delay_millis)
+                        }),
+                    );
+                }
+                Action::DecreaseDelay => {
+                    siv.add_global_callback(
+                        key.into_event(),
+                        enclose!((state) move |_: &mut cursive::Cursive| {
+                            decrease_delay(&state.delay_millis)
                         }),
                     );
                 }
