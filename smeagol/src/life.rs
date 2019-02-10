@@ -120,6 +120,22 @@ impl Life {
             .set_cells_alive(&mut self.store, &mut alive_coords);
     }
 
+    pub fn min_alive_x(&self) -> Option<i64> {
+        self.root.min_alive_x(&self.store)
+    }
+
+    pub fn min_alive_y(&self) -> Option<i64> {
+        self.root.min_alive_y(&self.store)
+    }
+
+    pub fn max_alive_x(&self) -> Option<i64> {
+        self.root.max_alive_x(&self.store)
+    }
+
+    pub fn max_alive_y(&self) -> Option<i64> {
+        self.root.max_alive_y(&self.store)
+    }
+
     pub fn contains_alive_cells(&mut self, min: (i64, i64), max: (i64, i64)) -> bool {
         while min.0 < self.root.min_coord()
             || max.0 > self.root.max_coord()

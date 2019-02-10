@@ -3,6 +3,7 @@ use crate::{
     Cell, Node, NodeTemplate, Store,
 };
 
+/// Methods for getting and setting individual cells of a node.
 impl Node {
     /// Gets the cell at the given coordinates.
     pub fn get_cell(&self, store: &Store, x: i64, y: i64) -> Cell {
@@ -92,6 +93,7 @@ impl Node {
         }
     }
 
+    /// Sets the cell at the given coordinates.
     pub fn set_cell(&self, store: &mut Store, x: i64, y: i64, cell: Cell) -> Node {
         assert!(x >= self.min_coord());
         assert!(y >= self.min_coord());

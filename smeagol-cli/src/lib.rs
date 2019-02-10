@@ -26,12 +26,11 @@ pub struct State {
 
 impl State {
     pub fn new_centered(life: smeagol::Life, output_width: u64, output_height: u64) -> Self {
-        let alive_cells = life.get_alive_cells();
-        if !alive_cells.is_empty() {
-            let x_min = alive_cells.iter().map(|(x, _)| x).min().cloned().unwrap();
-            let y_min = alive_cells.iter().map(|(_, y)| y).min().cloned().unwrap();
-            let x_max = alive_cells.iter().map(|(x, _)| x).max().cloned().unwrap();
-            let y_max = alive_cells.iter().map(|(_, y)| y).max().cloned().unwrap();
+        if life.population() > 0 {
+            let x_min = life.min_alive_x().unwrap();
+            let y_min = life.min_alive_y().unwrap();
+            let x_max = life.max_alive_x().unwrap();
+            let y_max = life.max_alive_y().unwrap();
 
             let center = ((x_min + x_max) / 2, (y_min + y_max) / 2);
             let width = (x_max - x_min + 1) as f64;

@@ -107,4 +107,134 @@ impl Node {
             i64::max_value()
         }
     }
+
+    pub fn min_alive_x(&self, store: &Store) -> Option<i64> {
+        if self.population(store) == 0 {
+            None
+        } else {
+            match self.base {
+                NodeBase::Leaf { alive } => if alive { Some(0) } else { None },
+                NodeBase::LevelOne { .. } => {
+                    let mut mins = Vec::with_capacity(4);
+                    mins.extend(self.ne(store).min_alive_x(store));
+                    mins.extend(self.se(store).min_alive_x(store));
+                    mins.extend(self.nw(store).min_alive_x(store).map(|x| x - 1));
+                    mins.extend(self.sw(store).min_alive_x(store).map(|x| x - 1));
+                    mins.into_iter().min()
+                }
+                _ => {
+                    let mut mins = Vec::with_capacity(4);
+                    let offset = 1 << (self.level - 2);
+                    mins.extend(self.ne(store).min_alive_x(store).map(|x| x + offset));
+                    mins.extend(self.se(store).min_alive_x(store).map(|x| x + offset));
+                    mins.extend(self.nw(store).min_alive_x(store).map(|x| x - offset));
+                    mins.extend(self.sw(store).min_alive_x(store).map(|x| x - offset));
+                    mins.into_iter().min()
+                }
+            }
+        }
+    }
+
+    pub fn min_alive_y(&self, store: &Store) -> Option<i64> {
+        if self.population(store) == 0 {
+            None
+        } else {
+            match self.base {
+                NodeBase::Leaf { alive } => if alive { Some(0) } else { None },
+                NodeBase::LevelOne { .. } => {
+                    let mut mins = Vec::with_capacity(4);
+                    mins.extend(self.sw(store).min_alive_y(store));
+                    mins.extend(self.se(store).min_alive_y(store));
+                    mins.extend(self.nw(store).min_alive_y(store).map(|y| y - 1));
+                    mins.extend(self.ne(store).min_alive_y(store).map(|y| y - 1));
+                    mins.into_iter().min()
+                }
+                _ => {
+                    let mut mins = Vec::with_capacity(4);
+                    let offset = 1 << (self.level - 2);
+                    mins.extend(self.sw(store).min_alive_y(store).map(|x| x + offset));
+                    mins.extend(self.se(store).min_alive_y(store).map(|x| x + offset));
+                    mins.extend(self.nw(store).min_alive_y(store).map(|x| x - offset));
+                    mins.extend(self.ne(store).min_alive_y(store).map(|x| x - offset));
+                    mins.into_iter().min()
+                }
+            }
+        }
+    }
+
+    pub fn max_alive_x(&self, store: &Store) -> Option<i64> {
+        if self.population(store) == 0 {
+            None
+        } else {
+            match self.base {
+                NodeBase::Leaf { alive } => if alive { Some(0) } else { None },
+                NodeBase::LevelOne { .. } => {
+                    let mut maxs = Vec::with_capacity(4);
+                    maxs.extend(self.ne(store).max_alive_x(store));
+                    maxs.extend(self.se(store).max_alive_x(store));
+                    maxs.extend(self.nw(store).max_alive_x(store).map(|x| x - 1));
+                    maxs.extend(self.sw(store).max_alive_x(store).map(|x| x - 1));
+                    maxs.into_iter().max()
+                }
+                _ => {
+                    let mut maxs = Vec::with_capacity(4);
+                    let offset = 1 << (self.level - 2);
+                    maxs.extend(self.ne(store).max_alive_x(store).map(|x| x + offset));
+                    maxs.extend(self.se(store).max_alive_x(store).map(|x| x + offset));
+                    maxs.extend(self.nw(store).max_alive_x(store).map(|x| x - offset));
+                    maxs.extend(self.sw(store).max_alive_x(store).map(|x| x - offset));
+                    maxs.into_iter().max()
+                }
+            }
+        }
+    }
+
+    pub fn max_alive_y(&self, store: &Store) -> Option<i64> {
+        if self.population(store) == 0 {
+            None
+        } else {
+            match self.base {
+                NodeBase::Leaf { alive } => if alive { Some(0) } else { None },
+                NodeBase::LevelOne { .. } => {
+                    let mut maxs = Vec::with_capacity(4);
+                    maxs.extend(self.sw(store).max_alive_y(store));
+                    maxs.extend(self.se(store).max_alive_y(store));
+                    maxs.extend(self.nw(store).max_alive_y(store).map(|y| y - 1));
+                    maxs.extend(self.ne(store).max_alive_y(store).map(|y| y - 1));
+                    maxs.into_iter().max()
+                }
+                _ => {
+                    let mut maxs = Vec::with_capacity(4);
+                    let offset = 1 << (self.level - 2);
+                    maxs.extend(self.sw(store).max_alive_y(store).map(|x| x + offset));
+                    maxs.extend(self.se(store).max_alive_y(store).map(|x| x + offset));
+                    maxs.extend(self.nw(store).max_alive_y(store).map(|x| x - offset));
+                    maxs.extend(self.ne(store).max_alive_y(store).map(|x| x - offset));
+                    maxs.into_iter().max()
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn min_max_alive_coord() {
+        let mut store = Store::new();
+
+        let empty = store.create_empty(4);
+        assert_eq!(empty.min_alive_x(&store), None);
+        assert_eq!(empty.min_alive_y(&store), None);
+        assert_eq!(empty.max_alive_x(&store), None);
+        assert_eq!(empty.max_alive_y(&store), None);
+
+        let node = store.create_empty(4).set_cells_alive(&mut store, &mut vec![(-1, -1), (-2, 4), (0, 2), (3, 5), (-5, 3)]);
+        assert_eq!(node.min_alive_x(&store), Some(-5));
+        assert_eq!(node.min_alive_y(&store), Some(-1));
+        assert_eq!(node.max_alive_x(&store), Some(3));
+        assert_eq!(node.max_alive_y(&store), Some(5));
+    }
 }
