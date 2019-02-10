@@ -56,7 +56,7 @@ fn step_glider(c: &mut criterion::Criterion) {
         b.iter(|| {
             let mut glider = glider();
             for _ in 0..32 {
-                glider.step_pow_2(5);
+                glider.step(32);
             }
         })
     });
@@ -67,7 +67,7 @@ fn step_gosper_glider_gun(c: &mut criterion::Criterion) {
         b.iter(|| {
             let mut gun = gosper_glider_gun();
             for _ in 0..1 {
-                gun.step_pow_2(10);
+                gun.step(1024);
             }
         })
     });
@@ -78,7 +78,7 @@ fn step_sir_robin(c: &mut criterion::Criterion) {
         b.iter(|| {
             let mut sir_robin = sir_robin();
             for _ in 0..1 {
-                sir_robin.step_pow_2(10);
+                sir_robin.step(1024);
             }
         })
     });

@@ -1,10 +1,10 @@
 use crate::State;
+use cursive::view::Scrollable;
 use itertools::Itertools;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
 };
-use cursive::view::Scrollable;
 
 lazy_static::lazy_static! {
     static ref KEY_COMMANDS: Vec<KeyCommandGroup> = {
@@ -405,7 +405,10 @@ fn show_help(siv: &mut cursive::Cursive) {
         help.add_child(groups);
         stack.add_layer(cursive::views::IdView::new(
             "help",
-            cursive::views::PaddedView::new(((2, 2), (1, 1)), help.scrollable().scroll_x(true).scroll_y(true)),
+            cursive::views::PaddedView::new(
+                ((2, 2), (1, 1)),
+                help.scrollable().scroll_x(true).scroll_y(true),
+            ),
         ));
     }
 }

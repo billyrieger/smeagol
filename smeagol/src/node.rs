@@ -1,14 +1,21 @@
+///! Node module.
 mod cells;
 mod evolve;
 mod properties;
 mod subregion;
 
+/// The maximum level a node can have.
 const MAX_LEVEL: u8 = 64;
 
+/// Bitmask to extract the bits of a level one node.
 const LEVEL_ONE_MASK: u8 = 0b_0011_0011;
+/// Bitmask to extract the northwest leaf of a level one node.
 const LEVEL_ONE_NW_MASK: u8 = 0b_0010_0000;
+/// Bitmask to extract the northeast leaf of a level one node.
 const LEVEL_ONE_NE_MASK: u8 = 0b_0001_0000;
+/// Bitmask to extract the southwest leaf of a level one node.
 const LEVEL_ONE_SW_MASK: u8 = 0b_0000_0010;
+/// Bitmask to extract the southeast leaf of a level one node.
 const LEVEL_ONE_SE_MASK: u8 = 0b_0000_0001;
 
 /// The inner enum representing a type of node.
