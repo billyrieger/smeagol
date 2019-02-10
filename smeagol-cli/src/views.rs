@@ -364,12 +364,25 @@ mod tests {
         let backend = cursive::backend::dummy::Backend::init();
         let printer = cursive::Printer::new((1, 1), &theme, &*backend);
 
-        let view = LifeView::new(
+        let empty_life_view = LifeView::new(
             Arc::new(Mutex::new(smeagol::Life::new())),
             Arc::new(Mutex::new((0, 0))),
             Arc::new(Mutex::new(1)),
         );
-        view.draw(&printer);
+        empty_life_view.draw(&printer);
+
+        let mut life = smeagol::Life::new();
+        for x in 0..2 {
+            for y in 0..4 {
+                life.set_cell(x, y, smeagol::Cell::Alive);
+            }
+        }
+        let partial_filled_view = LifeView::new(
+            Arc::new(Mutex::new(life)),
+            Arc::new(Mutex::new((0, 0))),
+            Arc::new(Mutex::new(1)),
+        );
+        partial_filled_view.draw(&printer);
     }
 
     #[test]
@@ -387,7 +400,13 @@ mod tests {
         running.draw(&printer);
         stopped.draw(&printer);
 
-        assert_eq!(running.required_size((0, 0).into()), ("running".len(), 1).into());
-        assert_eq!(stopped.required_size((0, 0).into()), ("running".len(), 1).into());
+        assert_eq!(
+            running.required_size((0, 0).into()),
+            ("running".len(), 1).into()
+        );
+        assert_eq!(
+            stopped.required_size((0, 0).into()),
+            ("running".len(), 1).into()
+        );
     }
 }

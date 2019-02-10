@@ -113,6 +113,13 @@ impl Life {
         self.root.get_alive_cells(&self.store)
     }
 
+    pub fn set_cells_alive(&mut self, alive_coords: impl IntoIterator<Item = (i64, i64)>) {
+        let mut alive_coords = alive_coords.into_iter().collect::<Vec<_>>();
+        self.root = self
+            .root
+            .set_cells_alive(&mut self.store, &mut alive_coords);
+    }
+
     pub fn contains_alive_cells(&mut self, min: (i64, i64), max: (i64, i64)) -> bool {
         while min.0 < self.root.min_coord()
             || max.0 > self.root.max_coord()
