@@ -13,3 +13,5 @@ cargo install smeagol-cli
 ```
 smeagol <file>
 ```
+
+To see a list of available key commands, press `?`.
