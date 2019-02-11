@@ -23,6 +23,7 @@ impl Life {
         }
     }
 
+    /// Creates a Life board from the given `Rle` struct.
     #[cfg(feature = "import-rle")]
     fn from_rle(rle: rle::Rle) -> Result<Self, rle::RleError> {
         let mut alive_cells = rle
@@ -195,6 +196,9 @@ impl Life {
         self.generation += 1 << step_log_2;
     }
 
+    /// Advances the Life board `step` generations into the future.
+    ///
+    /// Performs best if the step size is a power of two.
     pub fn step(&mut self, step: u64) {
         let mut step = step;
         let mut power = 0;

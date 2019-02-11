@@ -4,6 +4,23 @@ use crate::{
 };
 
 /// Methods for extracting subregions of a node.
+///
+/// # Examples
+///
+/// ```
+/// let mut store = smeagol::Store::new();
+/// let node = store.create_random_filled(4, 0.5);
+///
+/// let ne = node.ne(&store);
+/// let nw = node.nw(&store);
+/// let se = node.se(&store);
+/// let sw = node.sw(&store);
+///
+/// assert_eq!(
+///     node,
+///     store.create_interior(smeagol::NodeTemplate { ne, nw, se, sw })
+/// );
+/// ```
 impl Node {
     pub fn expand(&self, store: &mut Store) -> Node {
         assert!(self.level >= 1);

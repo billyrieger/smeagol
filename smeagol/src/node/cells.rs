@@ -6,6 +6,22 @@ use crate::{
 /// Methods for getting and setting individual cells of a node.
 impl Node {
     /// Gets the cell at the given coordinates.
+    ///
+    /// If either `x` or `y` is out of bounds, `Cell::Dead` is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut store = smeagol::Store::new();
+    /// let node = store
+    ///     .create_empty(3)
+    ///     .set_cell(&mut store, 1, 2, smeagol::Cell::Alive);
+    ///
+    /// assert!(node.get_cell(&store, 1, 2).is_alive());
+    ///
+    /// // out of bounds
+    /// assert!(!node.get_cell(&store, 100, 100).is_alive())
+    /// ```
     pub fn get_cell(&self, store: &Store, x: i64, y: i64) -> Cell {
         if x < self.min_coord()
             || y < self.min_coord()
@@ -94,6 +110,11 @@ impl Node {
     }
 
     /// Sets the cell at the given coordinates.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `x` or `y` is out of bounds. Ensure that `x` and `y` are between
+    /// `node.min_coord()` and `node.max_coord()` before calling.
     pub fn set_cell(&self, store: &mut Store, x: i64, y: i64, cell: Cell) -> Node {
         assert!(x >= self.min_coord());
         assert!(y >= self.min_coord());

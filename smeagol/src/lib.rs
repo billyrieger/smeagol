@@ -9,7 +9,8 @@
 //! 24bo11b$22bobo11b$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o14b$2o8b
 //! o3bob2o4bobo11b$10bo5bo7bo11b$11bo3bo20b$12b2o!
 //! ",
-//! ).unwrap();
+//! )
+//! .unwrap();
 //!
 //! // advance 1024 generations into the future
 //! gosper_glider_gun.step(1024);

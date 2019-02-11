@@ -96,7 +96,7 @@ impl Node {
 
         let i = self.se(store).jump(store);
 
-        // a-i are all level n-2 and another 2^(n-3) ticks in the future
+        // w-z are all level n-2 and another 2^(n-3) ticks in the future
         // since each one is a jump of a level n-1 node
         //
         // +---+---+---+---+---+---+---+---+
