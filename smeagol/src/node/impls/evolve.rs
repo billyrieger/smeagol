@@ -1,7 +1,7 @@
 use crate::{
     node::{self, NodeBase},
-    Node, NodeTemplate, Store,
-};
+    node::{Node, NodeTemplate, Store
+}};
 
 impl Node {
     /// For a level `n` node, returns the center subnode of the node `2^(n-2)` generations into the

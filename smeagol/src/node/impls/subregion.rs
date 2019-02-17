@@ -1,14 +1,14 @@
 use crate::{
     node::{self, NodeBase},
-    Cell, Node, NodeTemplate, Store,
-};
+    Cell, node::{Node, NodeTemplate, Store
+}};
 
 /// Methods for extracting subregions of a node.
 ///
 /// # Examples
 ///
 /// ```
-/// let mut store = smeagol::Store::new();
+/// let mut store = smeagol::node::Store::new();
 /// let node = store.create_random_filled(4, 0.5);
 ///
 /// let ne = node.ne(&store);
@@ -18,7 +18,7 @@ use crate::{
 ///
 /// assert_eq!(
 ///     node,
-///     store.create_interior(smeagol::NodeTemplate { ne, nw, se, sw })
+///     store.create_interior(smeagol::node::NodeTemplate { ne, nw, se, sw })
 /// );
 /// ```
 impl Node {

@@ -20,13 +20,10 @@
 //! ```
 
 mod life;
-mod node;
-mod store;
+pub mod node;
 
 pub use self::{
     life::Life,
-    node::Node,
-    store::{NodeTemplate, Store},
 };
 
 /// A single cell in a Life board.

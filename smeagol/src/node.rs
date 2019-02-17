@@ -1,8 +1,8 @@
 ///! Node module.
-mod cells;
-mod evolve;
-mod properties;
-mod subregion;
+mod store;
+mod impls;
+
+pub use self::store::{Store, NodeTemplate};
 
 /// The maximum level a node can have.
 const MAX_LEVEL: u8 = 64;
@@ -138,7 +138,7 @@ pub struct Node {
 
 /// Internal node creation methods.
 impl Node {
-    pub(crate) fn new_leaf(alive: bool) -> Self {
+    fn new_leaf(alive: bool) -> Self {
         Self {
             base: NodeBase::Leaf { alive },
             level: 0,
@@ -146,7 +146,7 @@ impl Node {
         }
     }
 
-    pub(crate) fn new_level_one(cells: u8) -> Self {
+    fn new_level_one(cells: u8) -> Self {
         Self {
             base: NodeBase::LevelOne {
                 cells: cells & LEVEL_ONE_MASK,
@@ -156,7 +156,7 @@ impl Node {
         }
     }
 
-    pub(crate) fn new_level_two(cells: u16) -> Self {
+    fn new_level_two(cells: u16) -> Self {
         Self {
             base: NodeBase::LevelTwo { cells },
             level: 2,
@@ -164,7 +164,7 @@ impl Node {
         }
     }
 
-    pub(crate) fn new_interior(level: u8, indices: [usize; 4]) -> Self {
+    fn new_interior(level: u8, indices: [usize; 4]) -> Self {
         if level > MAX_LEVEL {
             panic!("cannot create a node with level above {}", MAX_LEVEL);
         }
@@ -180,7 +180,7 @@ impl Node {
         }
     }
 
-    pub(crate) fn create_level_one(ne: Node, nw: Node, se: Node, sw: Node) -> (Self, u128) {
+    fn create_level_one(ne: Node, nw: Node, se: Node, sw: Node) -> (Self, u128) {
         match (ne.base, nw.base, se.base, sw.base) {
             (
                 NodeBase::Leaf { alive: ne_alive },
@@ -215,7 +215,7 @@ impl Node {
         }
     }
 
-    pub(crate) fn create_level_two(ne: Node, nw: Node, se: Node, sw: Node) -> (Self, u128) {
+    fn create_level_two(ne: Node, nw: Node, se: Node, sw: Node) -> (Self, u128) {
         match (ne.base, nw.base, se.base, sw.base) {
             (
                 NodeBase::LevelOne { cells: ne_cells },
@@ -239,11 +239,11 @@ impl Node {
         }
     }
 
-    pub(crate) fn index(&self) -> usize {
+    fn index(&self) -> usize {
         self.index.unwrap()
     }
 
-    pub(crate) fn set_index(&self, index: usize) -> Node {
+    fn set_index(&self, index: usize) -> Node {
         Self {
             index: Some(index),
             ..*self

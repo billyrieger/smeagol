@@ -1,6 +1,6 @@
 mod create;
 
-use crate::Node;
+use crate::node::Node;
 
 /// A template to create a node from four children nodes.
 pub struct NodeTemplate {
@@ -34,7 +34,7 @@ impl Store {
     /// # Examples
     ///
     /// ```
-    /// let mut store = smeagol::Store::new();
+    /// let mut store = smeagol::node::Store::new();
     /// ```
     pub fn new() -> Self {
         Self {
@@ -63,25 +63,25 @@ impl Store {
     /// # Panics
     ///
     /// Panics if the level of the node is less than 2, since those nodes are not stored.
-    pub(crate) fn node(&self, index: usize) -> Node {
+    pub fn node(&self, index: usize) -> Node {
         self.nodes[index]
     }
 
-    pub(crate) fn step(&self, node: Node, step_size: u64) -> Option<Node> {
+    pub fn step(&self, node: Node, step_size: u64) -> Option<Node> {
         self.steps
             .get(&(node, step_size))
             .map(|&index| self.nodes[index])
     }
 
-    pub(crate) fn add_step(&mut self, node: Node, step_size: u64, result: Node) {
+    pub fn add_step(&mut self, node: Node, step_size: u64, result: Node) {
         self.steps.insert((node, step_size), result.index());
     }
 
-    pub(crate) fn level_2_step(&self, node: Node) -> Option<Node> {
+    pub fn level_2_step(&self, node: Node) -> Option<Node> {
         self.level_2_steps.get(&node).cloned()
     }
 
-    pub(crate) fn add_level_2_step(&mut self, node: Node, result: Node) {
+    pub add_level_2_step(&mut self, node: Node, result: Node) {
         self.level_2_steps.insert(node, result);
     }
 }

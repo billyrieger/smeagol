@@ -1,6 +1,6 @@
 use crate::{
     node::{self, NodeBase},
-    Cell, Node, NodeTemplate, Store,
+    Cell, node::{Node, NodeTemplate, Store}
 };
 
 /// Methods for getting and setting individual cells of a node.
@@ -12,7 +12,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// let mut store = smeagol::Store::new();
+    /// let mut store = smeagol::node::Store::new();
     /// let node = store
     ///     .create_empty(3)
     ///     .set_cell(&mut store, 1, 2, smeagol::Cell::Alive);

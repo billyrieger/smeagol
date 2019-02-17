@@ -1,4 +1,4 @@
-use crate::{Cell, Node, NodeTemplate, Store};
+use crate::{Cell, node::{Node, NodeTemplate, Store}};
 use rand::Rng;
 
 /// Methods to create nodes.
@@ -8,7 +8,7 @@ impl Store {
     /// # Examples
     ///
     /// ```
-    /// let mut store = smeagol::Store::new();
+    /// let mut store = smeagol::node::Store::new();
     /// let alive = store.create_leaf(smeagol::Cell::Alive);
     /// let dead = store.create_leaf(smeagol::Cell::Dead);
     /// ```
@@ -33,7 +33,7 @@ impl Store {
     /// # Examples
     ///
     /// ```
-    /// let mut store = smeagol::Store::new();
+    /// let mut store = smeagol::node::Store::new();
     /// let block = store.create_level_one_from_cells(0b0011_0011);
     /// assert_eq!(block.population(&store), 4);
     /// ```
@@ -62,7 +62,7 @@ impl Store {
     /// # Examples
     ///
     /// ```
-    /// let mut store = smeagol::Store::new();
+    /// let mut store = smeagol::node::Store::new();
     /// let stripes = store.create_level_two_from_cells(0b1010_1010_1010_1010);
     /// assert_eq!(stripes.population(&store), 8);
     /// ```
@@ -76,14 +76,14 @@ impl Store {
     /// # Examples
     ///
     /// ```
-    /// let mut store = smeagol::Store::new();
+    /// let mut store = smeagol::node::Store::new();
     ///
     /// let ne = store.create_random_filled(3, 0.5);
     /// let nw = store.create_random_filled(3, 0.5);
     /// let se = store.create_random_filled(3, 0.5);
     /// let sw = store.create_random_filled(3, 0.5);
     ///
-    /// let random = store.create_interior(smeagol::NodeTemplate { ne, nw, se, sw });
+    /// let random = store.create_interior(smeagol::node::NodeTemplate { ne, nw, se, sw });
     /// assert_eq!(random.level(), 4);
     /// ```
     pub fn create_interior(&mut self, template: NodeTemplate) -> Node {
@@ -125,7 +125,7 @@ impl Store {
     /// # Examples
     ///
     /// ```
-    /// let mut store = smeagol::Store::new();
+    /// let mut store = smeagol::node::Store::new();
     ///
     /// // 16 by 16 grid of dead cells
     /// let empty = store.create_empty(4);

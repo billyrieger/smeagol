@@ -1,7 +1,6 @@
 use crate::{
-    node::{NodeBase, MAX_LEVEL},
-    Node, Store,
-};
+    node::{NodeBase, MAX_LEVEL, Node, Store
+}};
 
 /// Methods for getting node properties.
 impl Node {
@@ -10,7 +9,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// let mut store = smeagol::Store::new();
+    /// let mut store = smeagol::node::Store::new();
     ///
     /// let leaf = store.create_leaf(smeagol::Cell::Alive);
     /// assert_eq!(leaf.level(), 0);
@@ -27,7 +26,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// let mut store = smeagol::Store::new();
+    /// let mut store = smeagol::node::Store::new();
     ///
     /// let alive_leaf = store.create_leaf(smeagol::Cell::Alive);
     /// assert_eq!(alive_leaf.population(&store), 1);
@@ -58,7 +57,7 @@ impl Node {
     ///
     /// ```
     /// # #[macro_use] extern crate itertools;
-    /// let mut store = smeagol::Store::new();
+    /// let mut store = smeagol::node::Store::new();
     /// let node = store.create_random_filled(3, 0.5);
     ///
     /// // iterate over every cell in the node
@@ -87,7 +86,7 @@ impl Node {
     ///
     /// ```
     /// # #[macro_use] extern crate itertools;
-    /// let mut store = smeagol::Store::new();
+    /// let mut store = smeagol::node::Store::new();
     /// let node = store.create_random_filled(3, 0.5);
     ///
     /// // iterate over every cell in the node

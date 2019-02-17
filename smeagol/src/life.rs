@@ -1,4 +1,4 @@
-use crate::{Cell, NodeTemplate, Node, Store};
+use crate::{Cell, node::{NodeTemplate, Node, Store}};
 use smeagol_rle as rle;
 
 mod render;
