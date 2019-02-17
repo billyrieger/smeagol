@@ -1,4 +1,4 @@
-use crate::{Cell, Node, Store};
+use crate::{Cell, NodeTemplate, Node, Store};
 use smeagol_rle as rle;
 
 mod render;
@@ -21,6 +21,68 @@ impl Life {
             store,
             generation: 0,
         }
+    }
+
+    pub fn from_macrocell_file<P>(path: P) -> Result<Self, std::io::Error>
+    where
+        P: AsRef<std::path::Path>,
+    {
+        let mut store = Store::new();
+        let mc = smeagol_mc::Macrocell::from_file(path)?;
+        let mut nodes = vec![];
+        for cell in mc.cells {
+            match cell {
+                smeagol_mc::Cell::LevelThree { cells } => {
+                    let mut x = -4;
+                    let mut y = -4;
+                    let mut positions = vec![];
+                    for cell in cells {
+                        match cell {
+                            '$' => {
+                                y += 1;
+                                x = -4;
+                            }
+                            '.' => x += 1,
+                            '*' => {
+                                positions.push((x, y));
+                                x += 1;
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                    nodes.push(store.create_empty(3).set_cells_alive(&mut store, &mut positions));
+                }
+                smeagol_mc::Cell::Interior { children, level } => {
+                    let nw = if children[0] == 0 {
+                        store.create_empty(level - 1)
+                    } else {
+                        nodes[children[0] - 1]
+                    };
+                    let ne = if children[1] == 0 {
+                        store.create_empty(level - 1)
+                    } else {
+                        nodes[children[1] - 1]
+                    };
+                    let sw = if children[2] == 0 {
+                        store.create_empty(level - 1)
+                    } else {
+                        nodes[children[2] - 1]
+                    };
+                    let se = if children[3] == 0 {
+                        store.create_empty(level - 1)
+                    } else {
+                        nodes[children[3] - 1]
+                    };
+                    nodes.push(store.create_interior(NodeTemplate { nw, ne, sw, se }));
+                }
+            }
+        }
+        let root = nodes.last().cloned().unwrap();
+        Ok(Self {
+            root,
+            store,
+            generation: 0,
+        })
     }
 
     /// Creates a Life board from the given `Rle` struct.
