@@ -81,7 +81,7 @@ impl Store {
         self.level_2_steps.get(&node).cloned()
     }
 
-    pub add_level_2_step(&mut self, node: Node, result: Node) {
+    pub fn add_level_2_step(&mut self, node: Node, result: Node) {
         self.level_2_steps.insert(node, result);
     }
 }
