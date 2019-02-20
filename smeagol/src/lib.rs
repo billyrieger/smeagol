@@ -81,6 +81,7 @@ impl Position {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Life {
     root: NodeId,
     store: Store,

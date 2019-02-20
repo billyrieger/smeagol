@@ -11,7 +11,7 @@ fn create_lobster() -> smeagol::Life {
         11b3o$13bo$8b2o2bo$8b2o$12b2o$11b2o$10bo2bo2$8bo2bo$7bo3bo$6bob3o$5bo$
 5bo13bobo2b2o$6bo13b2obobo$b2o13b2o2bo4bo$o2b2o2b2o6bo3bo$5bo2bo6bo6b
 2o$9b2o4bobo4b2o$2bo3bo3bo5bo$6b2o4bo2bo$bobo5bo3b2o$2o8bo$5bo4bo$7bo
-3bo$4b2o5bo$4bo5bo!"
+3bo$4b2o5bo$4bo5bo!",
     )
     .unwrap()
 }
@@ -70,9 +70,7 @@ fn bench_create_glider(c: &mut criterion::Criterion) {
 }
 
 fn bench_create_lobster(c: &mut criterion::Criterion) {
-    c.bench_function("create lobster", |b| {
-        b.iter(|| create_lobster())
-    });
+    c.bench_function("create lobster", |b| b.iter(|| create_lobster()));
 }
 
 fn bench_create_sir_robin(c: &mut criterion::Criterion) {
@@ -86,79 +84,94 @@ fn bench_create_spaghetti_monster(c: &mut criterion::Criterion) {
 }
 
 fn bench_step_glider_1(c: &mut criterion::Criterion) {
-    c.bench_function("step glider 1", |b| {
+    let life = create_glider();
+    c.bench_function("step glider 1", move |b| {
         b.iter(|| {
-            let mut life = create_glider();
+            let mut life = life.clone();
             life.step();
         })
     });
 }
 
 fn bench_step_lobster_1(c: &mut criterion::Criterion) {
-    c.bench_function("step lobster 1", |b| {
+    let life = create_lobster();
+    c.bench_function("step lobster 1", move |b| {
         b.iter(|| {
-            let mut life = create_lobster();
+            let mut life = life.clone();
             life.step();
         })
-    });
+    }
+    );
 }
 
 fn bench_step_sir_robin_1(c: &mut criterion::Criterion) {
-    c.bench_function("step sir robin 1", |b| {
+    let life = create_sir_robin();
+    c.bench_function("step sir robin 1", move |b| {
         b.iter(|| {
-            let mut life = create_sir_robin();
+            let mut life = life.clone();
             life.step();
         })
-    });
+    }
+    );
 }
 
 fn bench_step_spaghetti_monster_1(c: &mut criterion::Criterion) {
-    c.bench_function("step spaghetti monster 1", |b| {
+    let life = create_spaghetti_monster();
+    c.bench_function("step spaghetti monster 1", move |b| {
         b.iter(|| {
-            let mut life = create_spaghetti_monster();
+            let mut life = life.clone();
             life.step();
         })
-    });
+    }
+    );
 }
 
 fn bench_step_glider_1024(c: &mut criterion::Criterion) {
-    c.bench_function("step glider 1024", |b| {
+    let mut life = create_glider();
+    life.set_step_log_2(10);
+    c.bench_function("step glider 1024", move |b| {
         b.iter(|| {
-            let mut life = create_glider();
-            life.set_step_log_2(10);
+            let mut life = life.clone();
             life.step();
         })
-    });
+    }
+    );
 }
 
 fn bench_step_lobster_1024(c: &mut criterion::Criterion) {
-    c.bench_function("step lobster 1024", |b| {
+    let mut life = create_lobster();
+    life.set_step_log_2(10);
+    c.bench_function("step lobster 1024", move |b| {
         b.iter(|| {
-            let mut life = create_lobster();
-            life.set_step_log_2(10);
+            let mut life = life.clone();
             life.step();
         })
-    });
+    }
+    );
 }
 
 fn bench_step_sir_robin_1024(c: &mut criterion::Criterion) {
-    c.bench_function("step sir robin 1024", |b| {
+    let mut life = create_sir_robin();
+    life.set_step_log_2(10);
+    c.bench_function("step sir robin 1024", move |b| {
         b.iter(|| {
-            let mut life = create_sir_robin();
-            life.set_step_log_2(10);
+            let mut life = life.clone();
             life.step();
         })
-    });
+    }
+    );
 }
 
 fn bench_step_spaghetti_monster_1024(c: &mut criterion::Criterion) {
-    c.bench_function("step spaghetti monster 1024", |b| {
+    let mut life = create_spaghetti_monster();
+    life.set_step_log_2(10);
+    c.bench_function("step spaghetti monster 1024", move |b| {
         b.iter(|| {
-            let mut life = create_spaghetti_monster();
-            life.set_step_log_2(10);
+            let mut life = life.clone();
             life.step();
         })
-    });
+    }
+    );
 }
 
 criterion_group!(

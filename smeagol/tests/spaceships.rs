@@ -38,8 +38,10 @@ fn fly(life: &mut smeagol::Life, x_vel: (i64, i64), y_vel: (i64, i64), period: u
 }
 
 fn soar(life: &mut smeagol::Life) {
+    let before = life.generation();
     life.set_step_log_2(10);
     life.step();
+    assert_eq!(life.generation(), before + 1024);
 }
 
 #[test]
