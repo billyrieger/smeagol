@@ -236,12 +236,19 @@ impl NodeId {
         if let Some(step) = store.get_step(self) {
             return step;
         }
-        
+
         let step_log_2 = store.step_log_2();
 
         match store.node(self) {
             Node::Leaf { .. } => panic!(),
-            Node::Interior { nw, ne, sw, se, level, .. } => {
+            Node::Interior {
+                nw,
+                ne,
+                sw,
+                se,
+                level,
+                ..
+            } => {
                 if step_log_2 == level.0 - 2 {
                     let step = self.jump(store);
                     store.add_step(self, step);
@@ -308,12 +315,12 @@ impl NodeId {
                     store.add_step(self, step);
                     step
                 }
-            },
+            }
         }
     }
 }
 
-fn horiz_u16x16(w: u16x16, e:  u16x16) -> u16x16 {
+fn horiz_u16x16(w: u16x16, e: u16x16) -> u16x16 {
     (w << 8) | (e >> 8)
 }
 
@@ -326,7 +333,14 @@ fn vert_u16x16(n: u16x16, s: u16x16) -> u16x16 {
 }
 
 #[allow(clippy::many_single_char_names)]
-fn step_level_5(store: &mut Store, step_log_2: u8, nw: NodeId, ne: NodeId, sw: NodeId, se: NodeId) -> NodeId {
+fn step_level_5(
+    store: &mut Store,
+    step_log_2: u8,
+    nw: NodeId,
+    ne: NodeId,
+    sw: NodeId,
+    se: NodeId,
+) -> NodeId {
     let nw_grid = store.node(nw).unwrap_leaf();
     let ne_grid = store.node(ne).unwrap_leaf();
     let sw_grid = store.node(sw).unwrap_leaf();

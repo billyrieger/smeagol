@@ -4,7 +4,14 @@ impl NodeId {
     pub fn expand(self, store: &mut Store) -> NodeId {
         match store.node(self) {
             Node::Leaf { .. } => panic!(),
-            Node::Interior { nw, ne, sw, se, level, .. } => {
+            Node::Interior {
+                nw,
+                ne,
+                sw,
+                se,
+                level,
+                ..
+            } => {
                 let empty = store.create_empty(Level(level.0 - 1));
 
                 let nw = store.create_interior(NodeTemplate {

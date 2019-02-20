@@ -5,8 +5,7 @@ pub mod node;
 
 const INITIAL_LEVEL: Level = Level(7);
 
-use self::node::Quadrant;
-use self::node::{Store, NodeId, Level};
+use self::node::{Level, NodeId, Quadrant, Store};
 
 /// A cell in a Life grid.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

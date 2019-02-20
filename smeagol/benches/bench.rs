@@ -100,8 +100,7 @@ fn bench_step_lobster_1(c: &mut criterion::Criterion) {
             let mut life = life.clone();
             life.step();
         })
-    }
-    );
+    });
 }
 
 fn bench_step_sir_robin_1(c: &mut criterion::Criterion) {
@@ -111,8 +110,7 @@ fn bench_step_sir_robin_1(c: &mut criterion::Criterion) {
             let mut life = life.clone();
             life.step();
         })
-    }
-    );
+    });
 }
 
 fn bench_step_spaghetti_monster_1(c: &mut criterion::Criterion) {
@@ -122,8 +120,7 @@ fn bench_step_spaghetti_monster_1(c: &mut criterion::Criterion) {
             let mut life = life.clone();
             life.step();
         })
-    }
-    );
+    });
 }
 
 fn bench_step_glider_1024(c: &mut criterion::Criterion) {
@@ -134,8 +131,7 @@ fn bench_step_glider_1024(c: &mut criterion::Criterion) {
             let mut life = life.clone();
             life.step();
         })
-    }
-    );
+    });
 }
 
 fn bench_step_lobster_1024(c: &mut criterion::Criterion) {
@@ -146,8 +142,7 @@ fn bench_step_lobster_1024(c: &mut criterion::Criterion) {
             let mut life = life.clone();
             life.step();
         })
-    }
-    );
+    });
 }
 
 fn bench_step_sir_robin_1024(c: &mut criterion::Criterion) {
@@ -158,8 +153,7 @@ fn bench_step_sir_robin_1024(c: &mut criterion::Criterion) {
             let mut life = life.clone();
             life.step();
         })
-    }
-    );
+    });
 }
 
 fn bench_step_spaghetti_monster_1024(c: &mut criterion::Criterion) {
@@ -170,8 +164,7 @@ fn bench_step_spaghetti_monster_1024(c: &mut criterion::Criterion) {
             let mut life = life.clone();
             life.step();
         })
-    }
-    );
+    });
 }
 
 criterion_group!(

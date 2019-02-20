@@ -1,7 +1,4 @@
-use crate::node::Index;
-use crate::node::Level;
-use crate::node::Node;
-use crate::node::NodeId;
+use crate::node::{Index, Level, Node, NodeId};
 use packed_simd::u16x16;
 
 pub struct NodeTemplate {

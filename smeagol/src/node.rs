@@ -3,8 +3,7 @@ use packed_simd::u16x16;
 mod impls;
 mod store;
 
-pub use self::store::NodeTemplate;
-pub use self::store::Store;
+pub use self::store::{NodeTemplate, Store};
 
 const LEVEL_4_UPPER_HALF_MASK: u16x16 = u16x16::new(
     0b1111_1111_1111_1111,
@@ -198,7 +197,7 @@ impl Node {
                 sw,
                 se,
                 level,
-                population
+                population,
             } => (nw, ne, sw, se, level, population),
         }
     }
