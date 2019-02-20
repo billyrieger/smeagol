@@ -5,11 +5,13 @@ fn create_glider() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(b"bob$2bo$3o!").unwrap()
 }
 
-fn create_gosper_glider_gun() -> smeagol::Life {
+fn create_lobster() -> smeagol::Life {
     smeagol::Life::from_rle_pattern(
         b"
-24bo11b$22bobo11b$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o14b$2o8b
-o3bob2o4bobo11b$10bo5bo7bo11b$11bo3bo20b$12b2o!",
+        11b3o$13bo$8b2o2bo$8b2o$12b2o$11b2o$10bo2bo2$8bo2bo$7bo3bo$6bob3o$5bo$
+5bo13bobo2b2o$6bo13b2obobo$b2o13b2o2bo4bo$o2b2o2b2o6bo3bo$5bo2bo6bo6b
+2o$9b2o4bobo4b2o$2bo3bo3bo5bo$6b2o4bo2bo$bobo5bo3b2o$2o8bo$5bo4bo$7bo
+3bo$4b2o5bo$4bo5bo!"
     )
     .unwrap()
 }
@@ -67,9 +69,9 @@ fn bench_create_glider(c: &mut criterion::Criterion) {
     c.bench_function("create glider", |b| b.iter(|| create_glider()));
 }
 
-fn bench_create_queen_bee_shuttle(c: &mut criterion::Criterion) {
-    c.bench_function("create gosper glider gun", |b| {
-        b.iter(|| create_gosper_glider_gun())
+fn bench_create_lobster(c: &mut criterion::Criterion) {
+    c.bench_function("create lobster", |b| {
+        b.iter(|| create_lobster())
     });
 }
 
@@ -92,10 +94,10 @@ fn bench_step_glider_1(c: &mut criterion::Criterion) {
     });
 }
 
-fn bench_step_gosper_glider_gun_1(c: &mut criterion::Criterion) {
-    c.bench_function("step gosper glider gun 1", |b| {
+fn bench_step_lobster_1(c: &mut criterion::Criterion) {
+    c.bench_function("step lobster 1", |b| {
         b.iter(|| {
-            let mut life = create_gosper_glider_gun();
+            let mut life = create_lobster();
             life.step();
         })
     });
@@ -129,10 +131,10 @@ fn bench_step_glider_1024(c: &mut criterion::Criterion) {
     });
 }
 
-fn bench_step_gosper_glider_gun_1024(c: &mut criterion::Criterion) {
-    c.bench_function("step gosper glider gun 1024", |b| {
+fn bench_step_lobster_1024(c: &mut criterion::Criterion) {
+    c.bench_function("step lobster 1024", |b| {
         b.iter(|| {
-            let mut life = create_gosper_glider_gun();
+            let mut life = create_lobster();
             life.set_step_log_2(10);
             life.step();
         })
@@ -162,15 +164,15 @@ fn bench_step_spaghetti_monster_1024(c: &mut criterion::Criterion) {
 criterion_group!(
     benches,
     bench_create_glider,
-    bench_create_queen_bee_shuttle,
+    bench_create_lobster,
     bench_create_sir_robin,
     bench_create_spaghetti_monster,
     bench_step_glider_1,
-    bench_step_gosper_glider_gun_1,
+    bench_step_lobster_1,
     bench_step_sir_robin_1,
     bench_step_spaghetti_monster_1,
     bench_step_glider_1024,
-    bench_step_gosper_glider_gun_1024,
+    bench_step_lobster_1024,
     bench_step_sir_robin_1024,
     bench_step_spaghetti_monster_1024,
 );
