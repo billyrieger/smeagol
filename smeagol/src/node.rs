@@ -1,3 +1,5 @@
+//! Inner workings of `smeagol`.
+
 use packed_simd::u16x16;
 
 mod impls;
@@ -148,57 +150,68 @@ fn center(nw_grid: u16x16, ne_grid: u16x16, sw_grid: u16x16, se_grid: u16x16) ->
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Index(u32);
+struct Index(u32);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Level(pub u8);
 
+/// The four quadrants of a node.
 pub enum Quadrant {
+    /// The northwest quadrant.
     Northwest,
+    /// The northeast quadrant.
     Northeast,
+    /// The southwest quadrant.
     Southwest,
+    /// The southeast quadrant.
     Southeast,
 }
 
+/// An identifier referring to a node in a store.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct NodeId {
+    /// The index of the node in the store.
     index: Index,
 }
 
+/// An immutable quadtree representation of a Life grid.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Node {
+    /// A leaf (16 by 16) node.
     Leaf {
+        /// The grid itself.
+        ///
+        /// 1 represents an alive cell, 0 represents a dead cell.
         grid: u16x16,
     },
+    /// A non-leaf node.
     Interior {
+        /// The northwest child.
         nw: NodeId,
+        /// The northeast child.
         ne: NodeId,
+        /// The southwest child.
         sw: NodeId,
+        /// The southeast child.
         se: NodeId,
+        /// The level of the node.
         level: Level,
+        /// The number of alive cells in the node.
         population: u128,
     },
 }
 
+/// Internal methods.
 impl Node {
-    pub fn unwrap_leaf(&self) -> u16x16 {
+    /// Returns the inner grid of a leaf node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is not a leaf.
+    fn unwrap_leaf(&self) -> u16x16 {
         match *self {
             Node::Leaf { grid } => grid,
             Node::Interior { .. } => panic!(),
-        }
-    }
-
-    pub fn unwrap_interior(&self) -> (NodeId, NodeId, NodeId, NodeId, Level, u128) {
-        match *self {
-            Node::Leaf { .. } => panic!(),
-            Node::Interior {
-                nw,
-                ne,
-                sw,
-                se,
-                level,
-                population,
-            } => (nw, ne, sw, se, level, population),
         }
     }
 }

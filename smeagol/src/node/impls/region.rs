@@ -47,6 +47,21 @@ impl NodeId {
         }
     }
 
+    /// Returns the northwest child of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+
+    /// | * |   |
+    /// +---+---+
+    /// |   |   |
+    /// +---+---+
+    /// ```
     pub fn nw(self, store: &Store) -> NodeId {
         match store.node(self) {
             Node::Leaf { .. } => panic!(),
@@ -54,6 +69,21 @@ impl NodeId {
         }
     }
 
+    /// Returns the northeast child of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+
+    /// |   | * |
+    /// +---+---+
+    /// |   |   |
+    /// +---+---+
+    /// ```
     pub fn ne(self, store: &Store) -> NodeId {
         match store.node(self) {
             Node::Leaf { .. } => panic!(),
@@ -61,6 +91,21 @@ impl NodeId {
         }
     }
 
+    /// Returns the southwest child of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+
+    /// |   |   |
+    /// +---+---+
+    /// | * |   |
+    /// +---+---+
+    /// ```
     pub fn sw(self, store: &Store) -> NodeId {
         match store.node(self) {
             Node::Leaf { .. } => panic!(),
@@ -68,6 +113,21 @@ impl NodeId {
         }
     }
 
+    /// Returns the southeast child of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+
+    /// |   |   |
+    /// +---+---+
+    /// |   | * |
+    /// +---+---+
+    /// ```
     pub fn se(self, store: &Store) -> NodeId {
         match store.node(self) {
             Node::Leaf { .. } => panic!(),
@@ -75,6 +135,25 @@ impl NodeId {
         }
     }
 
+    /// Returns the center subnode of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+---+---+
+    /// |   |   |   |   |
+    /// +---+---+---+---+
+    /// |   | * | * |   |
+    /// +---+---+---+---+
+    /// |   | * | * |   |
+    /// +---+---+---+---+
+    /// |   |   |   |   |
+    /// +---+---+---+---+
+    /// ```
     pub fn center_subnode(self, store: &mut Store) -> NodeId {
         match store.node(self) {
             Node::Leaf { .. } => panic!(),
@@ -105,24 +184,132 @@ impl NodeId {
         }
     }
 
+    /// Returns the north subsubnode of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node or level 5.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   | * | * |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   | * | * |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// ```
     pub fn north_subsubnode(self, store: &mut Store) -> NodeId {
         let w = self.nw(store);
         let e = self.ne(store);
         centered_horiz(store, w, e)
     }
 
+    /// Returns the south subsubnode of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node or level 5.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   | * | * |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   | * | * |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// ```
     pub fn south_subsubnode(self, store: &mut Store) -> NodeId {
         let w = self.sw(store);
         let e = self.se(store);
         centered_horiz(store, w, e)
     }
 
+    /// Returns the west subsubnode of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node or level 5.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   | * | * |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   | * | * |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// ```
     pub fn west_subsubnode(self, store: &mut Store) -> NodeId {
         let n = self.nw(store);
         let s = self.sw(store);
         centered_vert(store, n, s)
     }
 
+    /// Returns the east subsubnode of the node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node or level 5.
+    ///
+    /// # Diagram
+    ///
+    /// ```txt
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   | * | * |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   | * | * |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// |   |   |   |   |   |   |   |   |
+    /// +---+---+---+---+---+---+---+---+
+    /// ```
     pub fn east_subsubnode(self, store: &mut Store) -> NodeId {
         let n = self.ne(store);
         let s = self.se(store);

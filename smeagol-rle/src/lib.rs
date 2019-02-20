@@ -1,4 +1,4 @@
-//! Library for working with run-length encoded (RLE) Life patterns.
+//! Crate for working with run-length encoded (RLE) Life patterns.
 #[macro_use]
 extern crate nom;
 
@@ -120,7 +120,10 @@ impl Rle {
     /// # Examples
     ///
     /// ```
-    /// let rle = smeagol_rle::Rle::from_file("../assets/breeder1.rle").unwrap();
+    /// # fn main() -> Result<(), smeagol_rle::RleError> {
+    /// let rle = smeagol_rle::Rle::from_file("../assets/breeder1.rle")?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn from_file<P>(path: P) -> Result<Self, RleError>
     where
@@ -143,8 +146,10 @@ impl Rle {
     /// # Examples
     ///
     /// ```
-    /// // glider
-    /// let rle = smeagol_rle::Rle::from_pattern(b"bob$2bo$3o!").unwrap();
+    /// # fn main() -> Result<(), smeagol_rle::RleError> {
+    /// let rle = smeagol_rle::Rle::from_pattern(b"bob$2bo$3o!")?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn from_pattern(pattern_str: &[u8]) -> Result<Self, RleError> {
         let (_rest, units) = pattern(pattern_str).map_err(|e| e.into_error_kind())?;
@@ -156,12 +161,14 @@ impl Rle {
     /// # Examples
     ///
     /// ```
-    /// // glider
-    /// let rle = smeagol_rle::Rle::from_pattern(b"bob$2bo$3o!").unwrap();
+    /// # fn main() -> Result<(), smeagol_rle::RleError> {
+    /// let rle = smeagol_rle::Rle::from_pattern(b"bob$2bo$3o!")?;
     ///
     /// for (x, y) in rle.alive_cells() {
     ///     // do something
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn alive_cells(&self) -> Vec<(u32, u32)> {
         let mut cells = vec![];

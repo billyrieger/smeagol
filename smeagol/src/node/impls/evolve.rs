@@ -152,6 +152,97 @@ fn combine_results_u16x16(
     nw_grid | ne_grid | sw_grid | se_grid
 }
 
+fn horiz_u16x16(w: u16x16, e: u16x16) -> u16x16 {
+    (w << 8) | (e >> 8)
+}
+
+fn vert_u16x16(n: u16x16, s: u16x16) -> u16x16 {
+    let n = shuffle!(n, [8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7])
+        & LEVEL_4_UPPER_HALF_MASK;
+    let s = shuffle!(s, [8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7])
+        & LEVEL_4_LOWER_HALF_MASK;
+    n | s
+}
+
+#[allow(clippy::many_single_char_names)]
+fn step_level_5(
+    store: &mut Store,
+    step_log_2: u8,
+    nw: NodeId,
+    ne: NodeId,
+    sw: NodeId,
+    se: NodeId,
+) -> NodeId {
+    let nw_grid = store.node(nw).unwrap_leaf();
+    let ne_grid = store.node(ne).unwrap_leaf();
+    let sw_grid = store.node(sw).unwrap_leaf();
+    let se_grid = store.node(se).unwrap_leaf();
+
+    let a = nw_grid;
+    let b = horiz_u16x16(nw_grid, ne_grid);
+    let c = ne_grid;
+    let d = vert_u16x16(nw_grid, sw_grid);
+    let e = center(nw_grid, ne_grid, sw_grid, se_grid);
+    let f = vert_u16x16(ne_grid, se_grid);
+    let g = sw_grid;
+    let h = horiz_u16x16(sw_grid, se_grid);
+    let i = se_grid;
+
+    let w = step_u16x16(combine_results_u16x16(a, b, d, e), step_log_2);
+    let x = step_u16x16(combine_results_u16x16(b, c, e, f), step_log_2);
+    let y = step_u16x16(combine_results_u16x16(d, e, g, h), step_log_2);
+    let z = step_u16x16(combine_results_u16x16(e, f, h, i), step_log_2);
+
+    store.create_leaf(combine_results_u16x16(w, x, y, z))
+}
+
+#[allow(clippy::many_single_char_names)]
+fn jump_level_5(store: &mut Store, nw: NodeId, ne: NodeId, sw: NodeId, se: NodeId) -> NodeId {
+    let nw_grid = store.node(nw).unwrap_leaf();
+    let ne_grid = store.node(ne).unwrap_leaf();
+    let sw_grid = store.node(sw).unwrap_leaf();
+    let se_grid = store.node(se).unwrap_leaf();
+
+    let a = jump_u16x16(nw_grid);
+    let b = horiz_jump_u16x16(nw_grid, ne_grid);
+    let c = jump_u16x16(ne_grid);
+    let d = vert_jump_u16x16(nw_grid, sw_grid);;
+    let e = center_jump_u16x16(nw_grid, ne_grid, sw_grid, se_grid);
+    let f = vert_jump_u16x16(ne_grid, se_grid);;
+    let g = jump_u16x16(sw_grid);
+    let h = horiz_jump_u16x16(sw_grid, se_grid);
+    let i = jump_u16x16(se_grid);
+
+    let w = jump_u16x16(combine_results_u16x16(a, b, d, e));
+    let x = jump_u16x16(combine_results_u16x16(b, c, e, f));
+    let y = jump_u16x16(combine_results_u16x16(d, e, g, h));
+    let z = jump_u16x16(combine_results_u16x16(e, f, h, i));
+
+    store.create_leaf(combine_results_u16x16(w, x, y, z))
+}
+
+fn horiz_jump(store: &mut Store, w: NodeId, e: NodeId) -> NodeId {
+    let nw = w.ne(store);
+    let ne = e.nw(store);
+    let sw = w.se(store);
+    let se = e.sw(store);
+
+    store
+        .create_interior(NodeTemplate { nw, ne, sw, se })
+        .jump(store)
+}
+
+fn vert_jump(store: &mut Store, n: NodeId, s: NodeId) -> NodeId {
+    let nw = n.sw(store);
+    let ne = n.se(store);
+    let sw = s.nw(store);
+    let se = s.ne(store);
+
+    store
+        .create_interior(NodeTemplate { nw, ne, sw, se })
+        .jump(store)
+}
+
 impl NodeId {
     #[allow(clippy::many_single_char_names)]
     pub fn jump(self, store: &mut Store) -> NodeId {
@@ -318,97 +409,6 @@ impl NodeId {
             }
         }
     }
-}
-
-fn horiz_u16x16(w: u16x16, e: u16x16) -> u16x16 {
-    (w << 8) | (e >> 8)
-}
-
-fn vert_u16x16(n: u16x16, s: u16x16) -> u16x16 {
-    let n = shuffle!(n, [8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7])
-        & LEVEL_4_UPPER_HALF_MASK;
-    let s = shuffle!(s, [8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7])
-        & LEVEL_4_LOWER_HALF_MASK;
-    n | s
-}
-
-#[allow(clippy::many_single_char_names)]
-fn step_level_5(
-    store: &mut Store,
-    step_log_2: u8,
-    nw: NodeId,
-    ne: NodeId,
-    sw: NodeId,
-    se: NodeId,
-) -> NodeId {
-    let nw_grid = store.node(nw).unwrap_leaf();
-    let ne_grid = store.node(ne).unwrap_leaf();
-    let sw_grid = store.node(sw).unwrap_leaf();
-    let se_grid = store.node(se).unwrap_leaf();
-
-    let a = nw_grid;
-    let b = horiz_u16x16(nw_grid, ne_grid);
-    let c = ne_grid;
-    let d = vert_u16x16(nw_grid, sw_grid);
-    let e = center(nw_grid, ne_grid, sw_grid, se_grid);
-    let f = vert_u16x16(ne_grid, se_grid);
-    let g = sw_grid;
-    let h = horiz_u16x16(sw_grid, se_grid);
-    let i = se_grid;
-
-    let w = step_u16x16(combine_results_u16x16(a, b, d, e), step_log_2);
-    let x = step_u16x16(combine_results_u16x16(b, c, e, f), step_log_2);
-    let y = step_u16x16(combine_results_u16x16(d, e, g, h), step_log_2);
-    let z = step_u16x16(combine_results_u16x16(e, f, h, i), step_log_2);
-
-    store.create_leaf(combine_results_u16x16(w, x, y, z))
-}
-
-#[allow(clippy::many_single_char_names)]
-fn jump_level_5(store: &mut Store, nw: NodeId, ne: NodeId, sw: NodeId, se: NodeId) -> NodeId {
-    let nw_grid = store.node(nw).unwrap_leaf();
-    let ne_grid = store.node(ne).unwrap_leaf();
-    let sw_grid = store.node(sw).unwrap_leaf();
-    let se_grid = store.node(se).unwrap_leaf();
-
-    let a = jump_u16x16(nw_grid);
-    let b = horiz_jump_u16x16(nw_grid, ne_grid);
-    let c = jump_u16x16(ne_grid);
-    let d = vert_jump_u16x16(nw_grid, sw_grid);;
-    let e = center_jump_u16x16(nw_grid, ne_grid, sw_grid, se_grid);
-    let f = vert_jump_u16x16(ne_grid, se_grid);;
-    let g = jump_u16x16(sw_grid);
-    let h = horiz_jump_u16x16(sw_grid, se_grid);
-    let i = jump_u16x16(se_grid);
-
-    let w = jump_u16x16(combine_results_u16x16(a, b, d, e));
-    let x = jump_u16x16(combine_results_u16x16(b, c, e, f));
-    let y = jump_u16x16(combine_results_u16x16(d, e, g, h));
-    let z = jump_u16x16(combine_results_u16x16(e, f, h, i));
-
-    store.create_leaf(combine_results_u16x16(w, x, y, z))
-}
-
-fn horiz_jump(store: &mut Store, w: NodeId, e: NodeId) -> NodeId {
-    let nw = w.ne(store);
-    let ne = e.nw(store);
-    let sw = w.se(store);
-    let se = e.sw(store);
-
-    store
-        .create_interior(NodeTemplate { nw, ne, sw, se })
-        .jump(store)
-}
-
-fn vert_jump(store: &mut Store, n: NodeId, s: NodeId) -> NodeId {
-    let nw = n.sw(store);
-    let ne = n.se(store);
-    let sw = s.nw(store);
-    let se = s.ne(store);
-
-    store
-        .create_interior(NodeTemplate { nw, ne, sw, se })
-        .jump(store)
 }
 
 #[cfg(test)]

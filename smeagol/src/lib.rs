@@ -5,9 +5,11 @@
 //! ```
 //! // create a gosper glider gun
 //! let mut life = smeagol::Life::from_rle_pattern(
-//!     b"24bo11b$22bobo11b$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o14b$2o8b
+//!     b"
+//! 24bo11b$22bobo11b$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o14b$2o8b
 //! o3bob2o4bobo11b$10bo5bo7bo11b$11bo3bo20b$12b2o!",
-//! ).unwrap();
+//! )
+//! .unwrap();
 //!
 //! // step 1024 generations into the future
 //! life.set_step_log_2(10);
@@ -18,9 +20,9 @@ extern crate packed_simd;
 
 pub mod node;
 
-const INITIAL_LEVEL: Level = Level(7);
-
 use self::node::{Level, NodeId, Quadrant, Store};
+
+const INITIAL_LEVEL: Level = Level(7);
 
 /// A cell in a Life grid.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -74,18 +76,27 @@ pub struct Position {
 }
 
 impl Position {
+    /// Creates a new position with the given coordinates.
+    ///
+    /// # Exampes
+    ///
+    /// ```
+    /// let position = smeagol::Position::new(1, 2);
+    /// ```
     pub fn new(x: i64, y: i64) -> Self {
         Self { x, y }
     }
 
-    pub fn offset(&self, x_offset: i64, y_offset: i64) -> Self {
+    /// Offsets the position by the given amounts in the x and y directions.
+    fn offset(&self, x_offset: i64, y_offset: i64) -> Self {
         Self {
             x: self.x + x_offset,
             y: self.y + y_offset,
         }
     }
 
-    pub fn quadrant(&self) -> Quadrant {
+    /// Returns which quadrant of a node this position is in.
+    fn quadrant(&self) -> Quadrant {
         match (self.x < 0, self.y < 0) {
             (true, true) => Quadrant::Northwest,
             (false, true) => Quadrant::Northeast,
@@ -95,14 +106,26 @@ impl Position {
     }
 }
 
+/// Conway's Game of Life.
 #[derive(Clone, Debug)]
 pub struct Life {
+    /// The root node of the Life grid.
     root: NodeId,
+    /// The store.
     store: Store,
+    /// What generation the Life is on.
     generation: u128,
 }
 
 impl Life {
+    /// Creates a new empty Life grid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut life = smeagol::Life::new();
+    /// assert_eq!(life.population(), 0);
+    /// ```
     pub fn new() -> Self {
         let mut store = Store::new();
         let root = store.create_empty(INITIAL_LEVEL);
@@ -113,6 +136,14 @@ impl Life {
         }
     }
 
+    /// Creates a Life grid from the given RLE file.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut life = smeagol::Life::from_rle_file("../assets/glider.rle").unwrap();
+    /// assert_eq!(life.population(), 5);
+    /// ```
     pub fn from_rle_file<P>(path: P) -> Result<Self, smeagol_rle::RleError>
     where
         P: AsRef<std::path::Path>,
@@ -121,11 +152,21 @@ impl Life {
         Ok(Self::from_rle(&rle))
     }
 
+    /// Creates a Life grid from the given RLE pattern.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // integral sign
+    /// let mut life = smeagol::Life::from_rle_pattern(b"3b2o$2bobo$2bo2b$obo2b$2o!").unwrap();
+    /// assert_eq!(life.population(), 9);
+    /// ```
     pub fn from_rle_pattern(pattern: &[u8]) -> Result<Self, smeagol_rle::RleError> {
         let rle = smeagol_rle::Rle::from_pattern(pattern)?;
         Ok(Self::from_rle(&rle))
     }
 
+    /// Creates a Life grid from the given RLE struct.
     fn from_rle(rle: &smeagol_rle::Rle) -> Self {
         let alive_cells = rle
             .alive_cells()
@@ -168,6 +209,12 @@ impl Life {
         self.generation
     }
 
+    /// Returns the number of alive cells in the grid.
+    pub fn population(&self) -> u128 {
+        self.root.population(&self.store)
+    }
+
+    /// Returns the current step size.
     pub fn step_size(&self) -> u64 {
         1 << self.store.step_log_2()
     }
