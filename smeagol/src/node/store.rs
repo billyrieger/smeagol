@@ -1,93 +1,117 @@
-mod create;
-
+use crate::node::Index;
+use crate::node::Level;
 use crate::node::Node;
+use crate::node::NodeId;
+use packed_simd::u16x16;
 
-/// A template to create a node from four children nodes.
 pub struct NodeTemplate {
-    /// The northeast child node.
-    pub ne: Node,
-
-    /// The northwest child node.
-    pub nw: Node,
-
-    /// The southeast child node.
-    pub se: Node,
-
-    /// The southwest child node.
-    pub sw: Node,
+    pub nw: NodeId,
+    pub ne: NodeId,
+    pub sw: NodeId,
+    pub se: NodeId,
 }
 
-/// A structure to contain and create nodes.
-#[derive(Clone, Debug)]
 pub struct Store {
+    indices: hashbrown::HashMap<Node, NodeId>,
     nodes: Vec<Node>,
-    populations: Vec<u128>,
-    indices: hashbrown::HashMap<Node, usize>,
-    level_2_steps: hashbrown::HashMap<Node, Node>,
-    steps: hashbrown::HashMap<(Node, u64), usize>,
+    steps: Vec<Option<NodeId>>,
+    jumps: Vec<Option<NodeId>>,
+    step_log_2: u8,
 }
 
-/// Methods to create a store.
 impl Store {
-    /// Creates a new empty store.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let mut store = smeagol::node::Store::new();
-    /// ```
     pub fn new() -> Self {
         Self {
+            indices: hashbrown::HashMap::new(),
             nodes: vec![],
-            populations: vec![],
-            indices: hashbrown::HashMap::default(),
-            level_2_steps: hashbrown::HashMap::default(),
-            steps: hashbrown::HashMap::default(),
+            steps: vec![],
+            jumps: vec![],
+            step_log_2: 0,
+        }
+    }
+
+    pub fn node(&self, id: NodeId) -> Node {
+        self.nodes[id.index.0 as usize]
+    }
+
+    pub fn create_leaf(&mut self, grid: u16x16) -> NodeId {
+        let node = Node::Leaf { grid };
+        self.add_node(node)
+    }
+
+    pub fn create_interior(&mut self, template: NodeTemplate) -> NodeId {
+        let level = template.nw.level(self);
+        let new_level = Level(level.0 + 1);
+
+        let population = template.nw.population(self)
+            + template.ne.population(self)
+            + template.sw.population(self)
+            + template.se.population(self);
+
+        let node = Node::Interior {
+            nw: template.nw,
+            ne: template.ne,
+            sw: template.sw,
+            se: template.se,
+            level: new_level,
+            population,
+        };
+
+        self.add_node(node)
+    }
+
+    pub fn create_empty(&mut self, level: Level) -> NodeId {
+        if level == Level(4) {
+            self.create_leaf(u16x16::splat(0))
+        } else {
+            let empty = self.create_empty(Level(level.0 - 1));
+            self.create_interior(NodeTemplate {
+                nw: empty,
+                ne: empty,
+                sw: empty,
+                se: empty,
+            })
+        }
+    }
+
+    fn add_node(&mut self, node: Node) -> NodeId {
+        if let Some(id) = self.indices.get(&node) {
+            *id
+        } else {
+            let id = NodeId {
+                index: Index(self.nodes.len() as u32),
+            };
+            self.indices.insert(node, id);
+            self.nodes.push(node);
+            self.steps.push(None);
+            self.jumps.push(None);
+            id
         }
     }
 }
 
-/// Internal methods.
 impl Store {
-    /// Returns the stored population of the given node.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the level of the node is less than 2, since those nodes are not stored.
-    pub(crate) fn population(&self, node: &Node) -> u128 {
-        self.populations[node.index()]
+    pub fn step_log_2(&self) -> u8 {
+        self.step_log_2
     }
 
-    /// Returns the index of the given node.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the level of the node is less than 2, since those nodes are not stored.
-    pub fn node(&self, index: usize) -> Node {
-        self.nodes[index]
+    pub fn set_step_log_2(&mut self, step_log_2: u8) {
+        self.step_log_2 = step_log_2;
     }
 
-    pub fn step(&self, node: Node, step_size: u64) -> Option<Node> {
-        self.steps
-            .get(&(node, step_size))
-            .map(|&index| self.nodes[index])
+    pub fn get_step(&self, id: NodeId) -> Option<NodeId> {
+        self.steps[id.index.0 as usize]
     }
 
-    pub fn add_step(&mut self, node: Node, step_size: u64, result: Node) {
-        self.steps.insert((node, step_size), result.index());
+    pub fn add_step(&mut self, id: NodeId, step: NodeId) {
+        self.steps[id.index.0 as usize] = Some(step);
     }
 
-    pub fn level_2_step(&self, node: Node) -> Option<Node> {
-        self.level_2_steps.get(&node).cloned()
+    pub fn get_jump(&self, id: NodeId) -> Option<NodeId> {
+        self.jumps[id.index.0 as usize]
     }
 
-    pub fn add_level_2_step(&mut self, node: Node, result: Node) {
-        self.level_2_steps.insert(node, result);
-    }
-}
-
-impl Default for Store {
-    fn default() -> Self {
-        Self::new()
+    pub fn add_jump(&mut self, id: NodeId, jump: NodeId) {
+        self.jumps[id.index.0 as usize] = Some(jump);
     }
 }

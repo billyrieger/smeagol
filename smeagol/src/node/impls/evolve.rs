@@ -1,678 +1,670 @@
-use crate::{
-    node::{self, NodeBase},
-    node::{Node, NodeTemplate, Store
-}};
+use crate::node::*;
+use packed_simd::u16x16;
 
-impl Node {
-    /// For a level `n` node, returns the center subnode of the node `2^(n-2)` generations into the
-    /// future.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `n < 2`.
-    #[allow(clippy::many_single_char_names)]
-    pub fn jump(&self, store: &mut Store) -> Node {
-        assert!(self.level >= 2);
+#[derive(Clone, Copy, Debug)]
+struct Counts {
+    low: u16x16,
+    mid: u16x16,
+    high: u16x16,
+}
 
-        let jump_size = 1 << (self.level - 2);
+impl Counts {
+    fn new() -> Self {
+        Self {
+            low: u16x16::splat(0),
+            mid: u16x16::splat(0),
+            high: u16x16::splat(0),
+        }
+    }
 
-        // check if the jump has been calculated previously
-        if let Some(jump) = store.step(*self, jump_size) {
+    fn add(&mut self, neighbors: u16x16) {
+        // low bit half adder
+        let low_carry = self.low & neighbors;
+        self.low ^= neighbors;
+
+        // middle bit half adder
+        let mid_carry = self.mid & low_carry;
+        self.mid ^= low_carry;
+
+        // high bit saturating add
+        self.high |= mid_carry;
+    }
+}
+
+fn rotate_lanes_up(board: u16x16) -> u16x16 {
+    shuffle!(
+        board,
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0]
+    )
+}
+
+fn rotate_lanes_down(board: u16x16) -> u16x16 {
+    shuffle!(
+        board,
+        [15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+    )
+}
+
+fn step_once_u16x16(board: u16x16) -> u16x16 {
+    let mut neighbors = Counts::new();
+
+    // +---+---+---+
+    // | * | * | * |
+    // +---+---+---+
+    // | * |   | * |
+    // +---+---+---+
+    // | * | * | * |
+    // +---+---+---+
+
+    // top row
+    neighbors.add(rotate_lanes_down(board) >> 1);
+    neighbors.add(rotate_lanes_down(board));
+    neighbors.add(rotate_lanes_down(board) << 1);
+
+    // middle row
+    neighbors.add(board >> 1);
+    neighbors.add(board << 1);
+
+    // bottom row
+    neighbors.add(rotate_lanes_up(board) >> 1);
+    neighbors.add(rotate_lanes_up(board));
+    neighbors.add(rotate_lanes_up(board) << 1);
+
+    // 2 is 010 in binary
+    let two_neighbors = !neighbors.high & neighbors.mid & !neighbors.low;
+    // 3 is 011 in binary
+    let three_neighbors = !neighbors.high & neighbors.mid & neighbors.low;
+
+    // if 2 neighbors, the cell doesn't change
+    // if 3 neighbors, the cell is alive
+    (two_neighbors & board) | three_neighbors
+}
+
+fn jump_u16x16(mut board: u16x16) -> u16x16 {
+    board = step_once_u16x16(board);
+    board = step_once_u16x16(board);
+    board = step_once_u16x16(board);
+    board = step_once_u16x16(board);
+    board
+}
+
+fn step_u16x16(mut board: u16x16, step_log_2: u8) -> u16x16 {
+    for _ in 0..(1 << step_log_2) {
+        board = step_once_u16x16(board);
+    }
+    board
+}
+
+fn horiz_jump_u16x16(w: u16x16, e: u16x16) -> u16x16 {
+    let grid = (w << 8) | (e >> 8);
+    jump_u16x16(grid)
+}
+
+fn vert_jump_u16x16(n: u16x16, s: u16x16) -> u16x16 {
+    let n = shuffle!(n, [8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7])
+        & LEVEL_4_UPPER_HALF_MASK;
+    let s = shuffle!(s, [8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7])
+        & LEVEL_4_LOWER_HALF_MASK;
+    let grid = n | s;
+    jump_u16x16(grid)
+}
+
+fn center_jump_u16x16(
+    nw_grid: u16x16,
+    ne_grid: u16x16,
+    sw_grid: u16x16,
+    se_grid: u16x16,
+) -> u16x16 {
+    let grid = center(nw_grid, ne_grid, sw_grid, se_grid);
+    jump_u16x16(grid)
+}
+
+fn combine_results_u16x16(
+    nw_grid: u16x16,
+    ne_grid: u16x16,
+    sw_grid: u16x16,
+    se_grid: u16x16,
+) -> u16x16 {
+    let nw_grid = nw_grid << 4;
+    let nw_grid = shuffle!(
+        nw_grid,
+        [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3]
+    ) & LEVEL_4_NW_MASK;
+
+    let ne_grid = ne_grid >> 4;
+    let ne_grid = shuffle!(
+        ne_grid,
+        [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3]
+    ) & LEVEL_4_NE_MASK;
+
+    let sw_grid = sw_grid << 4;
+    let sw_grid = shuffle!(
+        sw_grid,
+        [12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    ) & LEVEL_4_SW_MASK;
+
+    let se_grid = se_grid >> 4;
+    let se_grid = shuffle!(
+        se_grid,
+        [12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    ) & LEVEL_4_SE_MASK;
+
+    nw_grid | ne_grid | sw_grid | se_grid
+}
+
+impl NodeId {
+    pub fn jump(&self, store: &mut Store) -> NodeId {
+        if let Some(jump) = store.get_jump(*self) {
             return jump;
         }
 
-        // base case: level = 2
-        // jump size is 2^(2 - 2) = 1, so a jump is equivalent to a step
-        if self.level == 2 {
-            // step_level_2 handles its own cache
-            return self.step_level_2(store);
-        }
+        match store.node(*self) {
+            Node::Leaf { .. } => panic!(),
+            Node::Interior {
+                nw,
+                ne,
+                sw,
+                se,
+                level,
+                ..
+            } => {
+                if level == Level(5) {
+                    jump_level_5(store, nw, ne, sw, se)
+                } else {
+                    let a = nw.jump(store);
+                    let b = horiz_jump(store, nw, ne);
+                    let c = ne.jump(store);
+                    let d = vert_jump(store, nw, sw);
+                    let e = self.center_subnode(store).jump(store);
+                    let f = vert_jump(store, ne, se);
+                    let g = sw.jump(store);
+                    let h = horiz_jump(store, sw, se);
+                    let i = se.jump(store);
 
-        // given a level n node, n >= 3, we want to calculate
-        // the starred region 2^(n-2) ticks in the future
-        //
-        // +---+---+---+---+---+---+---+---+
-        // |   |   |   |   |   |   |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   |   |   |   |   |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   | * | * | * | * |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   | * | * | * | * |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   | * | * | * | * |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   | * | * | * | * |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   |   |   |   |   |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   |   |   |   |   |   |   |
-        // +---+---+---+---+---+---+---+---+
+                    let w = store
+                        .create_interior(NodeTemplate {
+                            nw: a,
+                            ne: b,
+                            sw: d,
+                            se: e,
+                        })
+                        .jump(store);
 
-        // a-i are all level n-2 and 2^(n-3) ticks in the future
-        // since each one is a jump of a level n-1 node
-        //
-        // +---+---+---+---+---+---+---+---+
-        // |   |   |   |   |   |   |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   | A | A | B | B | C | C |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   | A | A | B | B | C | C |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   | D | D | E | E | F | F |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   | D | D | E | E | F | F |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   | G | G | H | H | I | I |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   | G | G | H | H | I | I |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   |   |   |   |   |   |   |
-        // +---+---+---+---+---+---+---+---+
+                    let x = store
+                        .create_interior(NodeTemplate {
+                            nw: b,
+                            ne: c,
+                            sw: e,
+                            se: f,
+                        })
+                        .jump(store);
 
-        let a = self.nw(store).jump(store);
+                    let y = store
+                        .create_interior(NodeTemplate {
+                            nw: d,
+                            ne: e,
+                            sw: g,
+                            se: h,
+                        })
+                        .jump(store);
 
-        let ne = self.ne(store);
-        let nw = self.nw(store);
-        let b = Node::horiz_jump(store, ne, nw);
+                    let z = store
+                        .create_interior(NodeTemplate {
+                            nw: e,
+                            ne: f,
+                            sw: h,
+                            se: i,
+                        })
+                        .jump(store);
 
-        let c = self.ne(store).jump(store);
-
-        let nw = self.nw(store);
-        let sw = self.sw(store);
-        let d = Node::vert_jump(store, nw, sw);
-
-        let e = self.center_subnode(store).jump(store);
-
-        let ne = self.ne(store);
-        let se = self.se(store);
-        let f = Node::vert_jump(store, ne, se);
-
-        let g = self.sw(store).jump(store);
-
-        let se = self.se(store);
-        let sw = self.sw(store);
-        let h = Node::horiz_jump(store, se, sw);
-
-        let i = self.se(store).jump(store);
-
-        // w-z are all level n-2 and another 2^(n-3) ticks in the future
-        // since each one is a jump of a level n-1 node
-        //
-        // +---+---+---+---+---+---+---+---+
-        // |   |   |   |   |   |   |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   |   |   |   |   |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   | W | W | X | X |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   | W | W | X | X |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   | Y | Y | Z | Z |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   | Y | Y | Z | Z |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   |   |   |   |   |   |   |
-        // +---+---+---+---+---+---+---+---+
-        // |   |   |   |   |   |   |   |   |
-        // +---+---+---+---+---+---+---+---+
-        let w = store
-            .create_interior(NodeTemplate {
-                ne: b,
-                nw: a,
-                se: e,
-                sw: d,
-            })
-            .jump(store);
-        let x = store
-            .create_interior(NodeTemplate {
-                ne: c,
-                nw: b,
-                se: f,
-                sw: e,
-            })
-            .jump(store);
-        let y = store
-            .create_interior(NodeTemplate {
-                ne: e,
-                nw: d,
-                se: h,
-                sw: g,
-            })
-            .jump(store);
-        let z = store
-            .create_interior(NodeTemplate {
-                ne: f,
-                nw: e,
-                se: i,
-                sw: h,
-            })
-            .jump(store);
-
-        // when calculating a-i, we jumped 2^(n-3)
-        // when calculating w-z, we jumped 2^(n-3)
-        // this makes the total jump 2^(n-2) as desired
-        // level of jump is n-1
-        let final_jump = store.create_interior(NodeTemplate {
-            ne: x,
-            nw: w,
-            se: z,
-            sw: y,
-        });
-
-        // add the jump to the store
-        store.add_step(*self, jump_size, final_jump);
-
-        final_jump
-    }
-
-    /// Returns the center subnode of the node `2^(cutoff-2)` generations into the future.
-    ///
-    /// # Panics
-    ///
-    /// For a level `n` node, panics if `n < cutoff` or `cutoff < 2`.
-    #[allow(clippy::many_single_char_names)]
-    pub fn step(&self, store: &mut Store, level_cutoff: u8) -> Node {
-        assert!(self.level >= level_cutoff);
-        assert!(level_cutoff >= 2);
-
-        let step_size = 1 << (level_cutoff - 2);
-
-        // check if the result has been calculated previously
-        if let Some(step) = store.step(*self, step_size) {
-            return step;
-        }
-
-        match self.level.cmp(&level_cutoff) {
-            std::cmp::Ordering::Less => unreachable!(),
-            std::cmp::Ordering::Equal => {
-                // when level == level_cutoff, a step is equivalent to a jump
-                self.jump(store)
-            }
-            std::cmp::Ordering::Greater => {
-                // +---+---+---+---+---+---+---+---+
-                // |   |   |   |   |   |   |   |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   | A | A | B | B | C | C |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   | A | A | B | B | C | C |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   | D | D | E | E | F | F |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   | D | D | E | E | F | F |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   | G | G | H | H | I | I |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   | G | G | H | H | I | I |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   |   |   |   |   |   |   |   |
-                // +---+---+---+---+---+---+---+---+
-                let a = self.nw(store).center_subnode(store);
-                let b = self.north_subsubnode(store);
-                let c = self.ne(store).center_subnode(store);
-                let d = self.west_subsubnode(store);
-                let e = self.center_subnode(store).center_subnode(store);
-                let f = self.east_subsubnode(store);
-                let g = self.sw(store).center_subnode(store);
-                let h = self.south_subsubnode(store);
-                let i = self.se(store).center_subnode(store);
-
-                // +---+---+---+---+---+---+---+---+
-                // |   |   |   |   |   |   |   |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   |   |   |   |   |   |   |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   |   | W | W | X | X |   |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   |   | W | W | X | X |   |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   |   | Y | Y | Z | Z |   |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   |   | Y | Y | Z | Z |   |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   |   |   |   |   |   |   |   |
-                // +---+---+---+---+---+---+---+---+
-                // |   |   |   |   |   |   |   |   |
-                // +---+---+---+---+---+---+---+---+
-                let w = store
-                    .create_interior(NodeTemplate {
-                        ne: b,
-                        nw: a,
-                        se: e,
-                        sw: d,
-                    })
-                    .step(store, level_cutoff);
-                let x = store
-                    .create_interior(NodeTemplate {
-                        ne: c,
-                        nw: b,
-                        se: f,
-                        sw: e,
-                    })
-                    .step(store, level_cutoff);
-                let y = store
-                    .create_interior(NodeTemplate {
-                        ne: e,
-                        nw: d,
-                        se: h,
-                        sw: g,
-                    })
-                    .step(store, level_cutoff);
-                let z = store
-                    .create_interior(NodeTemplate {
-                        ne: f,
-                        nw: e,
-                        se: i,
-                        sw: h,
-                    })
-                    .step(store, level_cutoff);
-
-                let final_step = store.create_interior(NodeTemplate {
-                    ne: x,
-                    nw: w,
-                    se: z,
-                    sw: y,
-                });
-
-                // add the step to the store
-                store.add_step(*self, step_size, final_step);
-
-                final_step
+                    let jump = store.create_interior(NodeTemplate {
+                        nw: w,
+                        ne: x,
+                        sw: y,
+                        se: z,
+                    });
+                    store.add_jump(*self, jump);
+                    jump
+                }
             }
         }
     }
 
-    /// Steps a level two node one generation into the future.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the level of the node is not two.
-    fn step_level_2(&self, store: &mut Store) -> Node {
-        assert_eq!(self.level, 2);
-
-        if let Some(step) = store.level_2_step(*self) {
+    pub fn step(&self, store: &mut Store) -> NodeId {
+        if let Some(step) = store.get_step(*self) {
             return step;
         }
+        
+        let step_log_2 = store.step_log_2();
 
-        let nw_bitmask = 0b1110_1010_1110_0000;
-        let ne_bitmask = 0b0111_0101_0111_0000;
-        let sw_bitmask = 0b0000_1110_1010_1110;
-        let se_bitmask = 0b0000_0111_0101_0111;
-        let nw_center = 1 << 10;
-        let ne_center = 1 << 9;
-        let sw_center = 1 << 6;
-        let se_center = 1 << 5;
+        match store.node(*self) {
+            Node::Leaf { .. } => panic!(),
+            Node::Interior { nw, ne, sw, se, level, .. } => {
+                if step_log_2 == level.0 - 2 {
+                    let step = self.jump(store);
+                    store.add_step(*self, step);
+                    return step;
+                }
 
-        let board = match self.base {
-            NodeBase::LevelTwo { cells } => cells,
-            _ => unreachable!(),
-        };
+                if level == Level(5) {
+                    let step = step_level_5(store, step_log_2, nw, ne, sw, se);
+                    store.add_step(*self, step);
+                    step
+                } else {
+                    let a = nw.center_subnode(store);
+                    let b = self.north_subsubnode(store);
+                    let c = ne.center_subnode(store);
+                    let d = self.west_subsubnode(store);
+                    let e = self.center_subnode(store).center_subnode(store);
+                    let f = self.east_subsubnode(store);
+                    let g = sw.center_subnode(store);
+                    let h = self.south_subsubnode(store);
+                    let i = se.center_subnode(store);
 
-        let mut new_board = 0u8;
+                    let w = store
+                        .create_interior(NodeTemplate {
+                            nw: a,
+                            ne: b,
+                            sw: d,
+                            se: e,
+                        })
+                        .step(store);
 
-        // nw
-        let nw_neighbors = (nw_bitmask & board).count_ones();
-        if nw_neighbors == 3 || (nw_neighbors == 2 && (board & nw_center > 0)) {
-            new_board |= node::LEVEL_ONE_NW_MASK;
+                    let x = store
+                        .create_interior(NodeTemplate {
+                            nw: b,
+                            ne: c,
+                            sw: e,
+                            se: f,
+                        })
+                        .step(store);
+
+                    let y = store
+                        .create_interior(NodeTemplate {
+                            nw: d,
+                            ne: e,
+                            sw: g,
+                            se: h,
+                        })
+                        .step(store);
+
+                    let z = store
+                        .create_interior(NodeTemplate {
+                            nw: e,
+                            ne: f,
+                            sw: h,
+                            se: i,
+                        })
+                        .step(store);
+
+                    let step = store.create_interior(NodeTemplate {
+                        nw: w,
+                        ne: x,
+                        sw: y,
+                        se: z,
+                    });
+                    store.add_step(*self, step);
+                    step
+                }
+            },
         }
-
-        // ne
-        let ne_neighbors = (ne_bitmask & board).count_ones();
-        if ne_neighbors == 3 || (ne_neighbors == 2 && (board & ne_center > 0)) {
-            new_board |= node::LEVEL_ONE_NE_MASK;
-        }
-
-        // sw
-        let sw_neighbors = (sw_bitmask & board).count_ones();
-        if sw_neighbors == 3 || (sw_neighbors == 2 && (board & sw_center > 0)) {
-            new_board |= node::LEVEL_ONE_SW_MASK;
-        }
-
-        // se
-        let se_neighbors = (se_bitmask & board).count_ones();
-        if se_neighbors == 3 || (se_neighbors == 2 && (board & se_center > 0)) {
-            new_board |= node::LEVEL_ONE_SE_MASK;
-        }
-
-        let step = store.create_level_one_from_cells(new_board);
-
-        store.add_level_2_step(*self, step);
-
-        step
     }
+}
 
-    /// Given two horizontally adjacent level `n` nodes, compute the level `n-1`
-    /// node between them `2^(n-3)` ticks in the future.
-    ///
-    /// # Diagram
-    ///
-    /// ```txt
-    /// +---+---+---+---+---+---+---+---+
-    /// |   |   |   |   |   |   |   |   |
-    /// +---+---+---+---+---+---+---+---+
-    /// |   |   |   | * | * |   |   |   |
-    /// +---+---+---+---+---+---+---+---+
-    /// |   |   |   | * | * |   |   |   |
-    /// +---+---+---+---+---+---+---+---+
-    /// |   |   |   |   |   |   |   |   |
-    /// +---+---+---+---+---+---+---+---+
-    /// ```
-    fn horiz_jump(store: &mut Store, e: Node, w: Node) -> Node {
-        assert!(e.level >= 2);
-        assert_eq!(e.level, w.level);
+fn horiz_u16x16(w: u16x16, e:  u16x16) -> u16x16 {
+    (w << 8) | (e >> 8)
+}
 
-        let ne = e.nw(store);
-        let nw = w.ne(store);
-        let se = e.sw(store);
-        let sw = w.se(store);
+fn vert_u16x16(n: u16x16, s: u16x16) -> u16x16 {
+    let n = shuffle!(n, [8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7])
+        & LEVEL_4_UPPER_HALF_MASK;
+    let s = shuffle!(s, [8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7])
+        & LEVEL_4_LOWER_HALF_MASK;
+    n | s
+}
 
-        store
-            .create_interior(NodeTemplate { ne, nw, se, sw })
-            .jump(store)
-    }
+fn step_level_5(store: &mut Store, step_log_2: u8, nw: NodeId, ne: NodeId, sw: NodeId, se: NodeId) -> NodeId {
+    let nw_grid = store.node(nw).unwrap_leaf();
+    let ne_grid = store.node(ne).unwrap_leaf();
+    let sw_grid = store.node(sw).unwrap_leaf();
+    let se_grid = store.node(se).unwrap_leaf();
 
-    /// Given two vertically adjacent level `n` nodes, compute the level `n-1`
-    /// node between them `2^(n-3)` ticks in the future.
-    ///
-    /// # Diagram
-    ///
-    /// ```txt
-    /// +---+---+---+---+
-    /// |   |   |   |   |
-    /// +---+---+---+---+
-    /// |   |   |   |   |
-    /// +---+---+---+---+
-    /// |   |   |   |   |
-    /// +---+---+---+---+
-    /// |   | * | * |   |
-    /// +---+---+---+---+
-    /// |   | * | * |   |
-    /// +---+---+---+---+
-    /// |   |   |   |   |
-    /// +---+---+---+---+
-    /// |   |   |   |   |
-    /// +---+---+---+---+
-    /// |   |   |   |   |
-    /// +---+---+---+---+
-    /// ```
-    fn vert_jump(store: &mut Store, n: Node, s: Node) -> Node {
-        assert!(n.level >= 2);
-        assert_eq!(n.level, s.level);
+    let a = nw_grid;
+    let b = horiz_u16x16(nw_grid, ne_grid);
+    let c = ne_grid;
+    let d = vert_u16x16(nw_grid, sw_grid);
+    let e = center(nw_grid, ne_grid, sw_grid, se_grid);
+    let f = vert_u16x16(ne_grid, se_grid);
+    let g = sw_grid;
+    let h = horiz_u16x16(sw_grid, se_grid);
+    let i = se_grid;
 
-        let ne = n.se(store);
-        let nw = n.sw(store);
-        let se = s.ne(store);
-        let sw = s.nw(store);
+    let w = step_u16x16(combine_results_u16x16(a, b, d, e), step_log_2);
+    let x = step_u16x16(combine_results_u16x16(b, c, e, f), step_log_2);
+    let y = step_u16x16(combine_results_u16x16(d, e, g, h), step_log_2);
+    let z = step_u16x16(combine_results_u16x16(e, f, h, i), step_log_2);
 
-        store
-            .create_interior(NodeTemplate { ne, nw, se, sw })
-            .jump(store)
-    }
+    store.create_leaf(combine_results_u16x16(w, x, y, z))
+}
+
+fn jump_level_5(store: &mut Store, nw: NodeId, ne: NodeId, sw: NodeId, se: NodeId) -> NodeId {
+    let nw_grid = store.node(nw).unwrap_leaf();
+    let ne_grid = store.node(ne).unwrap_leaf();
+    let sw_grid = store.node(sw).unwrap_leaf();
+    let se_grid = store.node(se).unwrap_leaf();
+
+    let a = jump_u16x16(nw_grid);
+    let b = horiz_jump_u16x16(nw_grid, ne_grid);
+    let c = jump_u16x16(ne_grid);
+    let d = vert_jump_u16x16(nw_grid, sw_grid);;
+    let e = center_jump_u16x16(nw_grid, ne_grid, sw_grid, se_grid);
+    let f = vert_jump_u16x16(ne_grid, se_grid);;
+    let g = jump_u16x16(sw_grid);
+    let h = horiz_jump_u16x16(sw_grid, se_grid);
+    let i = jump_u16x16(se_grid);
+
+    let w = jump_u16x16(combine_results_u16x16(a, b, d, e));
+    let x = jump_u16x16(combine_results_u16x16(b, c, e, f));
+    let y = jump_u16x16(combine_results_u16x16(d, e, g, h));
+    let z = jump_u16x16(combine_results_u16x16(e, f, h, i));
+
+    store.create_leaf(combine_results_u16x16(w, x, y, z))
+}
+
+fn horiz_jump(store: &mut Store, w: NodeId, e: NodeId) -> NodeId {
+    let nw = w.ne(store);
+    let ne = e.nw(store);
+    let sw = w.se(store);
+    let se = e.sw(store);
+
+    store
+        .create_interior(NodeTemplate { nw, ne, sw, se })
+        .jump(store)
+}
+
+fn vert_jump(store: &mut Store, n: NodeId, s: NodeId) -> NodeId {
+    let nw = n.sw(store);
+    let ne = n.se(store);
+    let sw = s.nw(store);
+    let se = s.ne(store);
+
+    store
+        .create_interior(NodeTemplate { nw, ne, sw, se })
+        .jump(store)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Cell;
 
-    mod level_2 {
-        use super::*;
+    #[test]
+    fn nw_glider_jump() {
+        let mut store = Store::new();
 
-        #[test]
-        fn block() {
-            let mut store = Store::new();
+        let empty = store.create_empty(Level(4));
+        let glider = store.create_leaf(u16x16::new(
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0010,
+            0b0000_0000_0000_0001,
+            0b0000_0000_0000_0111,
+        ));
 
-            // +---+---+---+---+
-            // |   |   |   |   |
-            // +---+---+---+---+
-            // |   | * | * |   |
-            // +---+---+---+---+
-            // |   | * | * |   |
-            // +---+---+---+---+
-            // |   |   |   |   |
-            // +---+---+---+---+
-            let block = store
-                .create_empty(2)
-                .set_cell(&mut store, -1, -1, Cell::Alive)
-                .set_cell(&mut store, -1, 0, Cell::Alive)
-                .set_cell(&mut store, 0, -1, Cell::Alive)
-                .set_cell(&mut store, 0, 0, Cell::Alive);
+        let level_5 = store.create_interior(NodeTemplate {
+            nw: glider,
+            ne: empty,
+            sw: empty,
+            se: empty,
+        });
 
-            // +---+---+
-            // | * | * |
-            // +---+---+
-            // | * | * |
-            // +---+---+
-            let expected = store
-                .create_empty(1)
-                .set_cell(&mut store, -1, -1, Cell::Alive)
-                .set_cell(&mut store, -1, 0, Cell::Alive)
-                .set_cell(&mut store, 0, -1, Cell::Alive)
-                .set_cell(&mut store, 0, 0, Cell::Alive);
+        let jump = level_5.jump(&mut store);
+        let expected_jump = store.create_leaf(u16x16::new(
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_1000_0000,
+            0b0000_0000_0100_0000,
+            0b0000_0001_1100_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+        ));
 
-            assert_eq!(block.step_level_2(&mut store), expected);
-        }
-
-        #[test]
-        fn vert_blinker_ne() {
-            // +---+---+---+---+
-            // |   |   | * |   |
-            // +---+---+---+---+
-            // |   |   | * |   |
-            // +---+---+---+---+
-            // |   |   | * |   |
-            // +---+---+---+---+
-            // |   |   |   |   |
-            // +---+---+---+---+
-            let mut store = Store::new();
-            let blinker = store
-                .create_empty(2)
-                .set_cell(&mut store, 0, -2, Cell::Alive)
-                .set_cell(&mut store, 0, -1, Cell::Alive)
-                .set_cell(&mut store, 0, 0, Cell::Alive);
-
-            // +---+---+
-            // | * | * |
-            // +---+---+
-            // |   |   |
-            // +---+---+
-            let expected = store
-                .create_empty(1)
-                .set_cell(&mut store, -1, -1, Cell::Alive)
-                .set_cell(&mut store, 0, -1, Cell::Alive);
-
-            assert_eq!(blinker.step_level_2(&mut store), expected);
-        }
-
-        #[test]
-        fn vert_blinker_nw() {
-            // +---+---+---+---+
-            // |   | * |   |   |
-            // +---+---+---+---+
-            // |   | * |   |   |
-            // +---+---+---+---+
-            // |   | * |   |   |
-            // +---+---+---+---+
-            // |   |   |   |   |
-            // +---+---+---+---+
-            let mut store = Store::new();
-            let blinker = store
-                .create_empty(2)
-                .set_cell(&mut store, -1, -2, Cell::Alive)
-                .set_cell(&mut store, -1, -1, Cell::Alive)
-                .set_cell(&mut store, -1, 0, Cell::Alive);
-
-            // +---+---+
-            // | * | * |
-            // +---+---+
-            // |   |   |
-            // +---+---+
-            let expected = store
-                .create_empty(1)
-                .set_cell(&mut store, -1, -1, Cell::Alive)
-                .set_cell(&mut store, 0, -1, Cell::Alive);
-
-            assert_eq!(blinker.step_level_2(&mut store), expected);
-        }
-
-        #[test]
-        fn vert_blinker_sw() {
-            // +---+---+---+---+
-            // |   |   |   |   |
-            // +---+---+---+---+
-            // |   | * |   |   |
-            // +---+---+---+---+
-            // |   | * |   |   |
-            // +---+---+---+---+
-            // |   | * |   |   |
-            // +---+---+---+---+
-            let mut store = Store::new();
-            let blinker = store
-                .create_empty(2)
-                .set_cell(&mut store, -1, -1, Cell::Alive)
-                .set_cell(&mut store, -1, 0, Cell::Alive)
-                .set_cell(&mut store, -1, 1, Cell::Alive);
-
-            // +---+---+
-            // |   |   |
-            // +---+---+
-            // | * | * |
-            // +---+---+
-            let expected = store
-                .create_empty(1)
-                .set_cell(&mut store, -1, 0, Cell::Alive)
-                .set_cell(&mut store, 0, 0, Cell::Alive);
-
-            assert_eq!(blinker.step_level_2(&mut store), expected);
-        }
-
-        #[test]
-        fn vert_blinker_se() {
-            // +---+---+---+---+
-            // |   |   |   |   |
-            // +---+---+---+---+
-            // |   |   | * |   |
-            // +---+---+---+---+
-            // |   |   | * |   |
-            // +---+---+---+---+
-            // |   |   | * |   |
-            // +---+---+---+---+
-            let mut store = Store::new();
-            let blinker = store
-                .create_empty(2)
-                .set_cell(&mut store, 0, -1, Cell::Alive)
-                .set_cell(&mut store, 0, 0, Cell::Alive)
-                .set_cell(&mut store, 0, 1, Cell::Alive);
-
-            // +---+---+
-            // |   |   |
-            // +---+---+
-            // | * | * |
-            // +---+---+
-            let expected = store
-                .create_empty(1)
-                .set_cell(&mut store, -1, 0, Cell::Alive)
-                .set_cell(&mut store, 0, 0, Cell::Alive);
-
-            assert_eq!(blinker.step_level_2(&mut store), expected);
-        }
+        assert_eq!(jump, expected_jump);
     }
 
-    mod jump {
-        use super::*;
+    #[test]
+    fn ne_glider_jump() {
+        let mut store = Store::new();
 
-        #[test]
-        fn se_glider() {
-            let mut store = Store::new();
+        let empty = store.create_empty(Level(4));
+        let glider = store.create_leaf(u16x16::new(
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0100_0000_0000_0000,
+            0b1000_0000_0000_0000,
+            0b1110_0000_0000_0000,
+        ));
 
-            // +---+---+---+---+
-            // |   | * |   |   |
-            // +---+---+---+---+
-            // |   |   | * |   |
-            // +---+---+---+---+
-            // | * | * | * |   |
-            // +---+---+---+---+
-            // |   |   |   |   |
-            // +---+---+---+---+
-            let glider_cells = vec![(-2, 0), (-1, 0), (0, 0), (0, -1), (-1, -2)];
+        let level_5 = store.create_interior(NodeTemplate {
+            nw: empty,
+            ne: glider,
+            sw: empty,
+            se: empty,
+        });
 
-            // returns glider cells offset by the given deltas
-            let offset_glider = |dx: i64, dy: i64| -> Vec<(i64, i64)> {
-                (&glider_cells)
-                    .clone()
-                    .into_iter()
-                    .map(|(x, y)| (x + dx, y + dy))
-                    .collect()
-            };
+        let jump = level_5.jump(&mut store);
+        let expected_jump = store.create_leaf(u16x16::new(
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0001_0000_0000,
+            0b0000_0010_0000_0000,
+            0b0000_0011_1000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+        ));
 
-            for level in 4..8 {
-                // make a glilder
-                let mut glider = store.create_empty(level);
-                for &(x, y) in &glider_cells {
-                    glider = glider.set_cell(&mut store, x, y, Cell::Alive);
-                }
-
-                // jumping decreases the level of the node by one
-                // jump size is 2^(level-2), glider's speed is c/4 orthogonally
-                // meaning we need to offset by 2^(level-4) in each direction
-                let mut expected = store.create_empty(level - 1);
-                let offset = 1 << (level - 4);
-                for (x, y) in offset_glider(offset, offset) {
-                    expected = expected.set_cell(&mut store, x, y, Cell::Alive);
-                }
-
-                assert_eq!(glider.jump(&mut store), expected);
-            }
-        }
+        assert_eq!(jump, expected_jump);
     }
 
-    mod step {
-        use super::*;
+    #[test]
+    fn sw_glider_jump() {
+        let mut store = Store::new();
 
-        #[test]
-        fn se_glider() {
-            let mut store = Store::new();
+        let empty = store.create_empty(Level(4));
+        let glider = store.create_leaf(u16x16::new(
+            0b0000_0000_0000_0111,
+            0b0000_0000_0000_0001,
+            0b0000_0000_0000_0010,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+        ));
 
-            // +---+---+---+---+
-            // |   | * |   |   |
-            // +---+---+---+---+
-            // |   |   | * |   |
-            // +---+---+---+---+
-            // | * | * | * |   |
-            // +---+---+---+---+
-            // |   |   |   |   |
-            // +---+---+---+---+
-            let glider_cells = vec![(-2, 0), (-1, 0), (0, 0), (0, -1), (-1, -2)];
+        let level_5 = store.create_interior(NodeTemplate {
+            nw: empty,
+            ne: empty,
+            sw: glider,
+            se: empty,
+        });
 
-            // returns glider cells offset by the given deltas
-            let offset_glider = |dx: i64, dy: i64| -> Vec<(i64, i64)> {
-                (&glider_cells)
-                    .clone()
-                    .into_iter()
-                    .map(|(x, y)| (x + dx, y + dy))
-                    .collect()
-            };
+        let jump = level_5.jump(&mut store);
+        let expected_jump = store.create_leaf(u16x16::new(
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0001_1100_0000,
+            0b0000_0000_0100_0000,
+            0b0000_0000_1000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+        ));
 
-            for cutoff in 4..=8 {
-                // make a glilder
-                let mut glider = store.create_empty(8);
-                for &(x, y) in &glider_cells {
-                    glider = glider.set_cell(&mut store, x, y, Cell::Alive);
-                }
+        assert_eq!(jump, expected_jump);
+    }
 
-                // stepping decreases the level of the node by one
-                // step size is 2^(cutoff-2), glider's speed is c/4 orthogonally
-                // meaning we need to offset by 2^(cutoff-4) in each direction
-                let mut expected = store.create_empty(7);
-                let offset = 1 << (cutoff - 4);
-                for (x, y) in offset_glider(offset, offset) {
-                    expected = expected.set_cell(&mut store, x, y, Cell::Alive);
-                }
+    #[test]
+    fn se_glider_jump() {
+        let mut store = Store::new();
 
-                let step = glider.step(&mut store, cutoff);
+        let empty = store.create_empty(Level(4));
+        let glider = store.create_leaf(u16x16::new(
+            0b1110_0000_0000_0000,
+            0b1000_0000_0000_0000,
+            0b0100_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+        ));
 
-                assert_eq!(step, expected);
-            }
-        }
+        let level_5 = store.create_interior(NodeTemplate {
+            nw: empty,
+            ne: empty,
+            sw: empty,
+            se: glider,
+        });
+
+        let jump = level_5.jump(&mut store);
+        let expected_jump = store.create_leaf(u16x16::new(
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0011_1000_0000,
+            0b0000_0010_0000_0000,
+            0b0000_0001_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+        ));
+
+        assert_eq!(jump, expected_jump);
+    }
+
+    #[test]
+    fn nw_glider_step() {
+        let mut store = Store::new();
+        store.set_step_log_2(2);
+
+        let empty = store.create_empty(Level(4));
+        let glider = store.create_leaf(u16x16::new(
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0010,
+            0b0000_0000_0000_0001,
+            0b0000_0000_0000_0111,
+        ));
+
+        let level_5 = store.create_interior(NodeTemplate {
+            nw: glider,
+            ne: empty,
+            sw: empty,
+            se: empty,
+        });
+
+        let step = level_5.step(&mut store);
+        let expected_step = store.create_leaf(u16x16::new(
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0001_0000_0000,
+            0b0000_0000_1000_0000,
+            0b0000_0011_1000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+            0b0000_0000_0000_0000,
+        ));
+
+        assert_eq!(step, expected_step);
     }
 }

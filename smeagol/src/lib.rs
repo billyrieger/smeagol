@@ -1,32 +1,11 @@
-//! Library for simulating Conway's Game of Life using the HashLife algorithm.
-//!
-//! # Examples
-//!
-//! ```
-//! // load an RLE pattern
-//! let mut gosper_glider_gun = smeagol::Life::from_rle_pattern(
-//!     b"
-//! 24bo11b$22bobo11b$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o14b$2o8b
-//! o3bob2o4bobo11b$10bo5bo7bo11b$11bo3bo20b$12b2o!
-//! ",
-//! )
-//! .unwrap();
-//!
-//! // advance 1024 generations into the future
-//! gosper_glider_gun.step(1024);
-//!
-//! // save the result
-//! gosper_glider_gun.save_png(std::env::temp_dir().join("out.png"));
-//! ```
+#[macro_use]
+extern crate packed_simd;
 
-mod life;
 pub mod node;
 
-pub use self::{
-    life::Life,
-};
+use self::node::Quadrant;
 
-/// A single cell in a Life board.
+/// A cell in a Life grid.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Cell {
     /// An alive cell.
@@ -36,6 +15,22 @@ pub enum Cell {
 }
 
 impl Cell {
+    /// Creates a new `Cell`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let alive = smeagol::Cell::new(true);
+    /// let dead = smeagol::Cell::new(false);
+    /// ```
+    pub fn new(alive: bool) -> Self {
+        if alive {
+            Cell::Alive
+        } else {
+            Cell::Dead
+        }
+    }
+
     /// Returns true for `Cell::Alive` and false for `Cell::Dead`.
     ///
     /// # Examples
@@ -48,6 +43,37 @@ impl Cell {
         match self {
             Cell::Alive => true,
             Cell::Dead => false,
+        }
+    }
+}
+
+/// The position of a cell in a Life grid.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Position {
+    /// The x coordinate.
+    pub x: i64,
+    /// The y coordinate.
+    pub y: i64,
+}
+
+impl Position {
+    pub fn new(x: i64, y: i64) -> Self {
+        Self { x, y }
+    }
+
+    pub fn offset(&self, x_offset: i64, y_offset: i64) -> Self {
+        Self {
+            x: self.x + x_offset,
+            y: self.y + y_offset,
+        }
+    }
+
+    pub fn quadrant(&self) -> Quadrant {
+        match (self.x < 0, self.y < 0) {
+            (true, true) => Quadrant::Northwest,
+            (false, true) => Quadrant::Northeast,
+            (true, false) => Quadrant::Southwest,
+            (false, false) => Quadrant::Southeast,
         }
     }
 }
