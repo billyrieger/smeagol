@@ -164,33 +164,33 @@ impl Life {
     fn pad(&mut self) {
         while self.root.level(&self.store) < INITIAL_LEVEL
             || self.store.step_log_2() > self.root.level(&self.store).0 - 2
-            || self.root.ne(&mut self.store).population(&self.store)
+            || self.root.ne(&self.store).population(&self.store)
                 != self
                     .root
-                    .ne(&mut self.store)
-                    .sw(&mut self.store)
-                    .sw(&mut self.store)
+                    .ne(&self.store)
+                    .sw(&self.store)
+                    .sw(&self.store)
                     .population(&self.store)
-            || self.root.nw(&mut self.store).population(&self.store)
+            || self.root.nw(&self.store).population(&self.store)
                 != self
                     .root
-                    .nw(&mut self.store)
-                    .se(&mut self.store)
-                    .se(&mut self.store)
+                    .nw(&self.store)
+                    .se(&self.store)
+                    .se(&self.store)
                     .population(&self.store)
-            || self.root.se(&mut self.store).population(&self.store)
+            || self.root.se(&self.store).population(&self.store)
                 != self
                     .root
-                    .se(&mut self.store)
-                    .nw(&mut self.store)
-                    .nw(&mut self.store)
+                    .se(&self.store)
+                    .nw(&self.store)
+                    .nw(&self.store)
                     .population(&self.store)
-            || self.root.sw(&mut self.store).population(&self.store)
+            || self.root.sw(&self.store).population(&self.store)
                 != self
                     .root
-                    .sw(&mut self.store)
-                    .ne(&mut self.store)
-                    .ne(&mut self.store)
+                    .sw(&self.store)
+                    .ne(&self.store)
+                    .ne(&self.store)
                     .population(&self.store)
         {
             self.root = self.root.expand(&mut self.store);
@@ -201,5 +201,11 @@ impl Life {
         self.pad();
         self.root = self.root.step(&mut self.store);
         self.generation += u128::from(self.step_size());
+    }
+}
+
+impl Default for Life {
+    fn default() -> Self {
+        Self::new()
     }
 }

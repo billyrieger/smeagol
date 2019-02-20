@@ -153,12 +153,13 @@ fn combine_results_u16x16(
 }
 
 impl NodeId {
-    pub fn jump(&self, store: &mut Store) -> NodeId {
-        if let Some(jump) = store.get_jump(*self) {
+    #[allow(clippy::many_single_char_names)]
+    pub fn jump(self, store: &mut Store) -> NodeId {
+        if let Some(jump) = store.get_jump(self) {
             return jump;
         }
 
-        match store.node(*self) {
+        match store.node(self) {
             Node::Leaf { .. } => panic!(),
             Node::Interior {
                 nw,
@@ -223,32 +224,33 @@ impl NodeId {
                         sw: y,
                         se: z,
                     });
-                    store.add_jump(*self, jump);
+                    store.add_jump(self, jump);
                     jump
                 }
             }
         }
     }
 
-    pub fn step(&self, store: &mut Store) -> NodeId {
-        if let Some(step) = store.get_step(*self) {
+    #[allow(clippy::many_single_char_names)]
+    pub fn step(self, store: &mut Store) -> NodeId {
+        if let Some(step) = store.get_step(self) {
             return step;
         }
         
         let step_log_2 = store.step_log_2();
 
-        match store.node(*self) {
+        match store.node(self) {
             Node::Leaf { .. } => panic!(),
             Node::Interior { nw, ne, sw, se, level, .. } => {
                 if step_log_2 == level.0 - 2 {
                     let step = self.jump(store);
-                    store.add_step(*self, step);
+                    store.add_step(self, step);
                     return step;
                 }
 
                 if level == Level(5) {
                     let step = step_level_5(store, step_log_2, nw, ne, sw, se);
-                    store.add_step(*self, step);
+                    store.add_step(self, step);
                     step
                 } else {
                     let a = nw.center_subnode(store);
@@ -303,7 +305,7 @@ impl NodeId {
                         sw: y,
                         se: z,
                     });
-                    store.add_step(*self, step);
+                    store.add_step(self, step);
                     step
                 }
             },
@@ -323,6 +325,7 @@ fn vert_u16x16(n: u16x16, s: u16x16) -> u16x16 {
     n | s
 }
 
+#[allow(clippy::many_single_char_names)]
 fn step_level_5(store: &mut Store, step_log_2: u8, nw: NodeId, ne: NodeId, sw: NodeId, se: NodeId) -> NodeId {
     let nw_grid = store.node(nw).unwrap_leaf();
     let ne_grid = store.node(ne).unwrap_leaf();
@@ -347,6 +350,7 @@ fn step_level_5(store: &mut Store, step_log_2: u8, nw: NodeId, ne: NodeId, sw: N
     store.create_leaf(combine_results_u16x16(w, x, y, z))
 }
 
+#[allow(clippy::many_single_char_names)]
 fn jump_level_5(store: &mut Store, nw: NodeId, ne: NodeId, sw: NodeId, se: NodeId) -> NodeId {
     let nw_grid = store.node(nw).unwrap_leaf();
     let ne_grid = store.node(ne).unwrap_leaf();

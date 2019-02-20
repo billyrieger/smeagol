@@ -40,36 +40,36 @@ impl NodeId {
         }
     }
 
-    pub fn nw(&self, store: &Store) -> NodeId {
-        match store.node(*self) {
+    pub fn nw(self, store: &Store) -> NodeId {
+        match store.node(self) {
             Node::Leaf { .. } => panic!(),
             Node::Interior { nw, .. } => nw,
         }
     }
 
-    pub fn ne(&self, store: &Store) -> NodeId {
-        match store.node(*self) {
+    pub fn ne(self, store: &Store) -> NodeId {
+        match store.node(self) {
             Node::Leaf { .. } => panic!(),
             Node::Interior { ne, .. } => ne,
         }
     }
 
-    pub fn sw(&self, store: &Store) -> NodeId {
-        match store.node(*self) {
+    pub fn sw(self, store: &Store) -> NodeId {
+        match store.node(self) {
             Node::Leaf { .. } => panic!(),
             Node::Interior { sw, .. } => sw,
         }
     }
 
-    pub fn se(&self, store: &Store) -> NodeId {
-        match store.node(*self) {
+    pub fn se(self, store: &Store) -> NodeId {
+        match store.node(self) {
             Node::Leaf { .. } => panic!(),
             Node::Interior { se, .. } => se,
         }
     }
 
-    pub fn center_subnode(&self, store: &mut Store) -> NodeId {
-        match store.node(*self) {
+    pub fn center_subnode(self, store: &mut Store) -> NodeId {
+        match store.node(self) {
             Node::Leaf { .. } => panic!(),
             Node::Interior {
                 nw,
@@ -98,13 +98,13 @@ impl NodeId {
         }
     }
 
-    pub fn north_subsubnode(&self, store: &mut Store) -> NodeId {
+    pub fn north_subsubnode(self, store: &mut Store) -> NodeId {
         let w = self.nw(store);
         let e = self.ne(store);
         centered_horiz(store, w, e)
     }
 
-    pub fn south_subsubnode(&self, store: &mut Store) -> NodeId {
+    pub fn south_subsubnode(self, store: &mut Store) -> NodeId {
         let w = self.sw(store);
         let e = self.se(store);
         centered_horiz(store, w, e)
@@ -116,7 +116,7 @@ impl NodeId {
         centered_vert(store, n, s)
     }
 
-    pub fn east_subsubnode(&self, store: &mut Store) -> NodeId {
+    pub fn east_subsubnode(self, store: &mut Store) -> NodeId {
         let n = self.ne(store);
         let s = self.se(store);
         centered_vert(store, n, s)

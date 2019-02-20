@@ -11,12 +11,19 @@ pub struct NodeTemplate {
     pub se: NodeId,
 }
 
+#[derive(Clone)]
 pub struct Store {
     indices: hashbrown::HashMap<Node, NodeId>,
     nodes: Vec<Node>,
     steps: Vec<Option<NodeId>>,
     jumps: Vec<Option<NodeId>>,
     step_log_2: u8,
+}
+
+impl Default for Store {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Store {
