@@ -37,20 +37,28 @@ fn fly(life: &mut smeagol::Life, x_vel: (i64, i64), y_vel: (i64, i64), period: u
     }
 }
 
+fn soar(life: &mut smeagol::Life) {
+    life.set_step_log_2(10);
+    life.step();
+}
+
 #[test]
 fn glider() {
     let mut life = smeagol::Life::from_rle_file("../assets/glider.rle").unwrap();
     fly(&mut life, (1, 4), (1, 4), 4);
+    soar(&mut life);
 }
 
 #[test]
 fn sir_robin() {
     let mut life = smeagol::Life::from_rle_file("../assets/sirrobin.rle").unwrap();
     fly(&mut life, (-1, 6), (-2, 6), 6);
+    soar(&mut life);
 }
 
 #[test]
 fn weekender() {
     let mut life = smeagol::Life::from_rle_file("../assets/weekender.rle").unwrap();
     fly(&mut life, (0, 7), (-2, 7), 7);
+    soar(&mut life);
 }
