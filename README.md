@@ -11,4 +11,8 @@
 </a>
 </div>
 
-[`smeagol`](./smeagol/README.md)
+| crate | description |
+|---|---|
+| [`smeagol`](https://github.com/billyrieger/smeagol/tree/master/smeagol) | Conway's Game of Life |
+| `smeagol-mc` | Macrocell file support |
+| `smeagol-rle` | Run-length encoded file support |
