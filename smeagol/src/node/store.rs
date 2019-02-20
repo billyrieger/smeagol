@@ -101,6 +101,7 @@ impl Store {
 
     pub fn set_step_log_2(&mut self, step_log_2: u8) {
         self.step_log_2 = step_log_2;
+        self.steps = vec![None; self.steps.len()]
     }
 
     pub fn get_step(&self, id: NodeId) -> Option<NodeId> {

@@ -1,5 +1,4 @@
 <h1 align="center">smeagol</h1>
-<div align="center">A Rust library to efficiently simulate Conway's Game of Life</div>
 <div align="center">
 <a href="https://travis-ci.com/billyrieger/smeagol">
     <img src="https://img.shields.io/travis/com/billyrieger/smeagol.svg" alt="Build status">
@@ -12,10 +11,4 @@
 </a>
 </div>
 
-`smeagol` is a Rust library built to efficiently simulate large patterns in the cellular automaton
-Conway's Game of Life.
-
-## Limitations
-
-Currently there is no garbage collection. Large patterns will eventually crash the program. This
-will be fixed in the future.
+[`smeagol`](./smeagol/README.md)

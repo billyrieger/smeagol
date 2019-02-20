@@ -12,6 +12,7 @@ smeagol-rle = { path = "../smeagol-rle" }
 
 [dev-dependencies]
 criterion = "0.2"
+version-sync = "0.7"
 
 [[bench]]
 name = "bench"
