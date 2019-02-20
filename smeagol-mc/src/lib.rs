@@ -101,6 +101,6 @@ mod tests {
 
     #[test]
     fn from_file() {
-        Macrocell::from_file("./assets/waterbear.mc").unwrap();
+        Macrocell::from_file("../assets/waterbear.mc").unwrap();
     }
 }

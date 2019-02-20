@@ -121,7 +121,7 @@ impl Rle {
     ///
     /// ```
     /// # fn main() -> Result<(), smeagol_rle::RleError> {
-    /// let rle = smeagol_rle::Rle::from_file("./assets/breeder1.rle")?;
+    /// let rle = smeagol_rle::Rle::from_file("../assets/breeder1.rle")?;
     /// # Ok(())
     /// # }
     /// ```
@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn from_file() {
-        Rle::from_file("./assets/breeder1.rle").unwrap();
+        Rle::from_file("../assets/breeder1.rle").unwrap();
     }
 
     #[test]
