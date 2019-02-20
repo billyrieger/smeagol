@@ -6,12 +6,7 @@ addons:
     packages:
       - libssl-dev
 rust:
-  - stable
-  - beta
   - nightly
-matrix:
-  allow_failures:
-    - rust: nightly
 
 before_cache: |
   if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
