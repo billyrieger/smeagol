@@ -9,3 +9,10 @@ hashbrown = "0.1"
 packed_simd = "0.3"
 smeagol-mc = { path = "../smeagol-mc" }
 smeagol-rle = { path = "../smeagol-rle" }
+
+[dev-dependencies]
+criterion = "0.2"
+
+[[bench]]
+name = "bench"
+harness = false
