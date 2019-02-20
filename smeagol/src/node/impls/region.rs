@@ -1,6 +1,45 @@
 use crate::node::*;
 
 impl NodeId {
+    pub fn expand(self, store: &mut Store) -> NodeId {
+        match store.node(self) {
+            Node::Leaf { .. } => panic!(),
+            Node::Interior { nw, ne, sw, se, level, .. } => {
+                let empty = store.create_empty(Level(level.0 - 1));
+
+                let nw = store.create_interior(NodeTemplate {
+                    nw: empty,
+                    ne: empty,
+                    sw: empty,
+                    se: nw,
+                });
+
+                let ne = store.create_interior(NodeTemplate {
+                    nw: empty,
+                    ne: empty,
+                    sw: ne,
+                    se: empty,
+                });
+
+                let sw = store.create_interior(NodeTemplate {
+                    nw: empty,
+                    ne: sw,
+                    sw: empty,
+                    se: empty,
+                });
+
+                let se = store.create_interior(NodeTemplate {
+                    nw: se,
+                    ne: empty,
+                    sw: empty,
+                    se: empty,
+                });
+
+                store.create_interior(NodeTemplate { nw, ne, sw, se })
+            }
+        }
+    }
+
     pub fn nw(&self, store: &Store) -> NodeId {
         match store.node(*self) {
             Node::Leaf { .. } => panic!(),

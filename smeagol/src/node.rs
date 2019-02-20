@@ -152,7 +152,7 @@ fn center(nw_grid: u16x16, ne_grid: u16x16, sw_grid: u16x16, se_grid: u16x16) ->
 pub struct Index(u32);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Level(u8);
+pub struct Level(pub u8);
 
 pub enum Quadrant {
     Northwest,
