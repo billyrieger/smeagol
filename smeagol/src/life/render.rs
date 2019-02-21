@@ -64,6 +64,6 @@ mod tests {
         let mut life = Life::from_rle_file("../assets/breeder1.rle").unwrap();
         life.set_step_log_2(10);
         life.step();
-        // life.save_png("out.png", life.bounding_box().unwrap().pad(10), 0).unwrap();
+        life.save_png(std::env::temp_dir().join("out.png"), life.bounding_box().unwrap().pad(10), 0).unwrap();
     }
 }
