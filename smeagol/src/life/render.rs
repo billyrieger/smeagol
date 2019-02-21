@@ -1,5 +1,5 @@
-use png::HasParameters;
 use crate::{BoundingBox, Life};
+use png::HasParameters;
 
 impl Life {
     pub fn save_png<P>(
@@ -33,9 +33,10 @@ impl Life {
                     bounding_box
                         .upper_left
                         .offset(img_x * zoom_factor, img_y * zoom_factor),
-                    bounding_box
-                        .upper_left
-                        .offset(img_x * zoom_factor + zoom_factor_minus_one, img_y * zoom_factor + zoom_factor_minus_one),
+                    bounding_box.upper_left.offset(
+                        img_x * zoom_factor + zoom_factor_minus_one,
+                        img_y * zoom_factor + zoom_factor_minus_one,
+                    ),
                 );
                 if self.contains_alive_cells(bbox) {
                     data[(img_y * width + img_x) as usize] = 0;
@@ -64,6 +65,11 @@ mod tests {
         let mut life = Life::from_rle_file("../assets/breeder1.rle").unwrap();
         life.set_step_log_2(10);
         life.step();
-        life.save_png(std::env::temp_dir().join("out.png"), life.bounding_box().unwrap().pad(10), 0).unwrap();
+        life.save_png(
+            std::env::temp_dir().join("out.png"),
+            life.bounding_box().unwrap().pad(10),
+            0,
+        )
+        .unwrap();
     }
 }

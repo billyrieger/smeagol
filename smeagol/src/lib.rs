@@ -37,13 +37,17 @@ pub enum ErrorKind {
 
 impl From<std::io::Error> for Error {
     fn from(io: std::io::Error) -> Error {
-        Error { kind: ErrorKind::Io(io) }
+        Error {
+            kind: ErrorKind::Io(io),
+        }
     }
 }
 
 impl From<smeagol_rle::RleError> for Error {
     fn from(rle: smeagol_rle::RleError) -> Error {
-        Error { kind: ErrorKind::Rle(rle) }
+        Error {
+            kind: ErrorKind::Rle(rle),
+        }
     }
 }
 
