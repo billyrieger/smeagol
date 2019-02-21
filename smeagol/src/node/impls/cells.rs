@@ -309,7 +309,7 @@ impl NodeId {
                             store,
                             upper_left.offset(offset, -offset),
                             sw_lower_right.offset(offset, -offset),
-                        ) || ne.contains_alive_cells(
+                        ) || se.contains_alive_cells(
                             store,
                             se_upper_left.offset(-offset, -offset),
                             lower_right.offset(-offset, -offset),
@@ -502,6 +502,8 @@ mod tests {
                 assert!(one_alive.contains_alive_cells(&store, pos, pos));
                 assert!(one_alive.contains_alive_cells(&store, Position::new(min, min), pos));
                 assert!(one_alive.contains_alive_cells(&store, pos, Position::new(max, max)));
+                assert!(one_alive.contains_alive_cells(&store, Position::new(x, min), Position::new(x, max)));
+                assert!(one_alive.contains_alive_cells(&store, Position::new(min, y), Position::new(max, y)));
             }
         }
     }
