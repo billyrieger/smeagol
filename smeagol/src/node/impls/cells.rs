@@ -169,14 +169,11 @@ impl NodeId {
                 level,
                 ..
             } => {
-                let vert_cutoff = partition_vert(coords, offset_y);
-                let (north, south) = coords.split_at_mut(vert_cutoff);
+                let (north, south) = partition_vert(coords, offset_y);
 
-                let horiz_cutoff = partition_horiz(north, offset_x);
-                let (northwest, northeast) = north.split_at_mut(horiz_cutoff);
+                let (northwest, northeast) = partition_horiz(north, offset_x);
 
-                let horiz_cutoff = partition_horiz(south, offset_x);
-                let (southwest, southeast) = south.split_at_mut(horiz_cutoff);
+                let (southwest, southeast) = partition_horiz(south, offset_x);
 
                 // quarter side length
                 let offset = 1 << (level.0 - 2);
@@ -451,7 +448,7 @@ impl NodeId {
     }
 }
 
-fn partition_horiz(coords: &mut [Position], pivot: i64) -> usize {
+fn partition_horiz(coords: &mut [Position], pivot: i64) -> (&mut [Position], &mut [Position]) {
     let mut next_index = 0;
     for i in 0..coords.len() {
         if coords[i].x < pivot {
@@ -459,10 +456,10 @@ fn partition_horiz(coords: &mut [Position], pivot: i64) -> usize {
             next_index += 1;
         }
     }
-    next_index
+    coords.split_at_mut(next_index)
 }
 
-fn partition_vert(coords: &mut [Position], pivot: i64) -> usize {
+fn partition_vert(coords: &mut [Position], pivot: i64) -> (&mut [Position], &mut [Position]) {
     let mut next_index = 0;
     for i in 0..coords.len() {
         if coords[i].y < pivot {
@@ -470,7 +467,7 @@ fn partition_vert(coords: &mut [Position], pivot: i64) -> usize {
             next_index += 1;
         }
     }
-    next_index
+    coords.split_at_mut(next_index)
 }
 
 #[cfg(test)]
@@ -495,6 +492,10 @@ mod tests {
                     one_alive.bounding_box(&store),
                     Some(BoundingBox::new(pos, pos))
                 );
+
+                assert!(one_alive.contains_alive_cells(&store, pos, pos));
+                assert!(one_alive.contains_alive_cells(&store, Position::new(min, min), pos));
+                assert!(one_alive.contains_alive_cells(&store, pos, Position::new(max, max)));
             }
         }
     }
