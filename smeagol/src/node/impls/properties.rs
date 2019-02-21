@@ -18,14 +18,26 @@ impl NodeId {
     pub fn min_coord(self, store: &Store) -> i64 {
         match store.node(self) {
             Node::Leaf { .. } => -8,
-            Node::Interior { level, .. } => -(1 << (level.0 - 1)),
+            Node::Interior { level, .. } => {
+                if level == Level(64) {
+                    i64::min_value()
+                } else {
+                    -(1 << (level.0 - 1))
+                }
+            }
         }
     }
 
     pub fn max_coord(self, store: &Store) -> i64 {
         match store.node(self) {
             Node::Leaf { .. } => 7,
-            Node::Interior { level, .. } => (1 << (level.0 - 1)) - 1,
+            Node::Interior { level, .. } => {
+                if level == Level(64) {
+                    i64::max_value()
+                } else {
+                    (1 << (level.0 - 1)) - 1
+                }
+            }
         }
     }
 }

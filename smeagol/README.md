@@ -16,9 +16,30 @@ Add `smeagol` to your `Cargo.toml`:
 smeagol = "0.1"
 ```
 
-Then, start simulating!
+Then, start simulating Conway's Game of Life!
+
+```rust
+fn main() -> Result<(), smeagol::Error> {
+    // load a pattern
+    let mut life = smeagol::Life::from_rle_file("breeder1.rle")?;
+
+    // step 1024 generations into the future
+    life.set_step_log_2(10);
+    life.step();
+
+    // save the result
+    let bbox = life.bounding_box().unwrap().pad(10);
+    life.save_png("breeder1.png", bbox, 0)?;
+
+    Ok(())
+}
+```
+
+This produces the following image:
+
+![Breeder][./breeder1.png]
 
 ## Limitations
 
-Currently there is no garbage collection. Large patterns will eventually crash the program. This
-will be fixed in the future.
+Currently there is no garbage collection. Large patterns will eventually crash the program if left
+running. This will be fixed in the future.

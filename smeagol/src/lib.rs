@@ -18,11 +18,34 @@
 #[macro_use]
 extern crate packed_simd;
 
+mod life;
 pub mod node;
 
-use self::node::{Level, NodeId, Quadrant, Store};
+pub use self::life::Life;
+use self::node::Quadrant;
 
-const INITIAL_LEVEL: Level = Level(7);
+#[derive(Debug)]
+pub struct Error {
+    kind: ErrorKind,
+}
+
+#[derive(Debug)]
+pub enum ErrorKind {
+    Io(std::io::Error),
+    Rle(smeagol_rle::RleError),
+}
+
+impl From<std::io::Error> for Error {
+    fn from(io: std::io::Error) -> Error {
+        Error { kind: ErrorKind::Io(io) }
+    }
+}
+
+impl From<smeagol_rle::RleError> for Error {
+    fn from(rle: smeagol_rle::RleError) -> Error {
+        Error { kind: ErrorKind::Rle(rle) }
+    }
+}
 
 /// A cell in a Life grid.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -88,7 +111,7 @@ impl Position {
     }
 
     /// Offsets the position by the given amounts in the x and y directions.
-    fn offset(&self, x_offset: i64, y_offset: i64) -> Self {
+    pub fn offset(&self, x_offset: i64, y_offset: i64) -> Self {
         Self {
             x: self.x + x_offset,
             y: self.y + y_offset,
@@ -96,7 +119,7 @@ impl Position {
     }
 
     /// Returns which quadrant of a node this position is in.
-    fn quadrant(&self) -> Quadrant {
+    pub fn quadrant(&self) -> Quadrant {
         match (self.x < 0, self.y < 0) {
             (true, true) => Quadrant::Northwest,
             (false, true) => Quadrant::Northeast,
@@ -106,168 +129,43 @@ impl Position {
     }
 }
 
-/// Conway's Game of Life.
-#[derive(Clone, Debug)]
-pub struct Life {
-    /// The root node of the Life grid.
-    root: NodeId,
-    /// The store.
-    store: Store,
-    /// What generation the Life is on.
-    generation: u128,
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct BoundingBox {
+    upper_left: Position,
+    lower_right: Position,
 }
 
-impl Life {
-    /// Creates a new empty Life grid.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let mut life = smeagol::Life::new();
-    /// assert_eq!(life.population(), 0);
-    /// ```
-    pub fn new() -> Self {
-        let mut store = Store::new();
-        let root = store.create_empty(INITIAL_LEVEL);
+impl BoundingBox {
+    pub fn new(upper_left: Position, lower_right: Position) -> Self {
+        assert!(upper_left.x <= lower_right.x);
+        assert!(upper_left.y <= lower_right.y);
         Self {
-            root,
-            store,
-            generation: 0,
+            upper_left,
+            lower_right,
         }
     }
 
-    /// Creates a Life grid from the given RLE file.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let mut life = smeagol::Life::from_rle_file("../assets/glider.rle").unwrap();
-    /// assert_eq!(life.population(), 5);
-    /// ```
-    pub fn from_rle_file<P>(path: P) -> Result<Self, smeagol_rle::RleError>
-    where
-        P: AsRef<std::path::Path>,
-    {
-        let rle = smeagol_rle::Rle::from_file(path)?;
-        Ok(Self::from_rle(&rle))
+    pub fn combine(&self, other: BoundingBox) -> Self {
+        let min_x = Ord::min(self.upper_left.x, other.upper_left.x);
+        let min_y = Ord::min(self.upper_left.y, other.upper_left.y);
+        let max_x = Ord::max(self.lower_right.x, other.lower_right.x);
+        let max_y = Ord::max(self.lower_right.y, other.lower_right.y);
+
+        Self::new(Position::new(min_x, min_y), Position::new(max_x, max_y))
     }
 
-    /// Creates a Life grid from the given RLE pattern.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// // integral sign
-    /// let mut life = smeagol::Life::from_rle_pattern(b"3b2o$2bobo$2bo2b$obo2b$2o!").unwrap();
-    /// assert_eq!(life.population(), 9);
-    /// ```
-    pub fn from_rle_pattern(pattern: &[u8]) -> Result<Self, smeagol_rle::RleError> {
-        let rle = smeagol_rle::Rle::from_pattern(pattern)?;
-        Ok(Self::from_rle(&rle))
+    pub fn offset(&self, x_offset: i64, y_offset: i64) -> Self {
+        Self::new(
+            self.upper_left.offset(x_offset, y_offset),
+            self.lower_right.offset(x_offset, y_offset),
+        )
     }
 
-    /// Creates a Life grid from the given RLE struct.
-    fn from_rle(rle: &smeagol_rle::Rle) -> Self {
-        let alive_cells = rle
-            .alive_cells()
-            .into_iter()
-            .map(|(x, y)| Position::new(i64::from(x), i64::from(y)))
-            .collect::<Vec<_>>();
-
-        let mut store = Store::new();
-        let mut root = store.create_empty(INITIAL_LEVEL);
-
-        if !alive_cells.is_empty() {
-            let x_min = alive_cells.iter().min_by_key(|pos| pos.x).unwrap().x;
-            let x_max = alive_cells.iter().max_by_key(|pos| pos.x).unwrap().x;
-            let y_min = alive_cells.iter().min_by_key(|pos| pos.y).unwrap().y;
-            let y_max = alive_cells.iter().max_by_key(|pos| pos.y).unwrap().y;
-
-            while x_min < root.min_coord(&store)
-                || x_max > root.max_coord(&store)
-                || y_min < root.min_coord(&store)
-                || y_max > root.max_coord(&store)
-            {
-                root = root.expand(&mut store);
-            }
-
-            root = root.set_cells_alive(&mut store, alive_cells);
-        }
-
+    pub fn pad(&self, amount: i64) -> Self {
+        assert!(amount > 0);
         Self {
-            root,
-            store,
-            generation: 0,
+            upper_left: self.upper_left.offset(-amount, -amount),
+            lower_right: self.lower_right.offset(amount, amount),
         }
-    }
-
-    pub fn get_alive_cells(&self) -> Vec<Position> {
-        self.root.get_alive_cells(&self.store)
-    }
-
-    pub fn generation(&self) -> u128 {
-        self.generation
-    }
-
-    /// Returns the number of alive cells in the grid.
-    pub fn population(&self) -> u128 {
-        self.root.population(&self.store)
-    }
-
-    /// Returns the current step size.
-    pub fn step_size(&self) -> u64 {
-        1 << self.store.step_log_2()
-    }
-
-    pub fn set_step_log_2(&mut self, step_log_2: u8) {
-        self.store.set_step_log_2(step_log_2);
-    }
-
-    fn pad(&mut self) {
-        while self.root.level(&self.store) < INITIAL_LEVEL
-            || self.store.step_log_2() > self.root.level(&self.store).0 - 2
-            || self.root.ne(&self.store).population(&self.store)
-                != self
-                    .root
-                    .ne(&self.store)
-                    .sw(&self.store)
-                    .sw(&self.store)
-                    .population(&self.store)
-            || self.root.nw(&self.store).population(&self.store)
-                != self
-                    .root
-                    .nw(&self.store)
-                    .se(&self.store)
-                    .se(&self.store)
-                    .population(&self.store)
-            || self.root.se(&self.store).population(&self.store)
-                != self
-                    .root
-                    .se(&self.store)
-                    .nw(&self.store)
-                    .nw(&self.store)
-                    .population(&self.store)
-            || self.root.sw(&self.store).population(&self.store)
-                != self
-                    .root
-                    .sw(&self.store)
-                    .ne(&self.store)
-                    .ne(&self.store)
-                    .population(&self.store)
-        {
-            self.root = self.root.expand(&mut self.store);
-        }
-    }
-
-    pub fn step(&mut self) {
-        self.pad();
-        self.root = self.root.step(&mut self.store);
-        self.generation += u128::from(self.step_size());
-    }
-}
-
-impl Default for Life {
-    fn default() -> Self {
-        Self::new()
     }
 }

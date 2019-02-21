@@ -10,6 +10,8 @@
     <img src="https://tokei.rs/b1/github/billyrieger/smeagol" alt="Lines of code">
 </a>
 
+## Crates
+
 | crate | description |
 |---|---|
 | [`smeagol`](https://github.com/billyrieger/smeagol/tree/master/smeagol) | Conway's Game of Life |
