@@ -37,7 +37,7 @@ fn main() -> Result<(), smeagol::Error> {
 
 This produces the following image:
 
-![Breeder][./breeder1.png]
+![Breeder](./breeder1.png)
 
 ## Limitations
 
