@@ -46,7 +46,7 @@ named!(header<&[u8], (u32, u32)>,
 
 /// Matches a non-negative number, returning the number or 1 if there are no digits.
 fn parse_rle_digits(digits: &[u8]) -> Result<u32, btoi::ParseIntegerError> {
-    if digits.len() == 0 {
+    if digits.is_empty() {
         Ok(1)
     } else {
         btoi::btoi(digits)

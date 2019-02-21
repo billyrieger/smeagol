@@ -1,11 +1,10 @@
 //! Inner workings of `smeagol`.
 
-use packed_simd::u16x16;
-
 mod impls;
 mod store;
 
 pub use self::store::{NodeTemplate, Store};
+use packed_simd::u16x16;
 
 const LEVEL_4_UPPER_HALF_MASK: u16x16 = u16x16::new(
     0b1111_1111_1111_1111,
