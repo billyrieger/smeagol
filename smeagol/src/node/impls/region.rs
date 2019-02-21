@@ -323,6 +323,26 @@ impl NodeId {
     }
 }
 
+/// Given two horizontally adjacent nodes, returns the node one level below that's halfway between
+/// them.
+///
+/// # Panics
+///
+/// Panics if the nodes are leaf nodes.
+///
+/// # Diagram
+///
+/// ```txt
+/// +---+---+---+---+---+---+---+---+
+/// |   |   |   |   |   |   |   |   |
+/// +---+---+---+---+---+---+---+---+
+/// |   |   |   | * | * |   |   |   |
+/// +---+---+---+---+---+---+---+---+
+/// |   |   |   | * | * |   |   |   |
+/// +---+---+---+---+---+---+---+---+
+/// |   |   |   |   |   |   |   |   |
+/// +---+---+---+---+---+---+---+---+
+/// ```
 fn centered_horiz(store: &mut Store, w: NodeId, e: NodeId) -> NodeId {
     match (store.node(w), store.node(e)) {
         (Node::Leaf { .. }, Node::Leaf { .. }) => panic!(),
@@ -355,6 +375,34 @@ fn centered_horiz(store: &mut Store, w: NodeId, e: NodeId) -> NodeId {
     }
 }
 
+/// Given two vertically adjacent nodes, returns the node one level below that's halfway between
+/// them.
+///
+/// # Panics
+///
+/// Panics if the nodes are leaf nodes.
+///
+/// # Diagram
+///
+/// ```txt
+/// +---+---+---+---+
+/// |   |   |   |   |
+/// +---+---+---+---+
+/// |   |   |   |   |
+/// +---+---+---+---+
+/// |   |   |   |   |
+/// +---+---+---+---+
+/// |   | * | * |   |
+/// +---+---+---+---+
+/// |   | * | * |   |
+/// +---+---+---+---+
+/// |   |   |   |   |
+/// +---+---+---+---+
+/// |   |   |   |   |
+/// +---+---+---+---+
+/// |   |   |   |   |
+/// +---+---+---+---+
+/// ```
 fn centered_vert(store: &mut Store, n: NodeId, s: NodeId) -> NodeId {
     match (store.node(n), store.node(s)) {
         (Node::Leaf { .. }, Node::Leaf { .. }) => panic!(),

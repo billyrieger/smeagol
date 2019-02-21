@@ -53,7 +53,7 @@ impl Life {
     /// let mut life = smeagol::Life::from_rle_file("../assets/glider.rle").unwrap();
     /// assert_eq!(life.population(), 5);
     /// ```
-    pub fn from_rle_file<P>(path: P) -> Result<Self, smeagol_rle::RleError>
+    pub fn from_rle_file<P>(path: P) -> Result<Self, failure::Error>
     where
         P: AsRef<std::path::Path>,
     {

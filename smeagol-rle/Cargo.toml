@@ -6,4 +6,5 @@ edition = "2018"
 
 [dependencies]
 btoi = "0.4"
+failure = "0.1"
 nom = "4.2"

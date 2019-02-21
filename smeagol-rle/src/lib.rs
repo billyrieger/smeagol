@@ -4,7 +4,23 @@
  * obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-//! Crate for working with run-length encoded (RLE) Life patterns.
+//! Library for working with run-length encoded (RLE) Life patterns.
+//!
+//! # Examples
+//!
+//! ```
+//! # fn main() -> Result<(), failure::Error> {
+//! // integral sign
+//! let rle = smeagol_rle::Rle::from_pattern(b"3b2o$2bobo$2bo2b$obo2b$2o!")?;
+//!
+//! for (x, y) in rle.alive_cells() {
+//!     // do something
+//! }
+//! # Ok(())
+//! # }
+//! ```
+#[macro_use]
+extern crate failure;
 #[macro_use]
 extern crate nom;
 
@@ -86,24 +102,15 @@ named!(rle<&[u8], (Vec<&[u8]>, (u32, u32), Vec<PatternUnit>)>,
 );
 
 /// An error than can occur.
-#[derive(Debug)]
+#[derive(Debug, Fail)]
 pub enum RleError {
     /// An IO error.
-    Io(std::io::Error),
+    #[fail(display = "IO error: {}", io)]
+    Io { io: std::io::Error },
+
     /// A parsing error.
-    Nom(nom::ErrorKind),
-}
-
-impl From<std::io::Error> for RleError {
-    fn from(io_err: std::io::Error) -> Self {
-        RleError::Io(io_err)
-    }
-}
-
-impl From<nom::ErrorKind> for RleError {
-    fn from(nom_err: nom::ErrorKind) -> Self {
-        RleError::Nom(nom_err)
-    }
+    #[fail(display = "Parsing error")]
+    Parse,
 }
 
 /// A single unit in an RLE pattern.
@@ -126,12 +133,12 @@ impl Rle {
     /// # Examples
     ///
     /// ```
-    /// # fn main() -> Result<(), smeagol_rle::RleError> {
+    /// # fn main() -> Result<(), failure::Error> {
     /// let rle = smeagol_rle::Rle::from_file("../assets/breeder1.rle")?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn from_file<P>(path: P) -> Result<Self, RleError>
+    pub fn from_file<P>(path: P) -> Result<Self, failure::Error>
     where
         P: AsRef<std::path::Path>,
     {
@@ -142,7 +149,7 @@ impl Rle {
         reader.read_to_end(&mut buf)?;
 
         let (_rest, (_comments, (_width, _height), units)) =
-            rle(&buf).map_err(|e| e.into_error_kind())?;
+            rle(&buf).map_err(|_| RleError::Parse)?;
 
         Ok(Self { units })
     }
@@ -152,13 +159,13 @@ impl Rle {
     /// # Examples
     ///
     /// ```
-    /// # fn main() -> Result<(), smeagol_rle::RleError> {
+    /// # fn main() -> Result<(), failure::Error> {
     /// let rle = smeagol_rle::Rle::from_pattern(b"bob$2bo$3o!")?;
     /// # Ok(())
     /// # }
     /// ```
     pub fn from_pattern(pattern_str: &[u8]) -> Result<Self, RleError> {
-        let (_rest, units) = pattern(pattern_str).map_err(|e| e.into_error_kind())?;
+        let (_rest, units) = pattern(pattern_str).map_err(|_| RleError::Parse)?;
         Ok(Self { units })
     }
 
@@ -167,7 +174,7 @@ impl Rle {
     /// # Examples
     ///
     /// ```
-    /// # fn main() -> Result<(), smeagol_rle::RleError> {
+    /// # fn main() -> Result<(), failure::Error> {
     /// let rle = smeagol_rle::Rle::from_pattern(b"bob$2bo$3o!")?;
     ///
     /// for (x, y) in rle.alive_cells() {

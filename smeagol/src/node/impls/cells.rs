@@ -176,9 +176,7 @@ impl NodeId {
                 ..
             } => {
                 let (north, south) = partition_vert(coords, offset_y);
-
                 let (northwest, northeast) = partition_horiz(north, offset_x);
-
                 let (southwest, southeast) = partition_horiz(south, offset_x);
 
                 // quarter side length
@@ -414,11 +412,7 @@ impl NodeId {
 
                 if let Some(nw_bounding_box) = nw.bounding_box(store) {
                     let nw_bounding_box = nw_bounding_box.offset(-offset, -offset);
-                    bounding_box = if let Some(bbox) = bounding_box {
-                        Some(bbox.combine(nw_bounding_box))
-                    } else {
-                        Some(nw_bounding_box)
-                    }
+                    bounding_box = Some(nw_bounding_box);
                 };
 
                 if let Some(ne_bounding_box) = ne.bounding_box(store) {
@@ -502,8 +496,16 @@ mod tests {
                 assert!(one_alive.contains_alive_cells(&store, pos, pos));
                 assert!(one_alive.contains_alive_cells(&store, Position::new(min, min), pos));
                 assert!(one_alive.contains_alive_cells(&store, pos, Position::new(max, max)));
-                assert!(one_alive.contains_alive_cells(&store, Position::new(x, min), Position::new(x, max)));
-                assert!(one_alive.contains_alive_cells(&store, Position::new(min, y), Position::new(max, y)));
+                assert!(one_alive.contains_alive_cells(
+                    &store,
+                    Position::new(x, min),
+                    Position::new(x, max)
+                ));
+                assert!(one_alive.contains_alive_cells(
+                    &store,
+                    Position::new(min, y),
+                    Position::new(max, y)
+                ));
             }
         }
     }
