@@ -389,6 +389,7 @@ impl NodeId {
         }
     }
 
+    /// Returns a bounding box that contains all the alive cells in the node.
     pub fn bounding_box(self, store: &Store) -> Option<BoundingBox> {
         match store.node(self) {
             Node::Leaf { grid } => {

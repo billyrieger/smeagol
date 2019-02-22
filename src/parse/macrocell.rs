@@ -5,6 +5,8 @@
  */
 
 //! Macrocell Life patterns.
+//!
+//! TODO: clean up this module and actually use it.
 use nom::{line_ending, not_line_ending};
 use std::io::Read;
 
@@ -72,18 +74,23 @@ fn macrocell(input: &[u8]) -> nom::IResult<&[u8], Vec<Cell>> {
     Ok((rest, cells))
 }
 
-#[derive(Debug)]
+/// An individual cell in a Macrocell file.
+#[derive(Clone, Debug)]
 pub enum Cell {
+    /// A level three cell.
     LevelThree { cells: Vec<char> },
+    /// An interior cell.
     Interior { level: u8, children: [usize; 4] },
 }
 
+/// A Macrocell Life pattern.
 pub struct Macrocell {
     pub cells: Vec<Cell>,
 }
 
 impl Macrocell {
-    pub fn from_file<P>(path: P) -> Result<Self, std::io::Error>
+    /// Loads a Macrocell pattern from the given file.
+    pub fn from_file<P>(path: P) -> Result<Self, failure::Error>
     where
         P: AsRef<std::path::Path>,
     {

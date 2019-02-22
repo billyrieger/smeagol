@@ -331,6 +331,11 @@ impl NodeId {
         }
     }
 
+    /// For a level `n` node, advances the node `step_size` generations into the future.
+    ///
+    /// The step size is determined by the store.
+    ///
+    /// Returns a level `n-1` node.
     #[allow(clippy::many_single_char_names)]
     pub fn step(self, store: &mut Store) -> NodeId {
         if let Some(step) = store.get_step(self) {
