@@ -2,7 +2,17 @@
 name = "smeagol"
 version = "0.1.0"
 authors = ["Billy Rieger <wrieger@protonmail.com>"]
+description = "A library to efficiently simulate Conway's Game of Life using the HashLife algorithm."
+repository = "https://github.com/billyrieger/smeagol"
+readme = "README.md"
+keywords = ["life", "conway", "cellular", "automaton", "hashlife"]
+categories = ["algorithms", "science", "simulation"]
+license = "MPL-2.0"
 edition = "2018"
+
+[badges]
+codecov = { repository = "https://github.com/billyrieger/smeagol" }
+travis-ci = { repository = "https://github.com/billyrieger/smeagol" }
 
 [dependencies]
 btoi = "0.4"
