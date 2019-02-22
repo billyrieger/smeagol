@@ -10,6 +10,16 @@
     <img src="https://tokei.rs/b1/github/billyrieger/smeagol" alt="Lines of code">
 </a>
 
+<a href="https://crates.io/crates/smeagol">
+    <img src="https://img.shields.io/crates/v/smeagol.svg" alt="Version">
+</a>
+<a href="https://docs.rs/smeagol/">
+    <img src="https://docs.rs/smeagol/badge.svg" alt="Documentation">
+</a>
+<a href="https://github.com/billyrieger/smeagol/blob/master/LICENSE">
+    <img src="https://img.shields.io/crates/l/smeagol.svg" alt="License">
+</a>
+
 ## Introduction
 
 `smeagol` is a Rust library built to efficiently simulate large patterns in the cellular automaton
@@ -49,6 +59,8 @@ fn main() -> Result<(), failure::Error> {
 This produces the following image:
 
 ![Breeder](./breeder1.png)
+
+See [the documentation](https://docs.rs/smeagol/) for more.
 
 ## Limitations
 
