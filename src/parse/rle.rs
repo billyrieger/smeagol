@@ -4,14 +4,14 @@
  * obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-//! Library for working with run-length encoded (RLE) Life patterns.
+//! Run-length encoded (RLE) Life patterns.
 //!
 //! # Examples
 //!
 //! ```
 //! # fn main() -> Result<(), failure::Error> {
 //! // integral sign
-//! let rle = smeagol::parse::Rle::from_pattern(b"3b2o$2bobo$2bo2b$obo2b$2o!")?;
+//! let rle = smeagol::parse::rle::Rle::from_pattern(b"3b2o$2bobo$2bo2b$obo2b$2o!")?;
 //!
 //! for (x, y) in rle.alive_cells() {
 //!     // do something
@@ -96,13 +96,9 @@ named!(rle<&[u8], (Vec<&[u8]>, (u32, u32), Vec<PatternUnit>)>,
     )
 );
 
-/// An error than can occur.
+/// An error than can occur while parsing an RLE pattern.
 #[derive(Debug, Fail)]
 pub enum RleError {
-    /// An IO error.
-    #[fail(display = "IO error: {}", io)]
-    Io { io: std::io::Error },
-
     /// A parsing error.
     #[fail(display = "Parsing error")]
     Parse,
@@ -129,7 +125,7 @@ impl Rle {
     ///
     /// ```
     /// # fn main() -> Result<(), failure::Error> {
-    /// let rle = smeagol::parse::Rle::from_file("./assets/breeder1.rle")?;
+    /// let rle = smeagol::parse::rle::Rle::from_file("./assets/breeder1.rle")?;
     /// # Ok(())
     /// # }
     /// ```
@@ -155,11 +151,12 @@ impl Rle {
     ///
     /// ```
     /// # fn main() -> Result<(), failure::Error> {
-    /// let rle = smeagol::parse::Rle::from_pattern(b"bob$2bo$3o!")?;
+    /// // glider
+    /// let rle = smeagol::parse::rle::Rle::from_pattern(b"bob$2bo$3o!")?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn from_pattern(pattern_str: &[u8]) -> Result<Self, RleError> {
+    pub fn from_pattern(pattern_str: &[u8]) -> Result<Self, failure::Error> {
         let (_rest, units) = pattern(pattern_str).map_err(|_| RleError::Parse)?;
         Ok(Self { units })
     }
@@ -170,7 +167,8 @@ impl Rle {
     ///
     /// ```
     /// # fn main() -> Result<(), failure::Error> {
-    /// let rle = smeagol::parse::Rle::from_pattern(b"bob$2bo$3o!")?;
+    /// // glider
+    /// let rle = smeagol::parse::rle::Rle::from_pattern(b"bob$2bo$3o!")?;
     ///
     /// for (x, y) in rle.alive_cells() {
     ///     // do something

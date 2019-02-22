@@ -4,6 +4,7 @@
  * obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+//! Macrocell Life patterns.
 use nom::{line_ending, not_line_ending};
 use std::io::Read;
 

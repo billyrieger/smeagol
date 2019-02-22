@@ -30,7 +30,7 @@ smeagol = "0.1"
 Then, start simulating Conway's Game of Life!
 
 ```rust
-fn main() -> Result<(), smeagol::Error> {
+fn main() -> Result<(), failure::Error> {
     // load a pattern
     let mut life = smeagol::Life::from_rle_file("breeder1.rle")?;
 

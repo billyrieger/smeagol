@@ -10,7 +10,7 @@ mod render;
 
 use crate::{
     node::{Level, NodeId, Store},
-    parse::Rle,
+    parse::rle::Rle,
     BoundingBox, Position,
 };
 
@@ -77,7 +77,7 @@ impl Life {
     }
 
     /// Creates a Life grid from the given RLE struct.
-    fn from_rle(rle: &Rle) -> Self {
+    pub fn from_rle(rle: &Rle) -> Self {
         let alive_cells = rle
             .alive_cells()
             .into_iter()
@@ -210,6 +210,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn default() {
+        let life = Life::default();
+        assert_eq!(life.generation(), 0);
+        assert_eq!(life.population(), 0);
+    }
+
+    #[test]
+    fn from_rle_pattern() {
+        let life = Life::from_rle_pattern(b"bob$2bo$3o!").unwrap();
+        assert_eq!(life.population(), 5);
+    }
+
+    #[test]
     fn position_extremes() {
         let mut life = Life::new();
 
@@ -221,6 +234,7 @@ mod tests {
         life.set_cell_alive(Position::new(max, min));
         life.set_cell_alive(Position::new(max, max));
 
+        assert_eq!(life.population(), 4);
         assert_eq!(
             life.bounding_box(),
             Some(BoundingBox::new(

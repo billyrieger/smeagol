@@ -35,8 +35,7 @@ pub mod node;
 pub mod parse;
 
 pub use crate::life::Life;
-use crate::node::Quadrant;
-use crate::parse::RleError;
+use crate::{node::Quadrant, parse::rle::RleError};
 
 #[derive(Debug, Fail)]
 pub enum Error {

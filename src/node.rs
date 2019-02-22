@@ -154,13 +154,14 @@ fn center(nw_grid: u16x16, ne_grid: u16x16, sw_grid: u16x16, se_grid: u16x16) ->
     nw_grid | ne_grid | sw_grid | se_grid
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Index(u32);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Level(pub u8);
 
 /// The four quadrants of a node.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Quadrant {
     /// The northwest quadrant.
     Northwest,
@@ -173,7 +174,7 @@ pub enum Quadrant {
 }
 
 /// An identifier referring to a node in a store.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct NodeId {
     /// The index of the node in the store.
     index: Index,
