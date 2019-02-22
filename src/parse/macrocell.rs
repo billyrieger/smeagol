@@ -4,9 +4,6 @@
  * obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#[macro_use]
-extern crate nom;
-
 use nom::{line_ending, not_line_ending};
 use std::io::Read;
 
@@ -107,6 +104,6 @@ mod tests {
 
     #[test]
     fn from_file() {
-        Macrocell::from_file("../assets/waterbear.mc").unwrap();
+        Macrocell::from_file("./assets/waterbear.mc").unwrap();
     }
 }

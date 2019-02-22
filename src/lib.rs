@@ -9,7 +9,7 @@
 //! # Examples
 //!
 //! ```
-//! # fn main() -> Result<(), smeagol::Error> {
+//! # fn main() -> Result<(), failure::Error> {
 //! // create a gosper glider gun
 //! let mut life = smeagol::Life::from_rle_pattern(
 //!     b"
@@ -24,39 +24,26 @@
 //! # }
 //! ```
 #[macro_use]
+extern crate failure;
+#[macro_use]
+extern crate nom;
+#[macro_use]
 extern crate packed_simd;
 
 mod life;
 pub mod node;
+pub mod parse;
 
-pub use self::life::Life;
-use self::node::Quadrant;
+pub use crate::life::Life;
+use crate::node::Quadrant;
+use crate::parse::RleError;
 
-#[derive(Debug)]
-pub struct Error {
-    kind: ErrorKind,
-}
-
-#[derive(Debug)]
-pub enum ErrorKind {
-    Io(std::io::Error),
-    Rle(smeagol_rle::RleError),
-}
-
-impl From<std::io::Error> for Error {
-    fn from(io: std::io::Error) -> Error {
-        Error {
-            kind: ErrorKind::Io(io),
-        }
-    }
-}
-
-impl From<smeagol_rle::RleError> for Error {
-    fn from(rle: smeagol_rle::RleError) -> Error {
-        Error {
-            kind: ErrorKind::Rle(rle),
-        }
-    }
+#[derive(Debug, Fail)]
+pub enum Error {
+    #[fail(display = "IO error: {}", io)]
+    Io { io: std::io::Error },
+    #[fail(display = "RLE pattern error: {}", rle)]
+    Rle { rle: RleError },
 }
 
 /// A cell in a Life grid.

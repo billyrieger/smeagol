@@ -10,6 +10,7 @@ mod render;
 
 use crate::{
     node::{Level, NodeId, Store},
+    parse::Rle,
     BoundingBox, Position,
 };
 
@@ -50,14 +51,14 @@ impl Life {
     /// # Examples
     ///
     /// ```
-    /// let mut life = smeagol::Life::from_rle_file("../assets/glider.rle").unwrap();
+    /// let mut life = smeagol::Life::from_rle_file("./assets/glider.rle").unwrap();
     /// assert_eq!(life.population(), 5);
     /// ```
     pub fn from_rle_file<P>(path: P) -> Result<Self, failure::Error>
     where
         P: AsRef<std::path::Path>,
     {
-        let rle = smeagol_rle::Rle::from_file(path)?;
+        let rle = Rle::from_file(path)?;
         Ok(Self::from_rle(&rle))
     }
 
@@ -70,13 +71,13 @@ impl Life {
     /// let mut life = smeagol::Life::from_rle_pattern(b"3b2o$2bobo$2bo2b$obo2b$2o!").unwrap();
     /// assert_eq!(life.population(), 9);
     /// ```
-    pub fn from_rle_pattern(pattern: &[u8]) -> Result<Self, smeagol_rle::RleError> {
-        let rle = smeagol_rle::Rle::from_pattern(pattern)?;
+    pub fn from_rle_pattern(pattern: &[u8]) -> Result<Self, failure::Error> {
+        let rle = Rle::from_pattern(pattern)?;
         Ok(Self::from_rle(&rle))
     }
 
     /// Creates a Life grid from the given RLE struct.
-    fn from_rle(rle: &smeagol_rle::Rle) -> Self {
+    fn from_rle(rle: &Rle) -> Self {
         let alive_cells = rle
             .alive_cells()
             .into_iter()

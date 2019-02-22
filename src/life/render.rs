@@ -68,7 +68,7 @@ mod tests {
 
     #[test]
     fn render() {
-        let mut life = Life::from_rle_file("../assets/pulsar.rle").unwrap();
+        let mut life = Life::from_rle_file("./assets/pulsar.rle").unwrap();
         life.set_step_log_2(10);
         life.step();
         life.save_png(

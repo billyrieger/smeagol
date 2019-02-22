@@ -11,7 +11,7 @@
 //! ```
 //! # fn main() -> Result<(), failure::Error> {
 //! // integral sign
-//! let rle = smeagol_rle::Rle::from_pattern(b"3b2o$2bobo$2bo2b$obo2b$2o!")?;
+//! let rle = smeagol::parse::Rle::from_pattern(b"3b2o$2bobo$2bo2b$obo2b$2o!")?;
 //!
 //! for (x, y) in rle.alive_cells() {
 //!     // do something
@@ -19,11 +19,6 @@
 //! # Ok(())
 //! # }
 //! ```
-#[macro_use]
-extern crate failure;
-#[macro_use]
-extern crate nom;
-
 use nom::{line_ending, not_line_ending};
 use std::io::Read;
 
@@ -134,7 +129,7 @@ impl Rle {
     ///
     /// ```
     /// # fn main() -> Result<(), failure::Error> {
-    /// let rle = smeagol_rle::Rle::from_file("../assets/breeder1.rle")?;
+    /// let rle = smeagol::parse::Rle::from_file("./assets/breeder1.rle")?;
     /// # Ok(())
     /// # }
     /// ```
@@ -160,7 +155,7 @@ impl Rle {
     ///
     /// ```
     /// # fn main() -> Result<(), failure::Error> {
-    /// let rle = smeagol_rle::Rle::from_pattern(b"bob$2bo$3o!")?;
+    /// let rle = smeagol::parse::Rle::from_pattern(b"bob$2bo$3o!")?;
     /// # Ok(())
     /// # }
     /// ```
@@ -175,7 +170,7 @@ impl Rle {
     ///
     /// ```
     /// # fn main() -> Result<(), failure::Error> {
-    /// let rle = smeagol_rle::Rle::from_pattern(b"bob$2bo$3o!")?;
+    /// let rle = smeagol::parse::Rle::from_pattern(b"bob$2bo$3o!")?;
     ///
     /// for (x, y) in rle.alive_cells() {
     ///     // do something
@@ -219,7 +214,7 @@ mod tests {
 
     #[test]
     fn from_file() {
-        Rle::from_file("../assets/breeder1.rle").unwrap();
+        Rle::from_file("./assets/breeder1.rle").unwrap();
     }
 
     #[test]

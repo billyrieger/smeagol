@@ -1,6 +1,21 @@
-[workspace]
-members = [
-    "smeagol",
-    "smeagol-mc",
-    "smeagol-rle",
-]
+[package]
+name = "smeagol"
+version = "0.1.0"
+authors = ["Billy Rieger <wrieger@protonmail.com>"]
+edition = "2018"
+
+[dependencies]
+btoi = "0.4"
+failure = "0.1"
+hashbrown = "0.1"
+nom = "4.2"
+packed_simd = "0.3"
+png = "0.14"
+
+[dev-dependencies]
+criterion = "0.2"
+version-sync = "0.7"
+
+[[bench]]
+name = "bench"
+harness = false
