@@ -250,6 +250,9 @@ fn vert_jump(store: &mut Store, n: NodeId, s: NodeId) -> NodeId {
 }
 
 impl NodeId {
+    /// For a level `n` node, advances the node `2^(n-2)` generations into the future.
+    ///
+    /// Returns a level `n-1` node.
     #[allow(clippy::many_single_char_names)]
     pub fn jump(self, store: &mut Store) -> NodeId {
         if let Some(jump) = store.get_jump(self) {

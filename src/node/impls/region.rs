@@ -7,6 +7,11 @@
 use crate::node::*;
 
 impl NodeId {
+    /// For a level `n` node, creates a level `n + 1` node with the original node in the center.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node is a leaf node.
     pub fn expand(self, store: &mut Store) -> NodeId {
         match store.node(self) {
             Node::Leaf { .. } => panic!(),

@@ -5,7 +5,6 @@
  */
 
 //! Inner workings of `smeagol`.
-
 mod impls;
 mod store;
 
@@ -154,9 +153,11 @@ fn center(nw_grid: u16x16, ne_grid: u16x16, sw_grid: u16x16, se_grid: u16x16) ->
     nw_grid | ne_grid | sw_grid | se_grid
 }
 
+/// An index in a store.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Index(u32);
 
+/// The level of a node.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Level(pub u8);
 

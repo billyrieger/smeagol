@@ -7,13 +7,19 @@
 use crate::node::{Index, Level, Node, NodeId};
 use packed_simd::u16x16;
 
+/// A template to create a node from four child nodes.
 pub struct NodeTemplate {
+    /// The northwest child.
     pub nw: NodeId,
+    /// The northeast child.
     pub ne: NodeId,
+    /// The southwest child.
     pub sw: NodeId,
+    /// The southeast child.
     pub se: NodeId,
 }
 
+/// A struct to store nodes and node evolution results.
 #[derive(Clone, Debug)]
 pub struct Store {
     indices: hashbrown::HashMap<Node, NodeId>,
@@ -23,13 +29,14 @@ pub struct Store {
     step_log_2: u8,
 }
 
-impl Default for Store {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Store {
+    /// Creates a new empty store.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let store = smeagol::node::Store::new();
+    /// ```
     pub fn new() -> Self {
         Self {
             indices: hashbrown::HashMap::new(),
@@ -40,15 +47,18 @@ impl Store {
         }
     }
 
+    /// Returns the node corresponding to the given node ID.
     pub fn node(&self, id: NodeId) -> Node {
         self.nodes[id.index.0 as usize]
     }
 
+    /// Creates a leaf node corresponding to the given 16 by 16 grid.
     pub fn create_leaf(&mut self, grid: u16x16) -> NodeId {
         let node = Node::Leaf { grid };
         self.add_node(node)
     }
 
+    /// Creates an interior node from the given node template.
     pub fn create_interior(&mut self, template: NodeTemplate) -> NodeId {
         let level = template.nw.level(self);
         let new_level = Level(level.0 + 1);
@@ -70,6 +80,7 @@ impl Store {
         self.add_node(node)
     }
 
+    /// Creates an empty node with the given level.
     pub fn create_empty(&mut self, level: Level) -> NodeId {
         if level == Level(4) {
             self.create_leaf(u16x16::splat(0))
@@ -84,6 +95,7 @@ impl Store {
         }
     }
 
+    /// Adds a node to the store, returning a node ID.
     fn add_node(&mut self, node: Node) -> NodeId {
         if let Some(id) = self.indices.get(&node) {
             *id
@@ -101,28 +113,54 @@ impl Store {
 }
 
 impl Store {
+    /// Returns the current step size log 2.
     pub fn step_log_2(&self) -> u8 {
         self.step_log_2
     }
 
+    /// Sets the step size to be `2^step_log_2`.
+    ///
+    /// This clears previously calculated steps.
     pub fn set_step_log_2(&mut self, step_log_2: u8) {
-        self.step_log_2 = step_log_2;
-        self.steps = vec![None; self.steps.len()]
+        if step_log_2 != self.step_log_2 {
+            self.step_log_2 = step_log_2;
+            self.steps = vec![None; self.steps.len()]
+        }
     }
 
+    /// Gets the step of the given node, if it has been previously calculated.
     pub fn get_step(&self, id: NodeId) -> Option<NodeId> {
         self.steps[id.index.0 as usize]
     }
 
+    /// Sets the step of the given node.
     pub fn add_step(&mut self, id: NodeId, step: NodeId) {
         self.steps[id.index.0 as usize] = Some(step);
     }
 
+    /// Gets the jump of the given node, if it has been previously calculated.
     pub fn get_jump(&self, id: NodeId) -> Option<NodeId> {
         self.jumps[id.index.0 as usize]
     }
 
+    /// Sets the jump of the given node.
     pub fn add_jump(&mut self, id: NodeId, jump: NodeId) {
         self.jumps[id.index.0 as usize] = Some(jump);
+    }
+}
+
+impl Default for Store {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default() {
+        let _store = Store::default();
     }
 }

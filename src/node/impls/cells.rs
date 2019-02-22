@@ -7,6 +7,20 @@
 use crate::{node::*, BoundingBox, Cell, Position, Quadrant};
 
 impl NodeId {
+    /// Gets the cell at the given position in the node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut store = smeagol::node::Store::new();
+    ///
+    /// let node = store.create_empty(smeagol::node::Level(5));
+    /// let origin = smeagol::Position::new(0, 0);
+    /// assert_eq!(node.get_cell(&store, origin), smeagol::Cell::Dead);
+    ///
+    /// let node = node.set_cell_alive(&mut store, origin);
+    /// assert_eq!(node.get_cell(&store, origin), smeagol::Cell::Alive);
+    /// ```
     pub fn get_cell(self, store: &Store, pos: Position) -> Cell {
         match store.node(self) {
             Node::Leaf { grid } => {
@@ -35,6 +49,20 @@ impl NodeId {
         }
     }
 
+    /// Sets the cell at the given position in the node to be an alive cell.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut store = smeagol::node::Store::new();
+    ///
+    /// let node = store.create_empty(smeagol::node::Level(5));
+    /// let origin = smeagol::Position::new(0, 0);
+    /// assert_eq!(node.get_cell(&store, origin), smeagol::Cell::Dead);
+    ///
+    /// let node = node.set_cell_alive(&mut store, origin);
+    /// assert_eq!(node.get_cell(&store, origin), smeagol::Cell::Alive);
+    /// ```
     pub fn set_cell_alive(self, store: &mut Store, pos: Position) -> NodeId {
         match store.node(self) {
             Node::Leaf { mut grid } => {
@@ -76,6 +104,20 @@ impl NodeId {
         }
     }
 
+    /// Returns a list of the positions of all the alive cells in the node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut store = smeagol::node::Store::new();
+    ///
+    /// let node = store.create_empty(smeagol::node::Level(5));
+    /// assert_eq!(node.get_alive_cells(&store), vec![]);
+    ///
+    /// let pos = smeagol::Position::new(1, 2);
+    /// let node = node.set_cell_alive(&mut store, pos);
+    /// assert_eq!(node.get_alive_cells(&store), vec![pos]);
+    /// ```
     pub fn get_alive_cells(self, store: &Store) -> Vec<Position> {
         match store.node(self) {
             Node::Leaf { grid } => {
@@ -139,6 +181,9 @@ impl NodeId {
         }
     }
 
+    /// Sets the given positions to be alive cells in the node.
+    ///
+    /// This is more efficient than setting cells alive individually.
     pub fn set_cells_alive(
         self,
         store: &mut Store,
@@ -212,12 +257,10 @@ impl NodeId {
         }
     }
 
-    pub fn contains_alive_cells(
-        self,
-        store: &Store,
-        upper_left: Position,
-        lower_right: Position,
-    ) -> bool {
+    /// Returns true if the given bounding box contains any live cells.
+    pub fn contains_alive_cells(self, store: &Store, bounding_box: BoundingBox) -> bool {
+        let upper_left = bounding_box.upper_left;
+        let lower_right = bounding_box.lower_right;
         assert!(upper_left.x <= lower_right.x);
         assert!(upper_left.y <= lower_right.y);
 
@@ -253,38 +296,28 @@ impl NodeId {
                 let offset = 1 << (level.0 - 2);
 
                 match (upper_left.quadrant(), lower_right.quadrant()) {
-                    (Quadrant::Northwest, Quadrant::Northwest) => nw.contains_alive_cells(
-                        store,
-                        upper_left.offset(offset, offset),
-                        lower_right.offset(offset, offset),
-                    ),
-                    (Quadrant::Northeast, Quadrant::Northeast) => ne.contains_alive_cells(
-                        store,
-                        upper_left.offset(-offset, offset),
-                        lower_right.offset(-offset, offset),
-                    ),
-                    (Quadrant::Southwest, Quadrant::Southwest) => sw.contains_alive_cells(
-                        store,
-                        upper_left.offset(offset, -offset),
-                        lower_right.offset(offset, -offset),
-                    ),
-                    (Quadrant::Southeast, Quadrant::Southeast) => se.contains_alive_cells(
-                        store,
-                        upper_left.offset(-offset, -offset),
-                        lower_right.offset(-offset, -offset),
-                    ),
+                    (Quadrant::Northwest, Quadrant::Northwest) => {
+                        nw.contains_alive_cells(store, bounding_box.offset(offset, offset))
+                    }
+                    (Quadrant::Northeast, Quadrant::Northeast) => {
+                        ne.contains_alive_cells(store, bounding_box.offset(-offset, offset))
+                    }
+                    (Quadrant::Southwest, Quadrant::Southwest) => {
+                        sw.contains_alive_cells(store, bounding_box.offset(offset, -offset))
+                    }
+                    (Quadrant::Southeast, Quadrant::Southeast) => {
+                        se.contains_alive_cells(store, bounding_box.offset(-offset, -offset))
+                    }
 
                     (Quadrant::Northwest, Quadrant::Northeast) => {
                         let nw_lower_right = Position::new(-1, lower_right.y);
                         let ne_upper_left = Position::new(0, upper_left.y);
                         nw.contains_alive_cells(
                             store,
-                            upper_left.offset(offset, offset),
-                            nw_lower_right.offset(offset, offset),
+                            BoundingBox::new(upper_left, nw_lower_right).offset(offset, offset),
                         ) || ne.contains_alive_cells(
                             store,
-                            ne_upper_left.offset(-offset, offset),
-                            lower_right.offset(-offset, offset),
+                            BoundingBox::new(ne_upper_left, lower_right).offset(-offset, offset),
                         )
                     }
                     (Quadrant::Northwest, Quadrant::Southwest) => {
@@ -292,12 +325,10 @@ impl NodeId {
                         let sw_upper_left = Position::new(upper_left.x, 0);
                         nw.contains_alive_cells(
                             store,
-                            upper_left.offset(offset, offset),
-                            nw_lower_right.offset(offset, offset),
+                            BoundingBox::new(upper_left, nw_lower_right).offset(offset, offset),
                         ) || sw.contains_alive_cells(
                             store,
-                            sw_upper_left.offset(offset, -offset),
-                            lower_right.offset(offset, -offset),
+                            BoundingBox::new(sw_upper_left, lower_right).offset(offset, -offset),
                         )
                     }
                     (Quadrant::Southwest, Quadrant::Southeast) => {
@@ -305,12 +336,10 @@ impl NodeId {
                         let se_upper_left = Position::new(0, upper_left.y);
                         sw.contains_alive_cells(
                             store,
-                            upper_left.offset(offset, -offset),
-                            sw_lower_right.offset(offset, -offset),
+                            BoundingBox::new(upper_left, sw_lower_right).offset(offset, -offset),
                         ) || se.contains_alive_cells(
                             store,
-                            se_upper_left.offset(-offset, -offset),
-                            lower_right.offset(-offset, -offset),
+                            BoundingBox::new(se_upper_left, lower_right).offset(-offset, -offset),
                         )
                     }
                     (Quadrant::Northeast, Quadrant::Southeast) => {
@@ -318,12 +347,10 @@ impl NodeId {
                         let se_upper_left = Position::new(upper_left.x, 0);
                         ne.contains_alive_cells(
                             store,
-                            upper_left.offset(-offset, offset),
-                            ne_lower_right.offset(-offset, offset),
+                            BoundingBox::new(upper_left, ne_lower_right).offset(-offset, offset),
                         ) || se.contains_alive_cells(
                             store,
-                            se_upper_left.offset(-offset, -offset),
-                            lower_right.offset(-offset, -offset),
+                            BoundingBox::new(se_upper_left, lower_right).offset(-offset, -offset),
                         )
                     }
 
@@ -342,20 +369,17 @@ impl NodeId {
 
                         nw.contains_alive_cells(
                             store,
-                            nw_upper_left.offset(offset, offset),
-                            nw_lower_right.offset(offset, offset),
+                            BoundingBox::new(nw_upper_left, nw_lower_right).offset(offset, offset),
                         ) || ne.contains_alive_cells(
                             store,
-                            ne_upper_left.offset(-offset, offset),
-                            ne_lower_right.offset(-offset, offset),
+                            BoundingBox::new(ne_upper_left, ne_lower_right).offset(-offset, offset),
                         ) || sw.contains_alive_cells(
                             store,
-                            sw_upper_left.offset(offset, -offset),
-                            sw_lower_right.offset(offset, -offset),
+                            BoundingBox::new(sw_upper_left, sw_lower_right).offset(offset, -offset),
                         ) || se.contains_alive_cells(
                             store,
-                            se_upper_left.offset(-offset, -offset),
-                            se_lower_right.offset(-offset, -offset),
+                            BoundingBox::new(se_upper_left, se_lower_right)
+                                .offset(-offset, -offset),
                         )
                     }
 
@@ -493,18 +517,18 @@ mod tests {
                     Some(BoundingBox::new(pos, pos))
                 );
 
-                assert!(one_alive.contains_alive_cells(&store, pos, pos));
-                assert!(one_alive.contains_alive_cells(&store, Position::new(min, min), pos));
-                assert!(one_alive.contains_alive_cells(&store, pos, Position::new(max, max)));
+                assert!(one_alive.contains_alive_cells(&store, BoundingBox::new(pos, pos)));
+                assert!(one_alive
+                    .contains_alive_cells(&store, BoundingBox::new(Position::new(min, min), pos)));
+                assert!(one_alive
+                    .contains_alive_cells(&store, BoundingBox::new(pos, Position::new(max, max))));
                 assert!(one_alive.contains_alive_cells(
                     &store,
-                    Position::new(x, min),
-                    Position::new(x, max)
+                    BoundingBox::new(Position::new(x, min), Position::new(x, max))
                 ));
                 assert!(one_alive.contains_alive_cells(
                     &store,
-                    Position::new(min, y),
-                    Position::new(max, y)
+                    BoundingBox::new(Position::new(min, y), Position::new(max, y))
                 ));
             }
         }

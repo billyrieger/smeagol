@@ -4,8 +4,6 @@
  * obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-//! Life module.
-
 mod render;
 
 use crate::{
@@ -23,7 +21,7 @@ pub struct Life {
     root: NodeId,
     /// The store.
     store: Store,
-    /// What generation the Life is on.
+    /// How many generations the Life grid has been advanced.
     generation: u128,
 }
 
@@ -111,6 +109,21 @@ impl Life {
         }
     }
 
+    /// Sets the cell at the given position in the Life grid to be an alive cell.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut life = smeagol::Life::new();
+    ///
+    /// // create a block
+    /// life.set_cell_alive(smeagol::Position::new(0, 0));
+    /// life.set_cell_alive(smeagol::Position::new(1, 0));
+    /// life.set_cell_alive(smeagol::Position::new(0, 1));
+    /// life.set_cell_alive(smeagol::Position::new(1, 1));
+    ///
+    /// assert_eq!(life.population(), 4);
+    /// ```
     pub fn set_cell_alive(&mut self, position: Position) {
         while position.x < self.root.min_coord(&self.store)
             || position.y < self.root.min_coord(&self.store)
@@ -122,40 +135,106 @@ impl Life {
         self.root = self.root.set_cell_alive(&mut self.store, position);
     }
 
+    /// Returns a list of the positions of the alive cells in the Life grid.
+    ///
+    /// ```
+    /// # fn main() -> Result<(), failure::Error> {
+    /// // glider
+    /// let life = smeagol::Life::from_rle_pattern(b"bob$2bo$3o!")?;
+    ///
+    /// for pos in life.get_alive_cells() {
+    ///     // do something
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn get_alive_cells(&self) -> Vec<Position> {
         self.root.get_alive_cells(&self.store)
     }
 
+    /// Returns true if the given bounding box contains any alive cells.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), failure::Error> {
+    /// // glider
+    /// let life = smeagol::Life::from_rle_pattern(b"bob$2bo$3o!")?;
+    ///
+    /// assert!(life.contains_alive_cells(life.bounding_box().unwrap()));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn contains_alive_cells(&self, bounding_box: BoundingBox) -> bool {
-        self.root.contains_alive_cells(
-            &self.store,
-            bounding_box.upper_left,
-            bounding_box.lower_right,
-        )
+        self.root.contains_alive_cells(&self.store, bounding_box)
     }
 
+    /// Returns a bounding box containing all the alive cells in the Life grid.
+    ///
+    /// Returns `None` if there are no alive cells in the grid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut life = smeagol::Life::new();
+    /// assert!(life.bounding_box().is_none());
+    ///
+    /// life.set_cell_alive(smeagol::Position::new(0, 0));
+    /// assert!(life.bounding_box().is_some());
+    /// ```
     pub fn bounding_box(&self) -> Option<BoundingBox> {
         self.root.bounding_box(&self.store)
     }
 
+    /// Returns the number of generations that have been advanced in the Life grid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), failure::Error> {
+    /// let mut life = smeagol::Life::from_rle_pattern(b"bob$2bo$3o!")?;
+    /// assert_eq!(life.generation(), 0);
+    ///
+    /// life.step();
+    /// assert_eq!(life.generation(), 1);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn generation(&self) -> u128 {
         self.generation
     }
 
     /// Returns the number of alive cells in the grid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), failure::Error> {
+    /// let mut life = smeagol::Life::from_rle_pattern(b"bob$2bo$3o!")?;
+    /// assert_eq!(life.population(), 5);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn population(&self) -> u128 {
         self.root.population(&self.store)
     }
 
     /// Returns the current step size.
+    ///
+    /// The default step size is 1.
     pub fn step_size(&self) -> u64 {
         1 << self.store.step_log_2()
     }
 
+    /// Sets the step size to be `2^step_log_2`.
+    ///
+    /// This clears the cache of previously computed steps.
     pub fn set_step_log_2(&mut self, step_log_2: u8) {
         self.store.set_step_log_2(step_log_2);
     }
 
+    /// Pads the Life grid such that it can be advanced into the future without the edges of the
+    /// node interfering.
     fn pad(&mut self) {
         while self.root.level(&self.store) < INITIAL_LEVEL
             || self.store.step_log_2() > self.root.level(&self.store).0 - 2
@@ -192,6 +271,24 @@ impl Life {
         }
     }
 
+    /// Advances the Life grid into the future.
+    ///
+    /// The number of generations advanced is determined by the step size.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), failure::Error> {
+    /// let mut life = smeagol::Life::from_rle_pattern(b"bob$2bo$3o!")?;
+    ///
+    /// // step size of 32
+    /// life.set_step_log_2(5);
+    ///
+    /// life.step();
+    /// assert_eq!(life.generation(), 32);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn step(&mut self) {
         self.pad();
         self.root = self.root.step(&mut self.store);
