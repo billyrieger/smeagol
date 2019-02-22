@@ -8,6 +8,7 @@ use crate::{BoundingBox, Life};
 use png::HasParameters;
 
 impl Life {
+    /// Renders the Life grid as a png image.
     pub fn save_png<P>(
         &mut self,
         path: P,
