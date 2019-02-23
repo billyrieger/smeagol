@@ -192,6 +192,16 @@ impl BoundingBox {
         }
     }
 
+    /// Returns the upper left corner position of the bounding box.
+    pub fn upper_left(&self) -> Position {
+        self.upper_left
+    }
+
+    /// Returns the lower right corner position of the bounding box.
+    pub fn lower_right(&self) -> Position {
+        self.lower_right
+    }
+
     /// Combines two bounding boxes, returning a bounding box that surrounds both boxes.
     ///
     /// # Examples

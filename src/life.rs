@@ -226,6 +226,11 @@ impl Life {
         1 << self.store.step_log_2()
     }
 
+    /// Returns the step size log 2.
+    pub fn step_log_2(&self) -> u8 {
+        self.store.step_log_2()
+    }
+
     /// Sets the step size to be `2^step_log_2`.
     ///
     /// This clears the cache of previously computed steps.
