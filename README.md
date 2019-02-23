@@ -1,24 +1,11 @@
 # smeagol
 
-<a href="https://travis-ci.com/billyrieger/smeagol">
-    <img src="https://img.shields.io/travis/com/billyrieger/smeagol.svg" alt="Build status">
-</a>
-<a href="https://codecov.io/gh/billyrieger/smeagol/branch/master">
-    <img src="https://img.shields.io/codecov/c/github/billyrieger/smeagol.svg" alt="Coverage">
-</a>
-<a href="https://github.com/Aaronepower/tokei">
-    <img src="https://tokei.rs/b1/github/billyrieger/smeagol" alt="Lines of code">
-</a>
-
-<a href="https://crates.io/crates/smeagol">
-    <img src="https://img.shields.io/crates/v/smeagol.svg" alt="Version">
-</a>
-<a href="https://docs.rs/smeagol/">
-    <img src="https://docs.rs/smeagol/badge.svg" alt="Documentation">
-</a>
-<a href="https://github.com/billyrieger/smeagol/blob/master/LICENSE">
-    <img src="https://img.shields.io/crates/l/smeagol.svg" alt="License">
-</a>
+[![Build status](https://img.shields.io/travis/com/billyrieger/smeagol.svg)](https://travis-ci.com/billyrieger/smeagol)
+[![Coverage](https://img.shields.io/codecov/c/github/billyrieger/smeagol.svg)](https://codecov.io/gh/billyrieger/smeagol/branch/master)
+[![Lines of code](https://tokei.rs/b1/github/billyrieger/smeagol)](https://github.com/Aaronepower/tokei)
+[![Version](https://img.shields.io/crates/v/smeagol.svg)](https://crates.io/crates/smeagol)
+[![Documentation](https://docs.rs/smeagol/badge.svg)](https://docs.rs/smeagol/)
+[![License](https://img.shields.io/crates/l/smeagol.svg)](https://github.com/billyrieger/smeagol/blob/master/LICENSE)
 
 ## Introduction
 
