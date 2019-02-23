@@ -267,8 +267,12 @@ impl NodeId {
                 sw,
                 se,
                 level,
-                ..
+                population
             } => {
+                if population == 0 {
+                    return store.create_empty(Level(level.0 - 1));
+                }
+
                 if level == Level(5) {
                     jump_level_5(store, nw, ne, sw, se)
                 } else {
@@ -352,12 +356,16 @@ impl NodeId {
                 sw,
                 se,
                 level,
-                ..
+                population,
             } => {
                 if step_log_2 == level.0 - 2 {
                     let step = self.jump(store);
                     store.add_step(self, step);
                     return step;
+                }
+
+                if population == 0 {
+                    return store.create_empty(Level(level.0 - 1));
                 }
 
                 if level == Level(5) {

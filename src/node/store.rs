@@ -26,6 +26,7 @@ pub struct Store {
     nodes: Vec<Node>,
     steps: Vec<Option<NodeId>>,
     jumps: Vec<Option<NodeId>>,
+    empties: Vec<NodeId>,
     step_log_2: u8,
 }
 
@@ -43,6 +44,7 @@ impl Store {
             nodes: vec![],
             steps: vec![],
             jumps: vec![],
+            empties: vec![],
             step_log_2: 0,
         }
     }
@@ -82,7 +84,10 @@ impl Store {
 
     /// Creates an empty node with the given level.
     pub fn create_empty(&mut self, level: Level) -> NodeId {
-        if level == Level(4) {
+        if level.0 < self.empties.len() as u8 {
+            return self.empties[level.0 as usize];
+        }
+        let empty = if level == Level(4) {
             self.create_leaf(u16x16::splat(0))
         } else {
             let empty = self.create_empty(Level(level.0 - 1));
@@ -92,7 +97,9 @@ impl Store {
                 sw: empty,
                 se: empty,
             })
-        }
+        };
+        self.empties.push(empty);
+        empty
     }
 
     /// Adds a node to the store, returning a node ID.
