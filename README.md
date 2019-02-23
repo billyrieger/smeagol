@@ -6,6 +6,7 @@
 [![Version](https://img.shields.io/crates/v/smeagol.svg)](https://crates.io/crates/smeagol)
 [![Documentation](https://docs.rs/smeagol/badge.svg)](https://docs.rs/smeagol/)
 [![License](https://img.shields.io/crates/l/smeagol.svg)](https://github.com/billyrieger/smeagol/blob/master/LICENSE)
+[![Dependency status](https://deps.rs/repo/github/billyrieger/smeagol/status.svg)](https://deps.rs/repo/github/billyrieger/smeagol)
 
 ## Introduction
 
