@@ -22,51 +22,74 @@ fn equal_with_offset(
 fn fly(life: &mut smeagol::Life, x_vel: (i64, i64), y_vel: (i64, i64), period: usize) {
     life.set_step_log_2(0);
 
-    let mut before = life.get_alive_cells();
-    before.sort();
+    let mut before_cells = life.get_alive_cells();
+    before_cells.sort();
+    let before_pop = life.population();
 
     for i in 1..=REPS {
         for _ in 0..period {
             life.step();
         }
+        assert_eq!(life.generation(), (i * period) as u128);
 
-        let mut after = life.get_alive_cells();
-        after.sort();
+        let mut after_cells = life.get_alive_cells();
+        after_cells.sort();
+        let after_pop = life.population();
 
         let n = (i * period) as i64;
         equal_with_offset(
-            &before,
-            &after,
+            &before_cells,
+            &after_cells,
             x_vel.0 * n / x_vel.1,
             y_vel.0 * n / y_vel.1,
         );
+        assert_eq!(before_pop, after_pop);
     }
-}
 
-fn soar(life: &mut smeagol::Life) {
-    let before = life.generation();
     life.set_step_log_2(10);
-    life.step();
-    assert_eq!(life.generation(), before + 1024);
+
+    let mut before_cells = life.get_alive_cells();
+    before_cells.sort();
+    let before_pop = life.population();
+
+    for _ in 0..period {
+        life.step();
+    }
+
+    let mut after_cells = life.get_alive_cells();
+    after_cells.sort();
+    let after_pop = life.population();
+
+    let n = (1024 * period) as i64;
+    equal_with_offset(
+        &before_cells,
+        &after_cells,
+        x_vel.0 * n / x_vel.1,
+        y_vel.0 * n / y_vel.1,
+    );
+    assert_eq!(before_pop, after_pop);
 }
 
 #[test]
 fn glider() {
     let mut life = smeagol::Life::from_rle_file("./assets/glider.rle").unwrap();
     fly(&mut life, (1, 4), (1, 4), 4);
-    soar(&mut life);
 }
 
 #[test]
 fn sir_robin() {
     let mut life = smeagol::Life::from_rle_file("./assets/sirrobin.rle").unwrap();
     fly(&mut life, (-1, 6), (-2, 6), 6);
-    soar(&mut life);
+}
+
+#[test]
+fn spaghetti_monster() {
+    let mut life = smeagol::Life::from_rle_file("./assets/spaghettimonster.rle").unwrap();
+    fly(&mut life, (0, 7), (-3, 7), 7);
 }
 
 #[test]
 fn weekender() {
     let mut life = smeagol::Life::from_rle_file("./assets/weekender.rle").unwrap();
     fly(&mut life, (0, 7), (-2, 7), 7);
-    soar(&mut life);
 }
