@@ -339,7 +339,7 @@ impl NodeId {
                 sw,
                 se,
                 level,
-                population
+                population,
             } => {
                 if population == 0 {
                     return store.create_empty(Level(level.0 - 1));
