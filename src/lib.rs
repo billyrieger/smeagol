@@ -234,7 +234,10 @@ impl BoundingBox {
         if min_x > max_x || min_y > max_y {
             None
         } else {
-            Some(Self::new(Position::new(min_x, min_y), Position::new(max_x, max_y)))
+            Some(Self::new(
+                Position::new(min_x, min_y),
+                Position::new(max_x, max_y),
+            ))
         }
     }
 
@@ -275,5 +278,19 @@ impl BoundingBox {
             upper_left: self.upper_left.offset(-amount, -amount),
             lower_right: self.lower_right.offset(amount, amount),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cell() {
+        let alive = Cell::new(true);
+        let dead = Cell::new(false);
+
+        assert!(alive.is_alive());
+        assert!(!dead.is_alive());
     }
 }

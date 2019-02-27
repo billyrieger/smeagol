@@ -130,14 +130,16 @@ fn center(nw_grid: u16x16, ne_grid: u16x16, sw_grid: u16x16, se_grid: u16x16) ->
     let nw_grid = nw_grid << 8;
     let sw_grid = sw_grid << 8;
     let left: u16x16 = shuffle!(
-        nw_grid, sw_grid,
+        nw_grid,
+        sw_grid,
         [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
     );
 
     let ne_grid = ne_grid >> 8;
     let se_grid = se_grid >> 8;
     let right: u16x16 = shuffle!(
-        ne_grid, se_grid,
+        ne_grid,
+        se_grid,
         [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
     );
 
