@@ -15,7 +15,9 @@
 [Conway's Game of Life](http://www.conwaylife.com/wiki/Conway%27s_Game_of_Life). It uses the
 HashLife algorithm developed by Bill Gosper to achieve tremendous speedups for repetitive patterns.
 A good explanation of HashLife can be found
-[here](http://www.drdobbs.com/jvm/an-algorithm-for-compressing-space-and-t/184406478).
+[here](http://www.drdobbs.com/jvm/an-algorithm-for-compressing-space-and-t/184406478). It also uses
+SIMD instructions to speed up the base case of evolving a 16 by 16 square grid of cells into the
+future.
 
 ## Usage
 
