@@ -10,10 +10,6 @@ categories = ["algorithms", "science", "simulation"]
 license = "MPL-2.0"
 edition = "2018"
 
-[badges]
-codecov = { repository = "billyrieger/smeagol" }
-travis-ci = { repository = "billyrieger/smeagol" }
-
 [dependencies]
 btoi = "0.4"
 failure = "0.1"
