@@ -224,6 +224,20 @@ impl BoundingBox {
         Self::new(Position::new(min_x, min_y), Position::new(max_x, max_y))
     }
 
+    /// Intersects two bounding boxes, returning a bounding box that both boxes contain.
+    pub fn intersect(&self, other: BoundingBox) -> Option<Self> {
+        let min_x = Ord::max(self.upper_left.x, other.upper_left.x);
+        let min_y = Ord::max(self.upper_left.y, other.upper_left.y);
+        let max_x = Ord::min(self.lower_right.x, other.lower_right.x);
+        let max_y = Ord::min(self.lower_right.y, other.lower_right.y);
+
+        if min_x > max_x || min_y > max_y {
+            None
+        } else {
+            Some(Self::new(Position::new(min_x, min_y), Position::new(max_x, max_y)))
+        }
+    }
+
     /// Offsets the bounding box by the given amounts in the x and y directions.
     ///
     /// # Examples

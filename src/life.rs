@@ -23,6 +23,8 @@ pub struct Life {
     store: Store,
     /// How many generations the Life grid has been advanced.
     generation: u128,
+    /// A bounding box containing all alive cells.
+    bounding_box: Option<BoundingBox>,
 }
 
 impl Life {
@@ -41,6 +43,7 @@ impl Life {
             root,
             store,
             generation: 0,
+            bounding_box: None,
         }
     }
 
@@ -57,6 +60,12 @@ impl Life {
         P: AsRef<std::path::Path>,
     {
         let rle = Rle::from_file(path)?;
+        Ok(Self::from_rle(&rle))
+    }
+
+    pub fn from_rle_file_contents(contents: &[u8]) -> Result<Self, failure::Error>
+    {
+        let rle = Rle::from_file_contents(contents)?;
         Ok(Self::from_rle(&rle))
     }
 
@@ -103,6 +112,7 @@ impl Life {
         }
 
         Self {
+            bounding_box: root.bounding_box(&store),
             root,
             store,
             generation: 0,
@@ -133,6 +143,7 @@ impl Life {
             self.root = self.root.expand(&mut self.store);
         }
         self.root = self.root.set_cell_alive(&mut self.store, position);
+        self.bounding_box = self.root.bounding_box(&self.store);
     }
 
     /// Returns a list of the positions of the alive cells in the Life grid.
@@ -166,7 +177,15 @@ impl Life {
     /// # }
     /// ```
     pub fn contains_alive_cells(&self, bounding_box: BoundingBox) -> bool {
-        self.root.contains_alive_cells(&self.store, bounding_box)
+        if let Some(self_bbox) = self.bounding_box {
+            if let Some(intersect) = self_bbox.intersect(bounding_box) {
+                self.root.contains_alive_cells(&self.store, intersect)
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 
     /// Returns a bounding box containing all the alive cells in the Life grid.
@@ -183,7 +202,7 @@ impl Life {
     /// assert!(life.bounding_box().is_some());
     /// ```
     pub fn bounding_box(&self) -> Option<BoundingBox> {
-        self.root.bounding_box(&self.store)
+        self.bounding_box
     }
 
     /// Returns the number of generations that have been advanced in the Life grid.
@@ -298,6 +317,7 @@ impl Life {
         self.pad();
         self.root = self.root.step(&mut self.store);
         self.generation += u128::from(self.step_size());
+        self.bounding_box = self.root.bounding_box(&self.store);
     }
 }
 

@@ -145,6 +145,13 @@ impl Rle {
         Ok(Self { units })
     }
 
+    pub fn from_file_contents(contents: &[u8]) -> Result<Self, failure::Error> {
+        let (_rest, (_comments, (_width, _height), units)) =
+            rle(contents).map_err(|_| RleError::Parse)?;
+
+        Ok(Self { units })
+    }
+
     /// Reads an RLE pattern from the given byte array.
     ///
     /// # Examples
