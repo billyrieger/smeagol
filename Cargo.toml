@@ -1,8 +1,8 @@
 [package]
 name = "smeagol"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Billy Rieger <wrieger@protonmail.com>"]
-description = "A library to efficiently simulate Conway's Game of Life using the HashLife algorithm."
+description = "A library to efficiently simulate Conway's Game of Life using the HashLife algorithm and SIMD."
 repository = "https://github.com/billyrieger/smeagol"
 readme = "README.md"
 keywords = ["life", "conway", "cellular", "automaton", "hashlife"]
