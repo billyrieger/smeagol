@@ -63,8 +63,7 @@ impl Life {
         Ok(Self::from_rle(&rle))
     }
 
-    pub fn from_rle_file_contents(contents: &[u8]) -> Result<Self, failure::Error>
-    {
+    pub fn from_rle_file_contents(contents: &[u8]) -> Result<Self, failure::Error> {
         let rle = Rle::from_file_contents(contents)?;
         Ok(Self::from_rle(&rle))
     }
@@ -339,6 +338,35 @@ mod tests {
     }
 
     #[test]
+    fn get_set_step_size() {
+        let mut life = Life::new();
+        assert_eq!(life.step_log_2(), 0);
+        assert_eq!(life.step_size(), 1);
+
+        life.set_step_log_2(10);
+        assert_eq!(life.step_log_2(), 10);
+        assert_eq!(life.step_size(), 1024);
+    }
+
+    #[test]
+    fn empty() {
+        let min = i64::min_value();
+        let max = i64::max_value();
+        let life = Life::new();
+        assert_eq!(life.bounding_box(), None);
+        assert!(!life.contains_alive_cells(BoundingBox::new(
+            Position::new(min, min),
+            Position::new(max, max)
+        )));
+    }
+
+    #[test]
+    fn from_rle_file_contents() {
+        let life = Life::from_rle_file_contents(b"x = 2, y = 2\n2o$2o!").unwrap();
+        assert_eq!(life.population(), 4);
+    }
+
+    #[test]
     fn from_rle_pattern() {
         let life = Life::from_rle_pattern(b"bob$2bo$3o!").unwrap();
         assert_eq!(life.population(), 5);
@@ -357,12 +385,8 @@ mod tests {
         life.set_cell_alive(Position::new(max, max));
 
         assert_eq!(life.population(), 4);
-        assert_eq!(
-            life.bounding_box(),
-            Some(BoundingBox::new(
-                Position::new(min, min),
-                Position::new(max, max)
-            ))
-        );
+        let bbox = life.bounding_box().unwrap();
+        assert_eq!(bbox.upper_left(), Position::new(min, min),);
+        assert_eq!(bbox.lower_right(), Position::new(max, max),);
     }
 }
