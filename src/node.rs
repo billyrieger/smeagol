@@ -10,6 +10,7 @@ mod store;
 
 pub use self::store::{NodeTemplate, Store};
 use packed_simd::u16x16;
+use std::hash::{Hash, Hasher};
 
 const LEVEL_4_UPPER_HALF_MASK: u16x16 = u16x16::new(
     0b1111_1111_1111_1111,
@@ -182,7 +183,7 @@ pub struct NodeId {
 }
 
 /// An immutable quadtree representation of a Life grid.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 pub enum Node {
     /// A leaf (16 by 16) node.
     Leaf {
@@ -206,6 +207,44 @@ pub enum Node {
         /// The number of alive cells in the node.
         population: u128,
     },
+}
+
+impl PartialEq for Node {
+    fn eq(&self, other: &Node) -> bool {
+        match (self, other) {
+            (Node::Leaf { grid }, Node::Leaf { grid: other_grid }) => grid == other_grid,
+            (
+                Node::Interior { nw, ne, sw, se, .. },
+                Node::Interior {
+                    nw: other_nw,
+                    ne: other_ne,
+                    sw: other_sw,
+                    se: other_se,
+                    ..
+                },
+            ) => nw == other_nw && ne == other_ne && sw == other_sw && se == other_se,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Node {}
+
+impl Hash for Node {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        match self {
+            Node::Leaf { grid } => grid.hash(state),
+            Node::Interior { nw, ne, sw, se, .. } => {
+                nw.hash(state);
+                ne.hash(state);
+                sw.hash(state);
+                se.hash(state);
+            }
+        }
+    }
 }
 
 /// Internal methods.

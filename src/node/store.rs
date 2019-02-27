@@ -40,7 +40,7 @@ impl Store {
     /// ```
     pub fn new() -> Self {
         Self {
-            indices: hashbrown::HashMap::new(),
+            indices: hashbrown::HashMap::default(),
             nodes: vec![],
             steps: vec![],
             jumps: vec![],
