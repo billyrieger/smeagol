@@ -7,6 +7,7 @@
 [![Documentation](https://docs.rs/smeagol/badge.svg)](https://docs.rs/smeagol/)
 [![License](https://img.shields.io/crates/l/smeagol.svg)](https://github.com/billyrieger/smeagol/blob/master/LICENSE)
 [![Dependency status](https://deps.rs/repo/github/billyrieger/smeagol/status.svg)](https://deps.rs/repo/github/billyrieger/smeagol)
+[![Rust version](https://img.shields.io/badge/rust-nightly-lightgrey.svg)](https://www.rust-lang.org/)
 
 ## Introduction
 
