@@ -20,7 +20,7 @@ png = "0.14"
 
 [dev-dependencies]
 criterion = "0.2"
-version-sync = "0.7"
+version-sync = "0.8"
 
 [[bench]]
 name = "bench"
