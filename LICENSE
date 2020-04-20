@@ -21,17 +21,6 @@ Mozilla Public License Version 2.0
     Form, and Modifications of such Source Code Form, in each case
     including portions thereof.
 
-1.5. "Incompatible With Secondary Licenses"
-    means
-
-    (a) that the initial Contributor has attached the notice described
-        in Exhibit B to the Covered Software; or
-
-    (b) that the Covered Software was made available under the terms of
-        version 1.1 or earlier of the License, but not also under the
-        terms of a Secondary License.
-
-1.6. "Executable Form"
     means any form of the work other than Source Code Form.
 
 1.7. "Larger Work"
@@ -45,6 +34,17 @@ Mozilla Public License Version 2.0
     means having the right to grant, to the maximum extent possible,
     whether at the time of the initial grant or subsequently, any and
     all of the rights conveyed by this License.
+1.5. "Incompatible With Secondary Licenses"
+    means
+
+    (a) that the initial Contributor has attached the notice described
+        in Exhibit B to the Covered Software; or
+
+    (b) that the Covered Software was made available under the terms of
+        version 1.1 or earlier of the License, but not also under the
+        terms of a Secondary License.
+
+1.6. "Executable Form"
 
 1.10. "Modifications"
     means any of the following:

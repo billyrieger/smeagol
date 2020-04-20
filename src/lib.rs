@@ -1,283 +1,149 @@
-/*
- * This Source Code Form is subject to the terms of the Mozilla Public License,
- * v. 2.0. If a copy of the MPL was not distributed with this file, You can
- * obtain one at http://mozilla.org/MPL/2.0/.
- */
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//! A library to efficiently simulate Conway's Game of Life using the HashLife algorithm.
-//!
-//! # Examples
-//!
-//! ```
-//! # fn main() -> Result<(), failure::Error> {
-//! // create a gosper glider gun
-//! let mut life = smeagol::Life::from_rle_pattern(
-//!     b"
-//! 24bo11b$22bobo11b$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o14b$2o8b
-//! o3bob2o4bobo11b$10bo5bo7bo11b$11bo3bo20b$12b2o!",
-//! )?;
-//!
-//! // step 1024 generations into the future
-//! life.set_step_log_2(10);
-//! life.step();
-//!
-//! // save the result
-//! life.save_png(
-//!     std::env::temp_dir().join("gosper_glider_gun.png"),
-//!     life.bounding_box().unwrap().pad(10),
-//!     0,
-//! )?;
-//! # Ok(())
-//! # }
-//! ```
-#[macro_use]
-extern crate failure;
-#[macro_use]
-extern crate nom;
-#[macro_use]
-extern crate packed_simd;
+#![feature(const_fn, const_if_match)]
 
-mod life;
-pub mod node;
-pub mod parse;
+mod counter;
 
-pub use crate::life::Life;
-use crate::{node::Quadrant, parse::rle::RleError};
+use counter::Counter;
 
-/// An error that can occur.
-#[derive(Debug, Fail)]
-pub enum Error {
-    /// An IO error.
-    #[fail(display = "IO error: {}", io)]
-    Io { io: std::io::Error },
-    #[fail(display = "RLE pattern error: {}", rle)]
-    /// An RLE error.
-    Rle { rle: RleError },
-}
+/// Conway's Game of Life.
+pub const LIFE: Rule = Rule::new(&[3], &[2, 3]);
 
-/// A cell in a Life grid.
+/// An eight by eight grid of cells.
+///
+/// ```txt
+/// 
+///      100…000
+///      MOST SIGNIFICANT BIT
+///       v
+///     +---+---+---+---+---+---+---+---+
+///     | 63| 62| 61| 60| 59| 58| 57| 56|
+///     +---+---+---+---+---+---+---+---+
+///     | 55| 54| 53| 52| 51| 50| 49| 48|
+///     +---+---+---+---+---+---+---+---+
+///     | 47| 46| 45| 44| 43| 42| 41| 40|
+///     +---+---+---+---+---+---+---+---+
+///     | 39| 38| 37| 36| 35| 34| 33| 32|
+///     +---+---+---+---+---+---+---+---+
+///     | 31| 30| 29| 28| 27| 26| 25| 24|
+///     +---+---+---+---+---+---+---+---+
+///     | 23| 22| 21| 20| 19| 18| 17| 16|
+///     +---+---+---+---+---+---+---+---+
+///     | 15| 14| 13| 12| 11| 10|  9|  8|
+///     +---+---+---+---+---+---+---+---+
+///     |  7|  6|  5|  4|  3|  2|  1|  0|
+///     +---+---+---+---+---+---+---+---+
+///                                   ^
+///                LEAST SIGNIFICANT BIT
+///                              000…001
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Cell {
-    /// An alive cell.
-    Alive,
-    /// A dead cell.
-    Dead,
-}
+pub struct Leaf(pub u64);
 
-impl Cell {
-    /// Creates a new `Cell`.
+impl Leaf {
+    /// Creates a `Leaf` from a grid of cells represented by a `[u8; 8]`.
     ///
     /// # Examples
     ///
     /// ```
-    /// let alive = smeagol::Cell::new(true);
-    /// let dead = smeagol::Cell::new(false);
+    /// # use smeagol::Leaf;
+    /// let glider = Leaf::from_array([
+    ///     0b_00000000,
+    ///     0b_00000000,
+    ///     0b_00001000,
+    ///     0b_00000100,
+    ///     0b_00011100,
+    ///     0b_00000000,
+    ///     0b_00000000,
+    ///     0b_00000000,
+    /// ]);
     /// ```
-    pub fn new(alive: bool) -> Self {
-        if alive {
-            Cell::Alive
+    pub const fn from_array(cells: [u8; 8]) -> Self {
+        Self(u64::from_be_bytes(cells))
+    }
+
+    const fn shift(&self, dx: i8, dy: i8) -> Self {
+        let mut result = *self;
+        result.0 = if dx < 0 {
+            result.0 << (-dx) as u8
         } else {
-            Cell::Dead
-        }
-    }
-
-    /// Returns true for `Cell::Alive` and false for `Cell::Dead`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// assert!(smeagol::Cell::Alive.is_alive());
-    /// assert!(!smeagol::Cell::Dead.is_alive());
-    /// ```
-    pub fn is_alive(self) -> bool {
-        match self {
-            Cell::Alive => true,
-            Cell::Dead => false,
-        }
-    }
-}
-
-/// The position of a cell in a Life grid.
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Position {
-    /// The x coordinate.
-    pub x: i64,
-    /// The y coordinate.
-    pub y: i64,
-}
-
-impl Position {
-    /// Creates a new position with the given coordinates.
-    ///
-    /// # Exampes
-    ///
-    /// ```
-    /// let position = smeagol::Position::new(1, 2);
-    /// ```
-    pub fn new(x: i64, y: i64) -> Self {
-        Self { x, y }
-    }
-
-    /// Offsets the position by the given amounts in the x and y directions.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let pos = smeagol::Position::new(1, 2);
-    /// assert_eq!(pos.offset(3, 4), smeagol::Position::new(4, 6));
-    /// ```
-    pub fn offset(&self, x_offset: i64, y_offset: i64) -> Self {
-        Self {
-            x: self.x + x_offset,
-            y: self.y + y_offset,
-        }
-    }
-
-    /// Returns which quadrant of a node the position is in.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// assert_eq!(
-    ///     smeagol::Position::new(-1, -1).quadrant(),
-    ///     smeagol::node::Quadrant::Northwest
-    /// );
-    /// assert_eq!(
-    ///     smeagol::Position::new(-1, 0).quadrant(),
-    ///     smeagol::node::Quadrant::Southwest
-    /// );
-    /// assert_eq!(
-    ///     smeagol::Position::new(0, -1).quadrant(),
-    ///     smeagol::node::Quadrant::Northeast
-    /// );
-    /// assert_eq!(
-    ///     smeagol::Position::new(0, 0).quadrant(),
-    ///     smeagol::node::Quadrant::Southeast
-    /// );
-    /// ```
-    pub fn quadrant(&self) -> Quadrant {
-        match (self.x < 0, self.y < 0) {
-            (true, true) => Quadrant::Northwest,
-            (false, true) => Quadrant::Northeast,
-            (true, false) => Quadrant::Southwest,
-            (false, false) => Quadrant::Southeast,
-        }
-    }
-}
-
-/// A rectangular region of a Life grid.
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct BoundingBox {
-    upper_left: Position,
-    lower_right: Position,
-}
-
-impl BoundingBox {
-    /// Creates a new bounding box with the given upper-left corner position and lower-right corner
-    /// position.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// // create a bounding box around a single position
-    /// let pos = smeagol::Position::new(0, 0);
-    /// let bounding_box = smeagol::BoundingBox::new(pos, pos);
-    /// ```
-    pub fn new(upper_left: Position, lower_right: Position) -> Self {
-        assert!(upper_left.x <= lower_right.x);
-        assert!(upper_left.y <= lower_right.y);
-        Self {
-            upper_left,
-            lower_right,
-        }
-    }
-
-    /// Returns the upper left corner position of the bounding box.
-    pub fn upper_left(&self) -> Position {
-        self.upper_left
-    }
-
-    /// Returns the lower right corner position of the bounding box.
-    pub fn lower_right(&self) -> Position {
-        self.lower_right
-    }
-
-    /// Combines two bounding boxes, returning a bounding box that surrounds both boxes.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let p0 = smeagol::Position::new(0, 0);
-    /// let p1 = smeagol::Position::new(1, 1);
-    ///
-    /// let bbox0 = smeagol::BoundingBox::new(p0, p0);
-    /// let bbox1 = smeagol::BoundingBox::new(p1, p1);
-    ///
-    /// assert_eq!(bbox0.combine(bbox1), smeagol::BoundingBox::new(p0, p1));
-    /// ```
-    pub fn combine(&self, other: BoundingBox) -> Self {
-        let min_x = Ord::min(self.upper_left.x, other.upper_left.x);
-        let min_y = Ord::min(self.upper_left.y, other.upper_left.y);
-        let max_x = Ord::max(self.lower_right.x, other.lower_right.x);
-        let max_y = Ord::max(self.lower_right.y, other.lower_right.y);
-
-        Self::new(Position::new(min_x, min_y), Position::new(max_x, max_y))
-    }
-
-    /// Intersects two bounding boxes, returning a bounding box that both boxes contain.
-    pub fn intersect(&self, other: BoundingBox) -> Option<Self> {
-        let min_x = Ord::max(self.upper_left.x, other.upper_left.x);
-        let min_y = Ord::max(self.upper_left.y, other.upper_left.y);
-        let max_x = Ord::min(self.lower_right.x, other.lower_right.x);
-        let max_y = Ord::min(self.lower_right.y, other.lower_right.y);
-
-        if min_x > max_x || min_y > max_y {
-            None
+            result.0 >> dx as u8
+        };
+        result.0 = if dy < 0 {
+            result.0 >> (-dy * 8) as u8
         } else {
-            Some(Self::new(
-                Position::new(min_x, min_y),
-                Position::new(max_x, max_y),
-            ))
+            result.0 << (dy * 8) as u8
+        };
+        result
+    }
+
+    pub const fn tick(&self, rule: &Rule) -> Self {
+        rule.step(*self)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Rule {
+    birth: [u64; 9],
+    survival: [u64; 9],
+}
+
+impl Rule {
+    const fn make_rule(neighbors: &[u8]) -> [u64; 9] {
+        match neighbors {
+            &[] => [u64::MIN; 9],
+            &[head, ref tail @ ..] => {
+                let mut result = Self::make_rule(tail);
+                result[head as usize] = u64::MAX;
+                result
+            }
         }
     }
 
-    /// Offsets the bounding box by the given amounts in the x and y directions.
-    ///
     /// # Examples
     ///
     /// ```
-    /// let p0 = smeagol::Position::new(0, 0);
-    /// let p1 = smeagol::Position::new(2, 2);
-    /// let bbox = smeagol::BoundingBox::new(p0, p1);
-    /// let offset_bbox = bbox.offset(3, 4);
+    /// # use smeagol::Rule;
+    /// let conways_game_of_life = Rule::new(&[3], &[2, 3]);
     /// ```
-    pub fn offset(&self, x_offset: i64, y_offset: i64) -> Self {
-        Self::new(
-            self.upper_left.offset(x_offset, y_offset),
-            self.lower_right.offset(x_offset, y_offset),
-        )
-    }
-
-    /// Pads the outside of the bounding box by the given amount.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `amount < 0`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let p0 = smeagol::Position::new(0, 0);
-    /// let p1 = smeagol::Position::new(2, 2);
-    /// let bbox = smeagol::BoundingBox::new(p0, p1);
-    /// let padded_bbox = bbox.pad(5);
-    /// ```
-    pub fn pad(&self, amount: i64) -> Self {
-        assert!(amount >= 0);
+    pub const fn new(birth: &[u8], survival: &[u8]) -> Self {
         Self {
-            upper_left: self.upper_left.offset(-amount, -amount),
-            lower_right: self.lower_right.offset(amount, amount),
+            birth: Self::make_rule(birth),
+            survival: Self::make_rule(survival),
         }
+    }
+
+    pub const fn step(&self, leaf: Leaf) -> Leaf {
+        let birth = self.birth;
+        let survival = self.survival;
+
+        let sums = Counter::new()
+            .add(leaf.shift(0, 1).0)
+            .add(leaf.shift(0, -1).0)
+            .add(leaf.shift(1, 0).0)
+            .add(leaf.shift(-1, 0).0)
+            .add(leaf.shift(1, 1).0)
+            .add(leaf.shift(-1, -1).0)
+            .add(leaf.shift(1, -1).0)
+            .add(leaf.shift(-1, 1).0)
+            .finish();
+
+        let alive = leaf.0;
+        let dead = !leaf.0;
+        let result = u64::MIN
+            | sums[0] & (dead & birth[0] | alive & survival[0])
+            | sums[1] & (dead & birth[1] | alive & survival[1])
+            | sums[2] & (dead & birth[2] | alive & survival[2])
+            | sums[3] & (dead & birth[3] | alive & survival[3])
+            | sums[4] & (dead & birth[4] | alive & survival[4])
+            | sums[5] & (dead & birth[5] | alive & survival[5])
+            | sums[6] & (dead & birth[6] | alive & survival[6])
+            | sums[7] & (dead & birth[7] | alive & survival[7])
+            | sums[8] & (dead & birth[8] | alive & survival[8]);
+
+        Leaf(result)
     }
 }
 
@@ -286,11 +152,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cell() {
-        let alive = Cell::new(true);
-        let dead = Cell::new(false);
-
-        assert!(alive.is_alive());
-        assert!(!dead.is_alive());
+    fn blinker() {
+        let life = Rule::new(&[3], &[2, 3]);
+        let blinker = Leaf::from_array([
+            0b_00000000,
+            0b_00000000,
+            0b_00000000,
+            0b_00011100,
+            0b_00000000,
+            0b_00000000,
+            0b_00000000,
+            0b_00000000,
+        ]);
+        assert_eq!(blinker.tick(&life).tick(&life), blinker);
     }
 }
