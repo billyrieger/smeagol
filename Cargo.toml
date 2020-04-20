@@ -4,11 +4,3 @@ version = "0.5.0"
 authors = ["Billy Rieger <wrieger@protonmail.com>"]
 edition = "2018"
 publish = false
-
-[dev-dependencies]
-criterion = "0.3.1"
-rand = "0.7.3"
-
-[[bench]]
-name = "criterion"
-harness = false
