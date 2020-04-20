@@ -4,6 +4,11 @@
 
 #![feature(const_fn, const_if_match)]
 
+/// Conway's Game of Life.
+pub const LIFE: Rule = Rule::new(&[3], &[2, 3]);
+
+/// An eight by eight grid of cells.
+///
 /// ```txt
 ///
 ///      100…000
@@ -59,31 +64,31 @@ impl Leaf {
         Self { cells }
     }
 
-    pub const fn set(&self, index: u8) -> Self {
-        Self::new(self.cells | 1 << index)
+    pub const fn from_array(cells: [u8; 8]) -> Self {
+        Self::new(u64::from_be_bytes(cells))
     }
 
-    pub const fn unset(&self, index: u8) -> Self {
-        Self::new(self.cells & !(1 << index))
+    pub const fn shift(&self, dx: i8, dy: i8) -> Self {
+        let mut result = self.cells;
+        result = if dx < 0 {
+            result << (-dx) as u8
+        } else {
+            result >> dx as u8
+        };
+        result = if dy < 0 {
+            result >> (-dy * 8) as u8
+        } else {
+            result << (dy * 8) as u8
+        };
+        Self::new(result)
     }
 
-    const fn right(&self, steps: u8) -> Self {
-        Self::new(self.cells >> steps)
-    }
-
-    const fn left(&self, steps: u8) -> Self {
-        Self::new(self.cells << steps)
-    }
-
-    const fn down(&self, steps: u8) -> Self {
-        Self::new(self.cells >> (steps * 8))
-    }
-
-    const fn up(&self, steps: u8) -> Self {
-        Self::new(self.cells << (steps * 8))
+    pub const fn tick(&self, rule: &Rule) -> Self {
+        rule.step(*self)
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct Rule {
     birth: [u64; 9],
     survival: [u64; 9],
@@ -114,39 +119,35 @@ impl Rule {
         }
     }
 
-    pub const fn step(&self, leaf: Leaf, steps: u8) -> Leaf {
-        if steps == 0 {
-            leaf
-        } else {
-            let birth = self.birth;
-            let survival = self.survival;
+    pub const fn step(&self, leaf: Leaf) -> Leaf {
+        let birth = self.birth;
+        let survival = self.survival;
 
-            let sums = Counter::new()
-                .add(leaf.up(1).cells)
-                .add(leaf.down(1).cells)
-                .add(leaf.left(1).cells)
-                .add(leaf.right(1).cells)
-                .add(leaf.up(1).left(1).cells)
-                .add(leaf.up(1).right(1).cells)
-                .add(leaf.down(1).left(1).cells)
-                .add(leaf.down(1).right(1).cells)
-                .finish();
+        let sums = Counter::new()
+            .add(leaf.shift(0, 1).cells)
+            .add(leaf.shift(0, -1).cells)
+            .add(leaf.shift(1, 0).cells)
+            .add(leaf.shift(-1, 0).cells)
+            .add(leaf.shift(1, 1).cells)
+            .add(leaf.shift(-1, -1).cells)
+            .add(leaf.shift(1, -1).cells)
+            .add(leaf.shift(-1, 1).cells)
+            .finish();
 
-            let alive = leaf.cells;
-            let dead = !leaf.cells;
-            let result = u64::MIN
-                | sums[0] & (dead & birth[0] | alive & survival[0])
-                | sums[1] & (dead & birth[1] | alive & survival[1])
-                | sums[2] & (dead & birth[2] | alive & survival[2])
-                | sums[3] & (dead & birth[3] | alive & survival[3])
-                | sums[4] & (dead & birth[4] | alive & survival[4])
-                | sums[5] & (dead & birth[5] | alive & survival[5])
-                | sums[6] & (dead & birth[6] | alive & survival[6])
-                | sums[7] & (dead & birth[7] | alive & survival[7])
-                | sums[8] & (dead & birth[8] | alive & survival[8]);
+        let alive = leaf.cells;
+        let dead = !leaf.cells;
+        let result = u64::MIN
+            | sums[0] & (dead & birth[0] | alive & survival[0])
+            | sums[1] & (dead & birth[1] | alive & survival[1])
+            | sums[2] & (dead & birth[2] | alive & survival[2])
+            | sums[3] & (dead & birth[3] | alive & survival[3])
+            | sums[4] & (dead & birth[4] | alive & survival[4])
+            | sums[5] & (dead & birth[5] | alive & survival[5])
+            | sums[6] & (dead & birth[6] | alive & survival[6])
+            | sums[7] & (dead & birth[7] | alive & survival[7])
+            | sums[8] & (dead & birth[8] | alive & survival[8]);
 
-            self.step(Leaf::new(result), steps - 1)
-        }
+        Leaf::new(result)
     }
 }
 
@@ -200,47 +201,44 @@ impl Counter {
 mod tests {
     use super::*;
 
-    const BLINKER: Leaf = Leaf::new(0b_00000000_00011100_00000000_00000000_00000000_00000000);
-    const FLIPPED_TWICE: Leaf = Rule::new(&[3], &[2, 3]).step(BLINKER, 2);
-
-    #[test]
-    fn constant() {
-        assert_eq!(BLINKER, FLIPPED_TWICE);
-    }
-
     #[test]
     fn blinker() {
-        let conway = Rule::new(&[3], &[2, 3]);
-        let blinker = Leaf::new(0b_00000000_00011100_00000000_00000000_00000000_00000000);
-        let flipped = Leaf::new(0b_00001000_00001000_00001000_00000000_00000000_00000000);
-        assert_eq!(conway.step(blinker, 1), flipped);
-        assert_eq!(conway.step(flipped, 1), blinker);
+        let life = Rule::new(&[3], &[2, 3]);
+        let blinker = Leaf::from_array([
+            0b_00000000,
+            0b_00000000,
+            0b_00000000,
+            0b_00011100,
+            0b_00000000,
+            0b_00000000,
+            0b_00000000,
+            0b_00000000,
+        ]);
+        assert_eq!(blinker.tick(&life).tick(&life), blinker);
     }
 
     #[test]
     fn counter_histogram() {
         let sums = Counter::new()
-            //      |1234567876543210|
-            .add(0x__0000000F00000000)
-            .add(0x__000000FFF0000000)
-            .add(0x__00000FFFFF000000)
-            .add(0x__0000FFFFFFF00000)
-            .add(0x__000FFFFFFFFF0000)
-            .add(0x__00FFFFFFFFFFF000)
-            .add(0x__0FFFFFFFFFFFFF00)
-            .add(0x__FFFFFFFFFFFFFFF0)
-            //      |1234567876543210|
+            .add(0x___0000000F00000000)
+            .add(0x___000000FFF0000000)
+            .add(0x___00000FFFFF000000)
+            .add(0x___0000FFFFFFF00000)
+            .add(0x___000FFFFFFFFF0000)
+            .add(0x___00FFFFFFFFFFF000)
+            .add(0x___0FFFFFFFFFFFFF00)
+            .add(0x___FFFFFFFFFFFFFFF0)
+            //       |1234567876543210|
             .finish();
-        //          |1234567876543210|
-        assert_eq!(0x0000000F00000000, sums[8]);
-        assert_eq!(0x000000F0F0000000, sums[7]);
-        assert_eq!(0x00000F000F000000, sums[6]);
-        assert_eq!(0x0000F00000F00000, sums[5]);
-        assert_eq!(0x000F0000000F0000, sums[4]);
-        assert_eq!(0x00F000000000F000, sums[3]);
-        assert_eq!(0x0F00000000000F00, sums[2]);
-        assert_eq!(0xF0000000000000F0, sums[1]);
-        assert_eq!(0x000000000000000F, sums[0]);
-        //          |1234567876543210|
+        //           |1234567876543210|
+        assert_eq!(0x_0000000F00000000, sums[8]);
+        assert_eq!(0x_000000F0F0000000, sums[7]);
+        assert_eq!(0x_00000F000F000000, sums[6]);
+        assert_eq!(0x_0000F00000F00000, sums[5]);
+        assert_eq!(0x_000F0000000F0000, sums[4]);
+        assert_eq!(0x_00F000000000F000, sums[3]);
+        assert_eq!(0x_0F00000000000F00, sums[2]);
+        assert_eq!(0x_F0000000000000F0, sums[1]);
+        assert_eq!(0x_000000000000000F, sums[0]);
     }
 }

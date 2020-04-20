@@ -5,11 +5,10 @@ authors = ["Billy Rieger <wrieger@protonmail.com>"]
 edition = "2018"
 publish = false
 
-[dependencies]
-
 [dev-dependencies]
 criterion = "0.3.1"
+rand = "0.7.3"
 
 [[bench]]
-name = "bench"
+name = "criterion"
 harness = false
