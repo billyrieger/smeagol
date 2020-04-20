@@ -9,3 +9,7 @@ keywords = ["life", "conway", "cellular", "automaton", "hashlife"]
 categories = ["algorithms", "science", "simulation"]
 license = "MPL-2.0"
 edition = "2018"
+
+[dependencies]
+slotmap = "0.4.0"
+tinyvec = "0.3.3"
