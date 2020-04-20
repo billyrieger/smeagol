@@ -14,7 +14,7 @@ pub const LIFE: Rule = Rule::new(&[3], &[2, 3]);
 /// An eight by eight grid of cells.
 ///
 /// ```txt
-///
+/// 
 ///      100…000
 ///      MOST SIGNIFICANT BIT
 ///       v
@@ -38,7 +38,6 @@ pub const LIFE: Rule = Rule::new(&[3], &[2, 3]);
 ///                                   ^
 ///                LEAST SIGNIFICANT BIT
 ///                              000…001
-///
 /// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Leaf(pub u64);
