@@ -146,6 +146,7 @@ impl Rule {
         Leaf(result)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
