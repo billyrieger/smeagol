@@ -114,35 +114,39 @@ impl Rule {
         }
     }
 
-    pub const fn step(&self, leaf: Leaf) -> Leaf {
-        let birth = self.birth;
-        let survival = self.survival;
+    pub const fn step(&self, leaf: Leaf, steps: u8) -> Leaf {
+        if steps == 0 {
+            leaf
+        } else {
+            let birth = self.birth;
+            let survival = self.survival;
 
-        let sums = Counter::new()
-            .add(leaf.up(1).cells)
-            .add(leaf.down(1).cells)
-            .add(leaf.left(1).cells)
-            .add(leaf.right(1).cells)
-            .add(leaf.up(1).left(1).cells)
-            .add(leaf.up(1).right(1).cells)
-            .add(leaf.down(1).left(1).cells)
-            .add(leaf.down(1).right(1).cells)
-            .finish();
+            let sums = Counter::new()
+                .add(leaf.up(1).cells)
+                .add(leaf.down(1).cells)
+                .add(leaf.left(1).cells)
+                .add(leaf.right(1).cells)
+                .add(leaf.up(1).left(1).cells)
+                .add(leaf.up(1).right(1).cells)
+                .add(leaf.down(1).left(1).cells)
+                .add(leaf.down(1).right(1).cells)
+                .finish();
 
-        let alive = leaf.cells;
-        let dead = !leaf.cells;
-        let result = u64::MIN
-            | sums[0] & (dead & birth[0] | alive & survival[0])
-            | sums[1] & (dead & birth[1] | alive & survival[1])
-            | sums[2] & (dead & birth[2] | alive & survival[2])
-            | sums[3] & (dead & birth[3] | alive & survival[3])
-            | sums[4] & (dead & birth[4] | alive & survival[4])
-            | sums[5] & (dead & birth[5] | alive & survival[5])
-            | sums[6] & (dead & birth[6] | alive & survival[6])
-            | sums[7] & (dead & birth[7] | alive & survival[7])
-            | sums[8] & (dead & birth[8] | alive & survival[8]);
+            let alive = leaf.cells;
+            let dead = !leaf.cells;
+            let result = u64::MIN
+                | sums[0] & (dead & birth[0] | alive & survival[0])
+                | sums[1] & (dead & birth[1] | alive & survival[1])
+                | sums[2] & (dead & birth[2] | alive & survival[2])
+                | sums[3] & (dead & birth[3] | alive & survival[3])
+                | sums[4] & (dead & birth[4] | alive & survival[4])
+                | sums[5] & (dead & birth[5] | alive & survival[5])
+                | sums[6] & (dead & birth[6] | alive & survival[6])
+                | sums[7] & (dead & birth[7] | alive & survival[7])
+                | sums[8] & (dead & birth[8] | alive & survival[8]);
 
-        Leaf::new(result)
+            self.step(Leaf::new(result), steps - 1)
+        }
     }
 }
 
@@ -196,13 +200,21 @@ impl Counter {
 mod tests {
     use super::*;
 
+    const BLINKER: Leaf = Leaf::new(0b_00000000_00011100_00000000_00000000_00000000_00000000);
+    const FLIPPED_TWICE: Leaf = Rule::new(&[3], &[2, 3]).step(BLINKER, 2);
+
+    #[test]
+    fn constant() {
+        assert_eq!(BLINKER, FLIPPED_TWICE);
+    }
+
     #[test]
     fn blinker() {
         let conway = Rule::new(&[3], &[2, 3]);
         let blinker = Leaf::new(0b_00000000_00011100_00000000_00000000_00000000_00000000);
         let flipped = Leaf::new(0b_00001000_00001000_00001000_00000000_00000000_00000000);
-        assert_eq!(conway.step(blinker), flipped);
-        assert_eq!(conway.step(flipped), blinker);
+        assert_eq!(conway.step(blinker, 1), flipped);
+        assert_eq!(conway.step(flipped, 1), blinker);
     }
 
     #[test]
