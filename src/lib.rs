@@ -5,17 +5,28 @@
 #![feature(const_fn, const_if_match)]
 #![allow(dead_code, unused_variables)]
 
-pub mod bool8x8;
+mod bool8x8;
 
-use bool8x8::Bool8x8;
+pub use bool8x8::Bool8x8;
 
 const fn make_rule(neighbors: &[u8]) -> [Bool8x8; 9] {
     match neighbors {
         [] => [Bool8x8::FALSE; 9],
         [head, tail @ ..] => {
-            let mut result = make_rule(tail);
-            result[*head as usize] = Bool8x8::TRUE;
-            result
+            let [r0, r1, r2, r3, r4, r5, r6, r7, r8] = make_rule(tail);
+            let t_ = Bool8x8::TRUE;
+            match head {
+                0 => [t_, r1, r2, r3, r4, r5, r6, r7, r8],
+                1 => [r0, t_, r2, r3, r4, r5, r6, r7, r8],
+                2 => [r0, r1, t_, r3, r4, r5, r6, r7, r8],
+                3 => [r0, r1, r2, t_, r4, r5, r6, r7, r8],
+                4 => [r0, r1, r2, r3, t_, r5, r6, r7, r8],
+                5 => [r0, r1, r2, r3, r4, t_, r6, r7, r8],
+                6 => [r0, r1, r2, r3, r4, r5, t_, r7, r8],
+                7 => [r0, r1, r2, r3, r4, r5, r6, t_, r8],
+                8 => [r0, r1, r2, r3, r4, r5, r6, r7, t_],
+                _ => [r0, r1, r2, r3, r4, r5, r6, r7, r8],
+            }
         }
     }
 }
@@ -33,6 +44,7 @@ impl Rule {
     ///
     /// ```
     /// # use smeagol::Rule;
+    /// // Conway's Game of Life: B3/S23
     /// const LIFE: Rule = Rule::new(&[3], &[2, 3]);
     /// ```
     pub const fn new(birth: &[u8], survival: &[u8]) -> Self {

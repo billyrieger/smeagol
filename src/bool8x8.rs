@@ -2,9 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-/// A `u64` interpreted as an 8 by 8 grid of boolean values.
+use std::ops::{BitAnd, BitOr, BitXor, Not};
+
+/// A `u64` interpreted as an 8 by 8 grid of booleans.
 ///
-/// ```txt
+/// The following diagram shows the layout of the bits of a `u64` to make a square.
+/// Each row consists of 8 consecutive bits of the `u64`.
+///
+/// ```text
 /// +---+---+---+---+---+---+---+---+
 /// | 63| 62| 61| 60| 59| 58| 57| 56|
 /// +---+---+---+---+---+---+---+---+
@@ -22,72 +27,180 @@
 /// +---+---+---+---+---+---+---+---+
 /// ```
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Ord, PartialOrd)]
-pub struct Bool8x8(u64);
+pub struct Bool8x8(pub u64);
 
 impl Bool8x8 {
+    /// The `Bool8x8` where all elements are `false`.
     pub const FALSE: Self = Self(0);
+
+    /// The `Bool8x8` where all elements are `true`.
     pub const TRUE: Self = Self(u64::MAX);
 
-    pub const fn from_bytes(bytes: [u8; 8]) -> Self {
-        Self(u64::from_be_bytes(bytes))
-    }
-
-    /// Performs an element-wise boolean NOT operation.
-    pub const fn not(self) -> Self {
-        Self(!self.0)
-    }
-
     /// Performs an element-wise boolean AND operation.
-    pub const fn and(self, other: Self) -> Self {
-        Self(self.0 & other.0)
+    ///
+    /// This is identical to `self & rhs`.
+    pub const fn and(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
     }
 
-    /// Performs a boolean OR operation.
+    /// Performs an element-wise boolean OR operation.
+    ///
+    /// This is identical to `self | rhs`.
     pub const fn or(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
 
-    /// Performs a boolean XOR operation.
-    pub const fn xor(self, other: Self) -> Self {
-        Self(self.0 ^ other.0)
+    /// Performs an element-wise boolean XOR operation.
+    ///
+    /// This is identical to `self ^ rhs`.
+    pub const fn xor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
     }
 
-    pub const fn left(&self, steps: u8) -> Self {
-        Self(self.0 << steps)
+    /// Performs an element-wise boolean NOT operation.
+    ///
+    /// This is identical to `!self`.
+    pub const fn not(self) -> Self {
+        Self(!self.0)
     }
 
-    pub const fn right(&self, steps: u8) -> Self {
-        Self(self.0 >> steps)
-    }
-
+    /// Shifts the `Bool8x8` up by the given number of steps.
+    ///
+    /// One step up is illustrated below.
+    /// ```text
+    /// +-----------------+        +-----------------+
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// | . . . . . . . . |        | . . @ @ @ @ . . |
+    /// | . . @ @ @ @ . . |        | . . @ @ @ @ . . |
+    /// | . . @ @ @ @ . . |  --->  | . . @ @ @ @ . . |
+    /// | . . @ @ @ @ . . |  --->  | . . @ @ @ @ . . |
+    /// | . . @ @ @ @ . . |        | . . . . . . . . |
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// +-----------------+        +-----------------+
+    /// ```
     pub const fn up(&self, steps: u8) -> Self {
         Self(self.0 << (steps * 8))
     }
 
+    /// Shifts the `Bool8x8` down by the given number of steps.
+    ///
+    /// One step down is illustrated below.
+    /// ```text
+    /// +-----------------+        +-----------------+
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// | . . @ @ @ @ . . |        | . . . . . . . . |
+    /// | . . @ @ @ @ . . |  --->  | . . @ @ @ @ . . |
+    /// | . . @ @ @ @ . . |  --->  | . . @ @ @ @ . . |
+    /// | . . @ @ @ @ . . |        | . . @ @ @ @ . . |
+    /// | . . . . . . . . |        | . . @ @ @ @ . . |
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// +-----------------+        +-----------------+
+    /// ```
     pub const fn down(&self, steps: u8) -> Self {
         Self(self.0 >> (steps * 8))
     }
+
+    /// Shifts the `Bool8x8` to the left by the given number of steps.
+    ///
+    /// One step left is illustrated below.
+    /// ```text
+    /// +-----------------+        +-----------------+
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// | . . @ @ @ @ . . |        | . @ @ @ @ . . . |
+    /// | . . @ @ @ @ . . |  --->  | . @ @ @ @ . . . |
+    /// | . . @ @ @ @ . . |  --->  | . @ @ @ @ . . . |
+    /// | . . @ @ @ @ . . |        | . @ @ @ @ . . . |
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// +-----------------+        +-----------------+
+    /// ```
+    pub const fn left(&self, steps: u8) -> Self {
+        Self(self.0 << steps)
+    }
+
+    /// Shifts the `Bool8x8` to the right by the given number of steps.
+    ///
+    /// One step right is illustrated below.
+    /// ```text
+    /// +-----------------+        +-----------------+
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// | . . @ @ @ @ . . |        | . . . @ @ @ @ . |
+    /// | . . @ @ @ @ . . |  --->  | . . . @ @ @ @ . |
+    /// | . . @ @ @ @ . . |  --->  | . . . @ @ @ @ . |
+    /// | . . @ @ @ @ . . |        | . . . @ @ @ @ . |
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// | . . . . . . . . |        | . . . . . . . . |
+    /// +-----------------+        +-----------------+
+    /// ```
+    pub const fn right(&self, steps: u8) -> Self {
+        Self(self.0 >> steps)
+    }
 }
 
-/// [half adder]
-///
-/// [half adder]: https://en.wikipedia.org/wiki/Adder_(electronics)#Half_adder
+impl BitAnd for Bool8x8 {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self {
+        self.and(rhs)
+    }
+}
+
+impl BitOr for Bool8x8 {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self {
+        self.or(rhs)
+    }
+}
+
+impl BitXor for Bool8x8 {
+    type Output = Self;
+
+    fn bitxor(self, rhs: Self) -> Self {
+        self.xor(rhs)
+    }
+}
+
+impl From<u64> for Bool8x8 {
+    fn from(x: u64) -> Bool8x8 {
+        Self(x)
+    }
+}
+
+impl From<Bool8x8> for u64 {
+    fn from(x: Bool8x8) -> u64 {
+        x.0
+    }
+}
+
+impl Not for Bool8x8 {
+    type Output = Self;
+
+    fn not(self) -> Self {
+        self.not()
+    }
+}
+
 const fn half_adder(a: Bool8x8, b: Bool8x8) -> (Bool8x8, Bool8x8) {
     (a.xor(b), a.and(b))
 }
 
-pub struct Adder {
+struct Adder {
     digits: [Bool8x8; 4],
 }
 
 impl Adder {
-    pub const fn new() -> Self {
+    const fn new() -> Self {
         Self {
             digits: [Bool8x8::FALSE; 4],
         }
     }
 
-    pub const fn add(self, input: Bool8x8) -> Self {
+    const fn add(self, input: Bool8x8) -> Self {
         let [b0, b1, b2, b3] = self.digits;
 
         // add the first digit to the input
@@ -104,23 +217,20 @@ impl Adder {
         }
     }
 
-    #[rustfmt::skip]
-    pub const fn sum(self) -> [Bool8x8; 9] {
-        let [b0, b1, b2, b3] = self.digits;
-        let [nb0, nb1, nb2, nb3] = [b0.not(), b1.not(), b2.not(), b3.not()];
-
-        // 0000
-        let zero  = nb3.and(nb2).and(nb1).and(nb0); // 0000
-        let one   = nb3.and(nb2).and(nb1).and( b0); // 0001
-        let two   = nb3.and(nb2).and( b1).and(nb0); // 0010
-        let three = nb3.and(nb2).and( b1).and( b0); // 0011
-        let four  = nb3.and( b2).and(nb1).and(nb0); // 0100
-        let five  = nb3.and( b2).and(nb1).and( b0); // 0101
-        let six   = nb3.and( b2).and( b1).and(nb0); // 0110
-        let seven = nb3.and( b2).and( b1).and( b0); // 0111
-        let eight =  b3.and(nb2).and(nb1).and(nb0); // 1000
-
-        [zero, one, two, three, four, five, six, seven, eight]
+    const fn sum(self) -> [Bool8x8; 9] {
+        let [a1, b1, c1, d1] = self.digits;
+        let [a0, b0, c0, d0] = [a1.not(), b1.not(), c1.not(), d1.not()];
+        [
+            d0.and(c0).and(b0).and(a0), // 0000 = 0
+            d0.and(c0).and(b0).and(a1), // 0001 = 1
+            d0.and(c0).and(b1).and(a0), // 0010 = 2
+            d0.and(c0).and(b1).and(a1), // 0011 = 3
+            d0.and(c1).and(b0).and(a0), // 0100 = 4
+            d0.and(c1).and(b0).and(a1), // 0101 = 5
+            d0.and(c1).and(b1).and(a0), // 0110 = 6
+            d0.and(c1).and(b1).and(a1), // 0111 = 7
+            d1.and(c0).and(b0).and(a0), // 1000 = 8
+        ]
     }
 }
 
