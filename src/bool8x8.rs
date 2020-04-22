@@ -8,7 +8,7 @@ use std::ops::{BitAnd, BitOr, BitXor, Not};
 ///
 /// The following diagram shows the layout of the bits of a `u64` to make a
 /// square. The most significant bit, `1 << 63`, is in the upper-left corner
-/// and the least significant bit, `1 << 0`, is in the bottom right.
+/// and the least significant bit, `1 << 0`, is in the bottom-right.
 ///
 /// ```text
 /// ┌────┬────┬────┬────┬────┬────┬────┬────┐
