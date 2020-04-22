@@ -6,8 +6,33 @@
 #![allow(dead_code, unused_variables)]
 
 mod bool8x8;
+mod leaf;
 
-pub use bool8x8::Bool8x8;
+use bool8x8::Bool8x8;
+
+#[derive(Clone, Copy, Debug)]
+pub struct Rule {
+    birth: [Bool8x8; 9],
+    survival: [Bool8x8; 9],
+}
+
+impl Rule {
+    /// Creates a new Life-like rule in B/S notation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use smeagol::Rule;
+    /// // Conway's Game of Life: B3/S23
+    /// const LIFE: Rule = Rule::new(&[3], &[2, 3]);
+    /// ```
+    pub const fn new(birth: &[u8], survival: &[u8]) -> Self {
+        Self {
+            birth: make_rule(birth),
+            survival: make_rule(survival),
+        }
+    }
+}
 
 const fn make_rule(neighbors: &[u8]) -> [Bool8x8; 9] {
     match neighbors {
@@ -31,26 +56,18 @@ const fn make_rule(neighbors: &[u8]) -> [Bool8x8; 9] {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct Rule {
-    birth: [Bool8x8; 9],
-    survival: [Bool8x8; 9],
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl Rule {
-    /// Creates a new Life-like rule in B/S notation.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use smeagol::Rule;
-    /// // Conway's Game of Life: B3/S23
-    /// const LIFE: Rule = Rule::new(&[3], &[2, 3]);
-    /// ```
-    pub const fn new(birth: &[u8], survival: &[u8]) -> Self {
-        Self {
-            birth: make_rule(birth),
-            survival: make_rule(survival),
-        }
+    #[test]
+    fn test_make_rule() {
+        let empty = [Bool8x8::FALSE; 9];
+        assert_eq!(make_rule(&[]), empty);
+        assert_eq!(make_rule(&[9]), empty);
+        assert_eq!(
+            make_rule(&[8, 8, 1, 8, 3, 100, 3, 1, 33]),
+            make_rule(&[8, 3, 1])
+        );
     }
 }

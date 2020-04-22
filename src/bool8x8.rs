@@ -6,8 +6,8 @@ use std::ops::{BitAnd, BitOr, BitXor, Not};
 
 /// A `u64` interpreted as an 8 by 8 grid of booleans.
 ///
-/// The following diagram shows the layout of the bits of a `u64` to make a square.
-/// Each row consists of 8 consecutive bits of the `u64`.
+/// The following diagram shows the layout of the bits of a `u64` to make a
+/// square.
 ///
 /// ```text
 /// +---+---+---+---+---+---+---+---+
@@ -185,39 +185,38 @@ impl Not for Bool8x8 {
     }
 }
 
-const fn half_adder(a: Bool8x8, b: Bool8x8) -> (Bool8x8, Bool8x8) {
-    (a.xor(b), a.and(b))
-}
-
-struct Adder {
+pub struct Adder {
     digits: [Bool8x8; 4],
 }
 
 impl Adder {
-    const fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             digits: [Bool8x8::FALSE; 4],
         }
     }
 
-    const fn add(self, input: Bool8x8) -> Self {
-        let [b0, b1, b2, b3] = self.digits;
+    pub const fn add(self, input: Bool8x8) -> Self {
+        let [a, b, c, d] = self.digits;
 
         // add the first digit to the input
-        let (q0, carry) = half_adder(b0, input);
+        let (w, carry) = half_adder(a, input);
+
         // add the next digit to the previous carry
-        let (q1, carry) = half_adder(b1, carry);
+        let (x, carry) = half_adder(b, carry);
+
         // add the next digit to the previous carry
-        let (q2, carry) = half_adder(b2, carry);
+        let (y, carry) = half_adder(c, carry);
+
         // saturating add the final digit to the previous carry
-        let q3 = b3.or(carry);
+        let z = d.or(carry);
 
         Self {
-            digits: [q0, q1, q2, q3],
+            digits: [w, x, y, z],
         }
     }
 
-    const fn sum(self) -> [Bool8x8; 9] {
+    pub const fn sum(self) -> [Bool8x8; 9] {
         let [a1, b1, c1, d1] = self.digits;
         let [a0, b0, c0, d0] = [a1.not(), b1.not(), c1.not(), d1.not()];
         [
@@ -232,6 +231,10 @@ impl Adder {
             d1.and(c0).and(b0).and(a0), // 1000 = 8
         ]
     }
+}
+
+const fn half_adder(a: Bool8x8, b: Bool8x8) -> (Bool8x8, Bool8x8) {
+    (a.xor(b), a.and(b))
 }
 
 #[cfg(test)]
