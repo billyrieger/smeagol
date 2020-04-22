@@ -5,8 +5,8 @@
 #![feature(const_fn, const_if_match)]
 #![allow(dead_code, unused_variables)]
 
-mod bool8x8;
-mod leaf;
+pub mod bool8x8;
+pub mod leaf;
 
 use bool8x8::Bool8x8;
 
