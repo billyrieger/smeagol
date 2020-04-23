@@ -5,10 +5,10 @@
 #![feature(const_fn, const_if_match)]
 #![allow(dead_code, unused_variables)]
 
-pub mod bool8x8;
 pub mod leaf;
+// pub mod node;
 
-use bool8x8::Bool8x8;
+use leaf::Bool8x8;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Rule {
