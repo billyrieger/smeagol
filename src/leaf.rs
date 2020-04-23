@@ -5,74 +5,6 @@
 use crate::Rule;
 
 /// An 8 by 8 grid of dead or alive cells.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Leaf {
-    alive: Bool8x8,
-}
-
-impl Leaf {
-    /// # Examples
-    ///
-    /// ```
-    /// # use smeagol::{leaf::Leaf, bool8x8::Bool8x8};
-    /// let glider = Leaf::new(Bool8x8(0x0000_1008_3800_0000));
-    /// ```
-    pub const fn new(alive: Bool8x8) -> Self {
-        Self { alive }
-    }
-
-    pub const fn dead() -> Self {
-        Self {
-            alive: Bool8x8::FALSE,
-        }
-    }
-
-    pub const fn alive() -> Self {
-        Self {
-            alive: Bool8x8::TRUE,
-        }
-    }
-
-    pub fn step(self, rule: Rule) -> Self {
-        let alive = self.alive;
-        let dead = alive.not();
-
-        let neighbors = Adder::new()
-            .add(alive.up(1))
-            .add(alive.down(1))
-            .add(alive.left(1))
-            .add(alive.right(1))
-            .add(alive.up(1).left(1))
-            .add(alive.up(1).right(1))
-            .add(alive.down(1).left(1))
-            .add(alive.left(1).right(1))
-            .sum();
-
-        Self::new(
-            Bool8x8::FALSE
-                .or(dead.and(rule.birth[0]).and(neighbors[0]))
-                .or(dead.and(rule.birth[1]).and(neighbors[1]))
-                .or(dead.and(rule.birth[2]).and(neighbors[2]))
-                .or(dead.and(rule.birth[3]).and(neighbors[3]))
-                .or(dead.and(rule.birth[4]).and(neighbors[4]))
-                .or(dead.and(rule.birth[5]).and(neighbors[5]))
-                .or(dead.and(rule.birth[6]).and(neighbors[6]))
-                .or(dead.and(rule.birth[7]).and(neighbors[7]))
-                .or(dead.and(rule.birth[8]).and(neighbors[8]))
-                .or(alive.and(rule.survival[0]).and(neighbors[0]))
-                .or(alive.and(rule.survival[1]).and(neighbors[1]))
-                .or(alive.and(rule.survival[2]).and(neighbors[2]))
-                .or(alive.and(rule.survival[3]).and(neighbors[3]))
-                .or(alive.and(rule.survival[4]).and(neighbors[4]))
-                .or(alive.and(rule.survival[5]).and(neighbors[5]))
-                .or(alive.and(rule.survival[6]).and(neighbors[6]))
-                .or(alive.and(rule.survival[7]).and(neighbors[7]))
-                .or(alive.and(rule.survival[8]).and(neighbors[8])),
-        )
-    }
-}
-
-/// A `u64` interpreted as an 8 by 8 grid of booleans.
 ///
 /// The following diagram shows the layout of the bits of a `u64` to make a
 /// square. The most significant bit, `1 << 63`, is in the upper-left corner
@@ -98,6 +30,11 @@ impl Leaf {
 /// └────┴────┴────┴────┴────┴────┴────┴────┘
 /// ```
 ///
+/// ```
+/// # use smeagol::{leaf::Leaf, bool8x8::Bool8x8};
+/// let glider = Leaf::new(Bool8x8(0x0000_1008_3800_0000));
+/// ```
+///
 /// ```text
 /// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓                  
 /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃ 0x00 = 0000 0000   
@@ -117,6 +54,74 @@ impl Leaf {
 /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃ 0x00 = 0000 0000   
 /// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛                  
 /// ```
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Leaf {
+    pub alive: Bool8x8,
+}
+
+impl Leaf {
+    /// # Examples
+    ///
+    /// ```
+    /// # use smeagol::{leaf::Leaf, bool8x8::Bool8x8};
+    /// let glider = Leaf::new(Bool8x8(0x0000_1008_3800_0000));
+    /// ```
+    pub const fn new(alive: Bool8x8) -> Self {
+        Self { alive }
+    }
+
+    pub const fn dead() -> Self {
+        Self {
+            alive: Bool8x8::FALSE,
+        }
+    }
+
+    pub const fn alive() -> Self {
+        Self {
+            alive: Bool8x8::TRUE,
+        }
+    }
+
+    pub const fn step(self, rule: Rule) -> Self {
+        let alive = self.alive;
+        let dead = alive.not();
+
+        let neighbors = Adder::new()
+            .add(alive.up(1))
+            .add(alive.down(1))
+            .add(alive.left(1))
+            .add(alive.right(1))
+            .add(alive.up(1).left(1))
+            .add(alive.up(1).right(1))
+            .add(alive.down(1).left(1))
+            .add(alive.left(1).right(1))
+            .sum();
+
+        let alive = Bool8x8::FALSE
+            .or(dead.and(rule.birth[0]).and(neighbors[0]))
+            .or(dead.and(rule.birth[1]).and(neighbors[1]))
+            .or(dead.and(rule.birth[2]).and(neighbors[2]))
+            .or(dead.and(rule.birth[3]).and(neighbors[3]))
+            .or(dead.and(rule.birth[4]).and(neighbors[4]))
+            .or(dead.and(rule.birth[5]).and(neighbors[5]))
+            .or(dead.and(rule.birth[6]).and(neighbors[6]))
+            .or(dead.and(rule.birth[7]).and(neighbors[7]))
+            .or(dead.and(rule.birth[8]).and(neighbors[8]))
+            .or(alive.and(rule.survival[0]).and(neighbors[0]))
+            .or(alive.and(rule.survival[1]).and(neighbors[1]))
+            .or(alive.and(rule.survival[2]).and(neighbors[2]))
+            .or(alive.and(rule.survival[3]).and(neighbors[3]))
+            .or(alive.and(rule.survival[4]).and(neighbors[4]))
+            .or(alive.and(rule.survival[5]).and(neighbors[5]))
+            .or(alive.and(rule.survival[6]).and(neighbors[6]))
+            .or(alive.and(rule.survival[7]).and(neighbors[7]))
+            .or(alive.and(rule.survival[8]).and(neighbors[8]));
+
+        Self { alive }
+    }
+}
+
+/// A `u64` interpreted as an 8 by 8 grid of booleans.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub struct Bool8x8(pub u64);
 
@@ -128,51 +133,47 @@ impl Bool8x8 {
     pub const TRUE: Self = Self(u64::MAX);
 
     /// Performs an element-wise boolean AND operation.
-    const fn and(self, rhs: Self) -> Self {
+    pub const fn and(self, rhs: Self) -> Self {
         Self(self.0 & rhs.0)
     }
 
     /// Performs an element-wise boolean OR operation.
-    const fn or(self, other: Self) -> Self {
+    pub const fn or(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
 
     /// Performs an element-wise boolean XOR operation.
-    const fn xor(self, rhs: Self) -> Self {
+    pub const fn xor(self, rhs: Self) -> Self {
         Self(self.0 ^ rhs.0)
     }
 
     /// Performs an element-wise boolean NOT operation.
-    const fn not(self) -> Self {
+    pub const fn not(self) -> Self {
         Self(!self.0)
     }
 
     /// Shifts the `Bool8x8` to the left by the given number of steps.
-    const fn left(&self, steps: u8) -> Self {
+    pub const fn left(&self, steps: u8) -> Self {
         Self(self.0 << steps)
     }
 
     /// Shifts the `Bool8x8` to the right by the given number of steps.
-    const fn right(&self, steps: u8) -> Self {
+    pub const fn right(&self, steps: u8) -> Self {
         Self(self.0 >> steps)
     }
 
     /// Shifts the `Bool8x8` up by the given number of steps.
-    const fn up(&self, steps: u8) -> Self {
+    pub const fn up(&self, steps: u8) -> Self {
         Self(self.0 << (steps * 8))
     }
 
     /// Shifts the `Bool8x8` down by the given number of steps.
-    const fn down(&self, steps: u8) -> Self {
+    pub const fn down(&self, steps: u8) -> Self {
         Self(self.0 >> (steps * 8))
-    }
-
-    const fn half_adder(a: Self, b: Self) -> (Self, Self) {
-        (a.xor(b), a.and(b))
     }
 }
 
-pub struct Adder {
+struct Adder {
     digits: [Bool8x8; 4],
 }
 
@@ -188,15 +189,15 @@ impl Adder {
         let [a, b, c, d] = self.digits;
 
         // add the first digit to the input
-        let (w, carry) = Bool8x8::half_adder(a, input);
+        let (w, carry) = (a.xor(input), a.and(input));
 
         // add the next digit to the previous carry
-        let (x, carry) = Bool8x8::half_adder(b, carry);
+        let (x, carry) = (b.xor(carry), b.and(carry));
 
         // add the next digit to the previous carry
-        let (y, carry) = Bool8x8::half_adder(c, carry);
+        let (y, carry) = (c.xor(carry), c.and(carry));
 
-        // saturating add the final digit to the previous carry
+        // add the final digit to the previous carry
         let z = d.or(carry);
 
         Self {
@@ -226,7 +227,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn histogram() {
+    fn adder_histogram() {
         let buckets = Adder::new()
             .add(Bool8x8(0x0000000F00000000))
             .add(Bool8x8(0x000000FFF0000000))

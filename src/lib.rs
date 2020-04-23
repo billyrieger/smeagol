@@ -6,7 +6,7 @@
 #![allow(dead_code, unused_variables)]
 
 pub mod leaf;
-// pub mod node;
+pub mod node;
 
 use leaf::Bool8x8;
 

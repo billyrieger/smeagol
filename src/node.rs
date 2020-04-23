@@ -2,14 +2,119 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::leaf::Leaf;
+use crate::leaf::{Bool8x8, Leaf};
+use std::collections::HashMap;
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Level(u8);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct NodeId {
+    index: usize,
+}
+
+impl NodeId {
+    fn new(index: usize) -> Self {
+        Self { index }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Node {
+    Leaf(Leaf),
+    Interior {
+        children: Macrocell<NodeId>,
+        level: Level,
+    },
+}
+
+impl Node {
+    pub fn level(&self) -> Level {
+        match self {
+            Node::Leaf(_) => Level(3),
+            Node::Interior { level, .. } => *level,
+        }
+    }
+}
+
+pub struct NodeStore {
+    lookup: HashMap<Node, NodeId>,
+    nodes: Vec<Node>,
+}
+
+impl NodeStore {
+    fn new_leaf(&mut self, leaf: Leaf) -> NodeId {
+        self.get_id(Node::Leaf(leaf))
+    }
+
+    fn new_interior(&mut self, children: Macrocell<NodeId>) -> NodeId {
+        todo!()
+    }
+
+    fn get_id(&mut self, node: Node) -> NodeId {
+        if let Some(&id) = self.lookup.get(&node) {
+            id
+        } else {
+            let id = NodeId::new(self.nodes.len());
+            self.lookup.insert(node, id);
+            id
+        }
+    }
+
+    fn children(&self, id: NodeId) -> Macrocell<Node> {
+        todo!()
+    }
+
+    /// ```text
+    /// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┳━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
+    /// ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
+    /// ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
+    /// ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
+    /// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
+    /// ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
+    /// ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
+    /// ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
+    /// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
+    /// ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
+    /// ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
+    /// ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
+    /// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
+    /// ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
+    /// ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
+    /// ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
+    /// ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+    /// ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
+    /// ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
+    /// ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
+    /// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
+    /// ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
+    /// ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
+    /// ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
+    /// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
+    /// ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
+    /// ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
+    /// ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
+    /// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
+    /// ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
+    /// ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
+    /// ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
+    /// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┻━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
+    /// ```
+    fn evolve(&mut self, id: NodeId) -> NodeId {
+        todo!()
+    }
+}
 
 /// A macrocell.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Macrocell<T> {
+    /// The northwest child.
     pub nw: T,
+    /// The northeast child.
     pub ne: T,
+    /// The southwest child.
     pub sw: T,
+    /// The southeast child.
     pub se: T,
 }
 
@@ -219,30 +324,6 @@ impl Macrocell<Leaf> {
                 .or(self.sw.alive.and(mask_sw).down(2).left(6))
                 .or(self.se.alive.and(mask_se).down(2).right(2)),
         )
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct NodeId {
-    index: usize,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Node {
-    Leaf(Leaf),
-    Interior {
-        children: Macrocell<NodeId>,
-        level: u8,
-    },
-}
-
-pub struct NodeStore {
-    data: Vec<Node>,
-}
-
-impl NodeStore {
-    fn get(&self, id: NodeId) -> Option<Node> {
-        self.data.get(id.index).copied()
     }
 }
 
