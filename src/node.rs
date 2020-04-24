@@ -2,24 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::leaf::{Bool8x8, Leaf};
+use crate::leaf::{Bool8x8, Leaf, Rule};
+use slotmap::{new_key_type, SecondaryMap, SlotMap};
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Level(u8);
-
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct NodeId {
-    index: usize,
-}
-
-impl NodeId {
-    fn new(index: usize) -> Self {
-        Self { index }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Node {
     Leaf(Leaf),
     Interior {
@@ -37,70 +24,47 @@ impl Node {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Level(u8);
+
+new_key_type! {
+    pub struct NodeId;
+}
+
+#[derive(Clone, Debug)]
 pub struct NodeStore {
+    rule: Rule,
     lookup: HashMap<Node, NodeId>,
-    nodes: Vec<Node>,
+    nodes: SlotMap<NodeId, Node>,
+    steps: SecondaryMap<NodeId, Node>,
+    jumps: SecondaryMap<NodeId, Node>,
 }
 
 impl NodeStore {
-    fn new_leaf(&mut self, leaf: Leaf) -> NodeId {
-        self.get_id(Node::Leaf(leaf))
-    }
-
-    fn new_interior(&mut self, children: Macrocell<NodeId>) -> NodeId {
-        todo!()
-    }
-
-    fn get_id(&mut self, node: Node) -> NodeId {
-        if let Some(&id) = self.lookup.get(&node) {
-            id
-        } else {
-            let id = NodeId::new(self.nodes.len());
+    pub fn make_id(&mut self, node: Node) -> NodeId {
+        self.lookup.get(&node).copied().unwrap_or_else(|| {
+            let id = self.nodes.insert(node);
             self.lookup.insert(node, id);
             id
+        })
+    }
+
+    pub fn children(&self, id: NodeId) -> Option<Macrocell<NodeId>> {
+        match self.get_node(id)? {
+            Node::Leaf(_) => None,
+            Node::Interior { children, .. } => Some(children),
         }
     }
 
-    fn children(&self, id: NodeId) -> Macrocell<Node> {
+    pub fn get_node(&self, id: NodeId) -> Option<Node> {
+        self.nodes.get(id).copied()
+    }
+
+    fn step(&mut self, cells: Macrocell<NodeId>) -> Option<NodeId> {
         todo!()
     }
 
-    /// ```text
-    /// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┳━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
-    /// ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
-    /// ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
-    /// ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
-    /// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
-    /// ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
-    /// ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
-    /// ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
-    /// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
-    /// ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
-    /// ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
-    /// ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
-    /// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
-    /// ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
-    /// ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
-    /// ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
-    /// ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-    /// ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
-    /// ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
-    /// ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
-    /// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
-    /// ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
-    /// ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
-    /// ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
-    /// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
-    /// ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
-    /// ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
-    /// ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
-    /// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
-    /// ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
-    /// ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
-    /// ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
-    /// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┻━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
-    /// ```
-    fn evolve(&mut self, id: NodeId) -> NodeId {
+    fn jump(&mut self, id: NodeId) -> Option<NodeId> {
         todo!()
     }
 }
@@ -118,214 +82,145 @@ pub struct Macrocell<T> {
     pub se: T,
 }
 
+impl<T> Macrocell<T> {
+    fn map<F, U>(self, f: F) -> Macrocell<U>
+    where
+        F: Fn(T) -> U,
+    {
+        Macrocell {
+            nw: f(self.nw),
+            ne: f(self.ne),
+            sw: f(self.sw),
+            se: f(self.se),
+        }
+    }
+
+    fn try_map<F, U>(self, f: F) -> Option<Macrocell<U>>
+    where
+        F: Fn(T) -> Option<U>,
+    {
+        Some(Macrocell {
+            nw: f(self.nw)?,
+            ne: f(self.ne)?,
+            sw: f(self.sw)?,
+            se: f(self.se)?,
+        })
+    }
+}
+
 pub type Macrocell2<T> = Macrocell<Macrocell<T>>;
 pub type Macrocell3<T> = Macrocell<Macrocell2<T>>;
 
 impl Macrocell<Leaf> {
-    /// Foo bar.
-    ///
-    /// ```text
-    /// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┳━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠         ┌─────────────────────────────╂─────────┐         ╎                   ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠ ╌ ╌ ╌ ╌ │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │ ╌ ╌ ╌ ╌   ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┣━━━━━━━━━┿━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━┿━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠         └─────────────────────────────╂─────────┘         ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌   ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌   ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┻━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
-    /// ```
-    pub const fn center_nw_leaf(self) -> Leaf {
-        let mask_nw = Bool8x8(0x0000_3F3F_3F3F_3F3F);
-        let mask_ne = Bool8x8(0x0000_C0C0_C0C0_C0C0);
-        let mask_sw = Bool8x8(0x3F3F_0000_0000_0000);
-        let mask_se = Bool8x8(0xC0C0_0000_0000_0000);
-        Leaf::new(
-            Bool8x8::FALSE
-                .or(self.nw.alive.and(mask_nw).up(2).left(2))
-                .or(self.ne.alive.and(mask_ne).up(2).right(6))
-                .or(self.sw.alive.and(mask_sw).down(6).left(2))
-                .or(self.se.alive.and(mask_se).down(6).right(6)),
-        )
+    pub fn jump(&self, rule: Rule) -> Leaf {
+        let a = self.nw.jump(rule);
+        let b = self.north().jump(rule);
+        let c = self.ne.jump(rule);
+        let d = self.west().jump(rule);
+        let e = self.center().jump(rule);
+        let f = self.east().jump(rule);
+        let g = self.sw.jump(rule);
+        let h = self.south().jump(rule);
+        let i = self.se.jump(rule);
+
+        let mask_center = Bool8x8(0x0000_3C3C_3C3C_0000);
+        let combine_jumps = |nw: Leaf, ne: Leaf, sw: Leaf, se: Leaf| {
+            Leaf::new(
+                Bool8x8::FALSE
+                    | (nw.alive & mask_center).up(2).left(2)
+                    | ne.mask(mask_center).alive.up(2).right(2)
+                    | sw.mask(mask_center).alive.down(2).left(2)
+                    | se.mask(mask_center).alive.down(2).right(2),
+            )
+        };
+
+        let w = combine_jumps(a, b, d, e).jump(rule);
+        let x = combine_jumps(b, c, e, f).jump(rule);
+        let y = combine_jumps(d, e, g, h).jump(rule);
+        let z = combine_jumps(e, f, h, i).jump(rule);
+
+        combine_jumps(w, x, y, z)
     }
 
-    /// Foo bar.
-    ///
-    /// ```text
-    /// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┳━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎         ┌─────────╂─────────────────────────────┐         ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌   ╌ ╌ ╌ ╌ │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │ ╌ ╌ ╌ ╌ ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┿━━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┿━━━━━━━━━┫
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠                   ╎         └─────────╂─────────────────────────────┘         ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌   ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌   ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┻━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
-    /// ```
-    pub const fn center_ne_leaf(self) -> Leaf {
-        let mask_nw = Bool8x8(0x0000_0303_0303_0303);
-        let mask_ne = Bool8x8(0x0000_FCFC_FCFC_FCFC);
-        let mask_sw = Bool8x8(0x0303_0000_0000_0000);
-        let mask_se = Bool8x8(0xFCFC_0000_0000_0000);
-        Leaf::new(
-            Bool8x8::FALSE
-                .or(self.nw.alive.and(mask_nw).up(2).left(6))
-                .or(self.ne.alive.and(mask_ne).up(2).right(2))
-                .or(self.sw.alive.and(mask_sw).down(6).left(6))
-                .or(self.se.alive.and(mask_se).down(6).right(2)),
-        )
+    fn join_horizontal(left: Leaf, right: Leaf) -> Leaf {
+        let mask_left = Bool8x8(0xFF00_FF00_FF00_FF00);
+        let mask_right = Bool8x8(0x00FF00_00FF_00FF_00FF);
+        Leaf::new((left.alive.left(4) & mask_left) | (right.alive.right(4) & mask_right))
     }
 
-    /// Foo bar.
-    ///
-    /// ```text
-    /// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┳━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌   ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌   ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠         ┌─────────────────────────────╂─────────┐         ╎                   ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┣━━━━━━━━━┿━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━┿━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠ ╌ ╌ ╌ ╌ │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │ ╌ ╌ ╌ ╌   ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┨
-    /// ┃         │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ ┃ ░░░░░░░ │         ╎                   ┃
-    /// ┠         └─────────────────────────────╂─────────┘         ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┻━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
-    /// ```
-    pub const fn center_sw_leaf(self) -> Leaf {
-        let mask_nw = Bool8x8(0x0000_0000_0000_3F3F);
-        let mask_ne = Bool8x8(0x0000_0000_0000_C0C0);
-        let mask_sw = Bool8x8(0x3F3F_3F3F_3F3F_0000);
-        let mask_se = Bool8x8(0xC0C0_C0C0_C0C0_0000);
-        Leaf::new(
-            Bool8x8::FALSE
-                .or(self.nw.alive.and(mask_nw).up(6).left(2))
-                .or(self.ne.alive.and(mask_ne).up(6).right(6))
-                .or(self.sw.alive.and(mask_sw).down(2).left(2))
-                .or(self.se.alive.and(mask_se).down(2).right(6)),
-        )
+    fn join_vertical(top: Leaf, bottom: Leaf) -> Leaf {
+        let mask_top = Bool8x8(0xFFFF_FFFF_0000_0000);
+        let mask_bottom = Bool8x8(0x0000_0000_FFFF_FFFF);
+        Leaf::new((top.alive.up(4) & mask_top) | (bottom.alive.down(4) & mask_bottom))
     }
 
-    /// Foo bar.
-    ///
-    /// ```text
-    /// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┳━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌   ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌   ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎         ┌─────────╂─────────────────────────────┐         ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┿━━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┿━━━━━━━━━┫
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌   ╌ ╌ ╌ ╌ │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │ ╌ ╌ ╌ ╌ ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┨
-    /// ┃                   ╎         │ ░░░░░░░ ┃ ░░░░░░░░░░░░░░░░░░░░░░░░░░░ │         ┃
-    /// ┠                   ╎         └─────────╂─────────────────────────────┘         ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┠                   ╎                   ┃                   ╎                   ┨
-    /// ┃                   ╎                   ┃                   ╎                   ┃
-    /// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┻━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
-    /// ```
-    pub const fn center_se_leaf(self) -> Leaf {
-        let mask_nw = Bool8x8(0x0000_0000_0000_0303);
-        let mask_ne = Bool8x8(0x0000_0000_0000_FCFC);
-        let mask_sw = Bool8x8(0x0303_0303_0303_0000);
-        let mask_se = Bool8x8(0xFCFC_FCFC_FCFC_0000);
-        Leaf::new(
-            Bool8x8::FALSE
-                .or(self.nw.alive.and(mask_nw).up(6).left(6))
-                .or(self.ne.alive.and(mask_ne).up(6).right(2))
-                .or(self.sw.alive.and(mask_sw).down(2).left(6))
-                .or(self.se.alive.and(mask_se).down(2).right(2)),
-        )
+    pub fn north(&self) -> Leaf {
+        Self::join_horizontal(self.nw, self.ne)
+    }
+
+    pub fn south(&self) -> Leaf {
+        Self::join_horizontal(self.sw, self.se)
+    }
+
+    pub fn east(&self) -> Leaf {
+        Self::join_vertical(self.ne, self.se)
+    }
+
+    pub fn west(&self) -> Leaf {
+        Self::join_vertical(self.nw, self.sw)
+    }
+
+    fn center(&self) -> Leaf {
+        let mask_nw = Bool8x8(0xF0F0_F0F0_0000_0000);
+        let mask_ne = Bool8x8(0x0F0F_0F0F_0000_0000);
+        let mask_sw = Bool8x8(0x0000_0000_F0F0_F0F0);
+        let mask_se = Bool8x8(0x0000_0000_0F0F_0F0F);
+
+        let center = Bool8x8::FALSE
+            | self.nw.alive.up(4).left(4) & mask_nw
+            | self.ne.alive.up(4).right(4) & mask_ne
+            | self.sw.alive.down(4).left(4) & mask_sw
+            | self.se.alive.down(4).right(4) & mask_se;
+
+        Leaf::new(center)
     }
 }
+
+// ```text
+// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┳━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
+// ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
+// ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
+// ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
+// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
+// ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
+// ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
+// ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
+// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
+// ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
+// ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
+// ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
+// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
+// ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
+// ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
+// ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
+// ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+// ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
+// ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
+// ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
+// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
+// ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
+// ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
+// ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
+// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
+// ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
+// ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
+// ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
+// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╎ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
+// ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
+// ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
+// ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
+// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┻━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
+// ```
 
 #[cfg(test)]
 mod tests {}
