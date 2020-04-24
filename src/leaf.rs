@@ -82,6 +82,10 @@ impl Leaf {
         Self::new(self.alive & mask)
     }
 
+    pub fn population(&self) -> u128 {
+        u128::from(self.alive.0.count_ones())
+    }
+
     pub fn step(&self, rule: Rule) -> Self {
         let (alive, dead) = (self.alive, !self.alive);
 

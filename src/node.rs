@@ -3,23 +3,59 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use crate::leaf::{Bool8x8, Leaf, Rule};
+use either::{Either, Left, Right};
 use slotmap::{new_key_type, SecondaryMap, SlotMap};
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum Node {
+pub struct Node {
+    kind: NodeKind,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+struct Inner {
+    children: Macrocell<NodeId>,
+    level: Level,
+    population: u128,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+enum NodeKind {
     Leaf(Leaf),
-    Interior {
-        children: Macrocell<NodeId>,
-        level: Level,
-    },
+    Inner(Inner),
 }
 
 impl Node {
+    fn from_leaf(leaf: Leaf) -> Self {
+        Self {
+            kind: NodeKind::Leaf(leaf),
+        }
+    }
+
+    fn from_inner(inner: Inner) -> Self {
+        Self {
+            kind: NodeKind::Inner(inner),
+        }
+    }
+
+    pub fn children(&self) -> Option<Macrocell<NodeId>> {
+        match self.kind {
+            NodeKind::Leaf(_) => None,
+            NodeKind::Inner(inner) => Some(inner.children),
+        }
+    }
+
     pub fn level(&self) -> Level {
-        match self {
-            Node::Leaf(_) => Level(3),
-            Node::Interior { level, .. } => *level,
+        match self.kind {
+            NodeKind::Leaf(_) => Level(3),
+            NodeKind::Inner(inner) => inner.level,
+        }
+    }
+
+    pub fn population(&self) -> u128 {
+        match self.kind {
+            NodeKind::Leaf(leaf) => leaf.population(),
+            NodeKind::Inner(inner) => inner.population,
         }
     }
 }
@@ -27,45 +63,85 @@ impl Node {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Level(u8);
 
+pub const MAX_LEVEL: Level = Level(64);
+
 new_key_type! {
     pub struct NodeId;
 }
 
 #[derive(Clone, Debug)]
-pub struct NodeStore {
+pub struct Store {
     rule: Rule,
-    lookup: HashMap<Node, NodeId>,
+    ids: HashMap<Node, NodeId>,
     nodes: SlotMap<NodeId, Node>,
-    steps: SecondaryMap<NodeId, Node>,
-    jumps: SecondaryMap<NodeId, Node>,
+    steps: SecondaryMap<NodeId, NodeId>,
+    jumps: SecondaryMap<NodeId, NodeId>,
 }
 
-impl NodeStore {
+impl Store {
     pub fn make_id(&mut self, node: Node) -> NodeId {
-        self.lookup.get(&node).copied().unwrap_or_else(|| {
+        self.ids.get(&node).copied().unwrap_or_else(|| {
             let id = self.nodes.insert(node);
-            self.lookup.insert(node, id);
+            self.ids.insert(node, id);
             id
         })
     }
 
-    pub fn children(&self, id: NodeId) -> Option<Macrocell<NodeId>> {
-        match self.get_node(id)? {
-            Node::Leaf(_) => None,
-            Node::Interior { children, .. } => Some(children),
-        }
+    pub fn make_node(&mut self, children: Macrocell<NodeId>) -> Option<NodeId> {
+        let nodes = children.try_map(|id| self.get_node(id))?;
+        let level = nodes.nw.level();
+        assert_eq!(level, nodes.ne.level());
+        assert_eq!(level, nodes.sw.level());
+        assert_eq!(level, nodes.se.level());
+        let population = 0
+            + nodes.nw.population()
+            + nodes.ne.population()
+            + nodes.sw.population()
+            + nodes.se.population();
+        let inner = Inner {
+            children,
+            level,
+            population,
+        };
+        Some(self.make_id(Node::from_inner(inner)))
     }
 
     pub fn get_node(&self, id: NodeId) -> Option<Node> {
         self.nodes.get(id).copied()
     }
 
-    fn step(&mut self, cells: Macrocell<NodeId>) -> Option<NodeId> {
-        todo!()
+    fn jump_children(&mut self, children: Macrocell<NodeId>) -> Option<NodeId> {
+        match children.try_map(|id| self.get_node(id))?.kind()? {
+            Left(macro_leaf) => Some(self.make_id(Node::from_leaf(macro_leaf.jump(self.rule)))),
+            Right(macro2_id) => {
+                let result = macro2_id
+                    .reduce(|x| self.jump_children(x))?
+                    .reduce(|x| self.jump_children(x))?;
+                self.make_node(result)
+            }
+        }
     }
+}
 
-    fn jump(&mut self, id: NodeId) -> Option<NodeId> {
-        todo!()
+impl Macrocell<Node> {
+    fn kind(self) -> Option<Either<Macrocell<Leaf>, Macrocell2<NodeId>>> {
+        match (self.nw.kind, self.ne.kind, self.sw.kind, self.se.kind) {
+            (NodeKind::Leaf(nw), NodeKind::Leaf(ne), NodeKind::Leaf(sw), NodeKind::Leaf(se)) => {
+                Some(Left(Macrocell { nw, ne, sw, se }))
+            }
+            (
+                NodeKind::Inner(nw),
+                NodeKind::Inner(ne),
+                NodeKind::Inner(sw),
+                NodeKind::Inner(se),
+            ) => Some(Right(Macrocell {
+                nw: nw.children,
+                ne: ne.children,
+                sw: sw.children,
+                se: se.children,
+            })),
+            _ => None,
+        }
     }
 }
 
@@ -82,19 +158,10 @@ pub struct Macrocell<T> {
     pub se: T,
 }
 
-impl<T> Macrocell<T> {
-    fn map<F, U>(self, f: F) -> Macrocell<U>
-    where
-        F: Fn(T) -> U,
-    {
-        Macrocell {
-            nw: f(self.nw),
-            ne: f(self.ne),
-            sw: f(self.sw),
-            se: f(self.se),
-        }
-    }
+pub type Macrocell2<T> = Macrocell<Macrocell<T>>;
+pub type Macrocell3<T> = Macrocell<Macrocell2<T>>;
 
+impl<T> Macrocell<T> {
     fn try_map<F, U>(self, f: F) -> Option<Macrocell<U>>
     where
         F: Fn(T) -> Option<U>,
@@ -108,8 +175,244 @@ impl<T> Macrocell<T> {
     }
 }
 
-pub type Macrocell2<T> = Macrocell<Macrocell<T>>;
-pub type Macrocell3<T> = Macrocell<Macrocell2<T>>;
+struct Partial<T> {
+    grid: [[T; 3]; 3],
+}
+
+impl<T> Partial<T> {
+    fn reduce<F>(&self, mut func: F) -> Option<Macrocell<T>>
+    where
+        F: FnMut(Macrocell<T>) -> Option<T>,
+        T: Copy,
+    {
+        // . . . . . . . .
+        // . w w w w . . .
+        // . w W W w . . .
+        // . w W W w . . .
+        // . w w w w . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        let w = Macrocell {
+            nw: self.grid[0][0],
+            ne: self.grid[0][1],
+            sw: self.grid[1][0],
+            se: self.grid[1][1],
+        };
+        let w = func(w)?;
+
+        // . . . . . . . .
+        // . . . x x x x .
+        // . . . x X X x .
+        // . . . x X X x .
+        // . . . x x x x .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        let x = Macrocell {
+            nw: self.grid[0][1],
+            ne: self.grid[0][2],
+            sw: self.grid[1][1],
+            se: self.grid[1][2],
+        };
+        let x = func(x)?;
+
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . y y y y . . .
+        // . y Y Y y . . .
+        // . y Y Y y . . .
+        // . y y y y . . .
+        // . . . . . . . .
+        let y = Macrocell {
+            nw: self.grid[1][0],
+            ne: self.grid[1][1],
+            sw: self.grid[2][0],
+            se: self.grid[2][1],
+        };
+        let y = func(y)?;
+
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . z z z z .
+        // . . . z Z Z z .
+        // . . . z Z Z z .
+        // . . . z z z z .
+        // . . . . . . . .
+        let z = Macrocell {
+            nw: self.grid[1][1],
+            ne: self.grid[1][2],
+            sw: self.grid[2][1],
+            se: self.grid[2][2],
+        };
+        let z = func(z)?;
+
+        Some(Macrocell {
+            nw: w,
+            ne: x,
+            sw: y,
+            se: z,
+        })
+    }
+}
+
+impl<T> Macrocell2<T> {
+    fn reduce<F>(&self, mut func: F) -> Option<Partial<T>>
+    where
+        F: FnMut(Macrocell<T>) -> Option<T>,
+        T: Copy,
+    {
+        // a a a a . . . .
+        // a A A a . . . .
+        // a A A a . . . .
+        // a a a a . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        let a = Macrocell {
+            nw: self.nw.nw,
+            ne: self.nw.ne,
+            sw: self.nw.sw,
+            se: self.nw.se,
+        };
+        let a = func(a)?;
+
+        // . . b b b b . .
+        // . . b B B b . .
+        // . . b B B b . .
+        // . . b b b b . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        let b = Macrocell {
+            nw: self.nw.ne,
+            ne: self.ne.nw,
+            sw: self.nw.se,
+            se: self.ne.sw,
+        };
+        let b = func(b)?;
+
+        // . . . . c c c c
+        // . . . . c C C c
+        // . . . . c C C c
+        // . . . . c c c c
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        let c = Macrocell {
+            nw: self.ne.nw,
+            ne: self.ne.ne,
+            sw: self.ne.sw,
+            se: self.ne.se,
+        };
+        let c = func(c)?;
+
+        // . . . . . . . .
+        // . . . . . . . .
+        // d d d d . . . .
+        // d D D d . . . .
+        // d D D d . . . .
+        // d d d d . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        let d = Macrocell {
+            nw: self.nw.sw,
+            ne: self.nw.se,
+            sw: self.sw.nw,
+            se: self.sw.ne,
+        };
+        let d = func(d)?;
+
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . e e e e . .
+        // . . e E E e . .
+        // . . e E E e . .
+        // . . e e e e . .
+        // . . . . . . . .
+        // . . . . . . . .
+        let e = Macrocell {
+            nw: self.nw.se,
+            ne: self.ne.sw,
+            sw: self.sw.ne,
+            se: self.se.nw,
+        };
+        let e = func(e)?;
+
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . f f f f
+        // . . . . f F F f
+        // . . . . f F F f
+        // . . . . f f f f
+        // . . . . . . . .
+        // . . . . . . . .
+        let f = Macrocell {
+            nw: self.ne.sw,
+            ne: self.ne.se,
+            sw: self.se.nw,
+            se: self.se.ne,
+        };
+        let f = func(f)?;
+
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // g g g g . . . .
+        // g G G g . . . .
+        // g G G g . . . .
+        // g g g g . . . .
+        let g = Macrocell {
+            nw: self.sw.nw,
+            ne: self.sw.ne,
+            sw: self.sw.sw,
+            se: self.sw.se,
+        };
+        let g = func(g)?;
+
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . h h h h . .
+        // . . h H H h . .
+        // . . h H H h . .
+        // . . h h h h . .
+        let h = Macrocell {
+            nw: self.sw.ne,
+            ne: self.se.nw,
+            sw: self.sw.se,
+            se: self.se.sw,
+        };
+        let h = func(h)?;
+
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . i i i i
+        // . . . . i I I i
+        // . . . . i I I i
+        // . . . . i i i i
+        let i = Macrocell {
+            nw: self.se.nw,
+            ne: self.se.ne,
+            sw: self.se.sw,
+            se: self.se.se,
+        };
+        let i = func(i)?;
+
+        Some(Partial {
+            grid: [[a, b, c], [d, e, f], [g, h, i]],
+        })
+    }
+}
 
 impl Macrocell<Leaf> {
     pub fn jump(&self, rule: Rule) -> Leaf {
@@ -195,7 +498,7 @@ impl Macrocell<Leaf> {
 // ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
 // ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
 // ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
-// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
+// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
 // ┃  NW     ╎  NW     ╎  NW     ╎  NW     ┃  NE     ╎  NE     ╎  NE     ╎  NE     ┃
 // ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
 // ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
@@ -211,7 +514,7 @@ impl Macrocell<Leaf> {
 // ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
 // ┠   nw    ╎   nw    ╎   ne    ╎   ne    ┃   nw    ╎   nw    ╎   ne    ╎   ne    ┨
 // ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃    ˢʷ   ╎    ˢᵉ   ╎    ˢʷ   ╎    ˢᵉ   ┃
-// ┠ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ╌ ┨
+// ┠ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┃ ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ + ╌ ╌ ╌ ╌ ┨
 // ┃  SW     ╎  SW     ╎  SW     ╎  SW     ┃  SE     ╎  SE     ╎  SE     ╎  SE     ┃
 // ┠   sw    ╎   sw    ╎   se    ╎   se    ┃   sw    ╎   sw    ╎   se    ╎   se    ┨
 // ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃    ⁿʷ   ╎    ⁿᵉ   ╎    ⁿʷ   ╎    ⁿᵉ   ┃
