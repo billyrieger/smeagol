@@ -4,6 +4,7 @@
 
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 
+/// A description of how one state of a cellular automaton transitions into the next.
 #[derive(Clone, Copy, Debug)]
 pub struct Rule {
     birth: [Bool8x8; 9],
@@ -11,7 +12,7 @@ pub struct Rule {
 }
 
 impl Rule {
-    /// Creates a new Life-like rule in B/S notation.
+    /// Creates a new `Rule` in [B/S notation].
     ///
     /// # Examples
     ///
@@ -20,6 +21,8 @@ impl Rule {
     /// // Conway's Game of Life: B3/S23
     /// let life = Rule::new(&[3], &[2, 3]);
     /// ```
+    ///
+    /// [B/S notation]: https://www.conwaylife.com/wiki/Rulestring#B.2FS_notation
     pub fn new(birth: &[usize], survival: &[usize]) -> Self {
         Self {
             birth: make_rule(birth),
@@ -36,7 +39,7 @@ fn make_rule(neighbors: &[usize]) -> [Bool8x8; 9] {
     result
 }
 
-/// An 8 by 8 grid of dead or alive cells.
+/// An 8 by 8 grid of dead or alive cells in a cellular automaton.
 ///
 /// ```
 /// # use smeagol::leaf::{Bool8x8, Leaf};
@@ -128,11 +131,14 @@ impl Leaf {
     }
 }
 
-/// A `u64` interpreted as an 8 by 8 grid of booleans.
+/// A `u64` interpreted as a grid of boolean values.
+///
+/// # Bit layout
 ///
 /// The following diagram shows the layout of the bits of a `u64` to make a
-/// square. The most significant bit, `1 << 63`, is in the upper-left corner
-/// and the least significant bit, `1 << 0`, is in the bottom-right.
+/// square grid. The most significant bit, `1 << 63`, is in the upper-left corner
+/// and the least significant bit, `1 << 0`, is in the bottom-right. Each row of the grid
+/// corresponds to one contiguous byte of the `u64`.
 ///
 /// ```text
 /// ┌────┬────┬────┬────┬────┬────┬────┬────┐
@@ -153,15 +159,86 @@ impl Leaf {
 /// │  7 │  6 │  5 │  4 │  3 │  2 │  1 │  0 │
 /// └────┴────┴────┴────┴────┴────┴────┴────┘
 /// ```
+///
+/// # Examples
+///
+/// ```
+/// # use smeagol::leaf::Bool8x8;
+/// let uppercase_f = Bool8x8::from_rows([0x00, 0x3C, 0x20, 0x38, 0x20, 0x20, 0x20, 0x00]);
+/// ```
+///
+/// ```text
+/// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
+/// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 0 0   0 0 0 0  =  0x00
+/// ┠                   ╎                   ┨
+/// ┃ ░░   ░░   ██   ██ ╎ ██   ██   ░░   ░░ ┃   0 0 1 1   1 1 0 0  =  0x3C
+/// ┠                   ╎                   ┨
+/// ┃ ░░   ░░   ██   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 1 0   0 0 0 0  =  0x20
+/// ┠                   ╎                   ┨
+/// ┃ ░░   ░░   ██   ██ ╎ ██   ░░   ░░   ░░ ┃   0 0 1 1   1 0 0 0  =  0x38
+/// ┠  ╌  ╌ ╌  ╌ ╌  ╌ ╌   ╌ ╌  ╌ ╌  ╌ ╌  ╌  ┨
+/// ┃ ░░   ░░   ██   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 1 0   0 0 0 0  =  0x20
+/// ┠                   ╎                   ┨
+/// ┃ ░░   ░░   ██   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 1 0   0 0 0 0  =  0x20
+/// ┠                   ╎                   ┨
+/// ┃ ░░   ░░   ██   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 1 0   0 0 0 0  =  0x20
+/// ┠                   ╎                   ┨
+/// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 0 0   0 0 0 0  =  0x00
+/// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
+/// ```
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub struct Bool8x8(pub u64);
 
 impl Bool8x8 {
     /// The `Bool8x8` where all elements are `false`.
+    ///
+    /// ```text
+    /// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
+    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
+    /// ┠                   ╎                   ┨
+    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
+    /// ┠                   ╎                   ┨
+    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
+    /// ┠                   ╎                   ┨
+    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
+    /// ┠  ╌  ╌ ╌  ╌ ╌  ╌ ╌   ╌ ╌  ╌ ╌  ╌ ╌  ╌  ┨
+    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
+    /// ┠                   ╎                   ┨
+    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
+    /// ┠                   ╎                   ┨
+    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
+    /// ┠                   ╎                   ┨
+    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
+    /// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
+    /// ```
     pub const FALSE: Self = Self(0);
 
     /// The `Bool8x8` where all elements are `true`.
+    ///
+    /// ```text
+    /// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
+    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
+    /// ┠                   ╎                   ┨
+    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
+    /// ┠                   ╎                   ┨
+    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
+    /// ┠                   ╎                   ┨
+    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
+    /// ┠╌ ╌  ╌ ╌  ╌ ╌  ╌ ╌   ╌ ╌  ╌ ╌  ╌ ╌  ╌  ┨
+    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
+    /// ┠                   ╎                   ┨
+    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
+    /// ┠                   ╎                   ┨
+    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
+    /// ┠                   ╎                   ┨
+    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
+    /// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
+    /// ```
     pub const TRUE: Self = Self(u64::MAX);
+
+    pub fn from_rows(rows: [u8; 8]) -> Self {
+        Self(u64::from_be_bytes(rows))
+    }
 
     /// Shifts the `Bool8x8` to the left by the given number of steps.
     pub fn left(&self, steps: u8) -> Self {

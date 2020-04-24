@@ -13,16 +13,16 @@ pub struct Node {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+enum NodeKind {
+    Leaf(Leaf),
+    Inner(Inner),
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Inner {
     children: Macrocell<NodeId>,
     level: Level,
     population: u128,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-enum NodeKind {
-    Leaf(Leaf),
-    Inner(Inner),
 }
 
 impl Node {
@@ -185,14 +185,6 @@ impl<T> Partial<T> {
         F: FnMut(Macrocell<T>) -> Option<T>,
         T: Copy,
     {
-        // . . . . . . . .
-        // . w w w w . . .
-        // . w W W w . . .
-        // . w W W w . . .
-        // . w w w w . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
         let w = Macrocell {
             nw: self.grid[0][0],
             ne: self.grid[0][1],
@@ -201,14 +193,6 @@ impl<T> Partial<T> {
         };
         let w = func(w)?;
 
-        // . . . . . . . .
-        // . . . x x x x .
-        // . . . x X X x .
-        // . . . x X X x .
-        // . . . x x x x .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
         let x = Macrocell {
             nw: self.grid[0][1],
             ne: self.grid[0][2],
@@ -217,14 +201,6 @@ impl<T> Partial<T> {
         };
         let x = func(x)?;
 
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . y y y y . . .
-        // . y Y Y y . . .
-        // . y Y Y y . . .
-        // . y y y y . . .
-        // . . . . . . . .
         let y = Macrocell {
             nw: self.grid[1][0],
             ne: self.grid[1][1],
@@ -233,14 +209,6 @@ impl<T> Partial<T> {
         };
         let y = func(y)?;
 
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . z z z z .
-        // . . . z Z Z z .
-        // . . . z Z Z z .
-        // . . . z z z z .
-        // . . . . . . . .
         let z = Macrocell {
             nw: self.grid[1][1],
             ne: self.grid[1][2],
@@ -264,14 +232,6 @@ impl<T> Macrocell2<T> {
         F: FnMut(Macrocell<T>) -> Option<T>,
         T: Copy,
     {
-        // a a a a . . . .
-        // a A A a . . . .
-        // a A A a . . . .
-        // a a a a . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
         let a = Macrocell {
             nw: self.nw.nw,
             ne: self.nw.ne,
@@ -280,14 +240,6 @@ impl<T> Macrocell2<T> {
         };
         let a = func(a)?;
 
-        // . . b b b b . .
-        // . . b B B b . .
-        // . . b B B b . .
-        // . . b b b b . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
         let b = Macrocell {
             nw: self.nw.ne,
             ne: self.ne.nw,
@@ -296,14 +248,6 @@ impl<T> Macrocell2<T> {
         };
         let b = func(b)?;
 
-        // . . . . c c c c
-        // . . . . c C C c
-        // . . . . c C C c
-        // . . . . c c c c
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
         let c = Macrocell {
             nw: self.ne.nw,
             ne: self.ne.ne,
@@ -312,14 +256,6 @@ impl<T> Macrocell2<T> {
         };
         let c = func(c)?;
 
-        // . . . . . . . .
-        // . . . . . . . .
-        // d d d d . . . .
-        // d D D d . . . .
-        // d D D d . . . .
-        // d d d d . . . .
-        // . . . . . . . .
-        // . . . . . . . .
         let d = Macrocell {
             nw: self.nw.sw,
             ne: self.nw.se,
@@ -328,14 +264,6 @@ impl<T> Macrocell2<T> {
         };
         let d = func(d)?;
 
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . e e e e . .
-        // . . e E E e . .
-        // . . e E E e . .
-        // . . e e e e . .
-        // . . . . . . . .
-        // . . . . . . . .
         let e = Macrocell {
             nw: self.nw.se,
             ne: self.ne.sw,
@@ -344,14 +272,6 @@ impl<T> Macrocell2<T> {
         };
         let e = func(e)?;
 
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . f f f f
-        // . . . . f F F f
-        // . . . . f F F f
-        // . . . . f f f f
-        // . . . . . . . .
-        // . . . . . . . .
         let f = Macrocell {
             nw: self.ne.sw,
             ne: self.ne.se,
@@ -360,14 +280,6 @@ impl<T> Macrocell2<T> {
         };
         let f = func(f)?;
 
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // g g g g . . . .
-        // g G G g . . . .
-        // g G G g . . . .
-        // g g g g . . . .
         let g = Macrocell {
             nw: self.sw.nw,
             ne: self.sw.ne,
@@ -376,14 +288,6 @@ impl<T> Macrocell2<T> {
         };
         let g = func(g)?;
 
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . h h h h . .
-        // . . h H H h . .
-        // . . h H H h . .
-        // . . h h h h . .
         let h = Macrocell {
             nw: self.sw.ne,
             ne: self.se.nw,
@@ -392,14 +296,6 @@ impl<T> Macrocell2<T> {
         };
         let h = func(h)?;
 
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . i i i i
-        // . . . . i I I i
-        // . . . . i I I i
-        // . . . . i i i i
         let i = Macrocell {
             nw: self.se.nw,
             ne: self.se.ne,
