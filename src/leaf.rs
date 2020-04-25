@@ -12,7 +12,7 @@ pub struct Rule {
 }
 
 impl Rule {
-    /// Creates a new `Rule` in [B/S notation].
+    /// Creates a new `Rule` in B/S notation.
     ///
     /// # Examples
     ///
