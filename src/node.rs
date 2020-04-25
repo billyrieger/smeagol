@@ -3,50 +3,42 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use slotmap::{new_key_type, SecondaryMap, SlotMap};
-use std::{
-    collections::HashMap,
-    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not},
-};
+use std::collections::HashMap;
 
-/// A description of how one state of a cellular automaton transitions into the next.
-#[derive(Clone, Copy, Debug)]
-pub struct Rule {
-    birth: [Bool8x8; 9],
-    survival: [Bool8x8; 9],
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Level(u8);
+
+new_key_type! {
+    pub struct NodeId;
 }
 
-impl Rule {
-    /// Creates a new `Rule` in B/S notation.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use smeagol::leaf::Rule;
-    /// // Conway's Game of Life: B3/S23
-    /// let life = Rule::new(&[3], &[2, 3]);
-    /// ```
-    ///
-    /// [B/S notation]: https://www.conwaylife.com/wiki/Rulestring#B.2FS_notation
-    pub fn new(birth: &[usize], survival: &[usize]) -> Self {
-        Self {
-            birth: make_rule(birth),
-            survival: make_rule(survival),
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum Node {
+    Leaf(Leaf),
+    Branch(Branch),
+}
+
+impl Node {
+    pub fn level(&self) -> Level {
+        match self {
+            Self::Leaf(_) => Level(3),
+            Self::Branch(branch) => branch.level,
         }
     }
-}
 
-fn make_rule(neighbors: &[usize]) -> [Bool8x8; 9] {
-    let mut result = [Bool8x8::FALSE; 9];
-    for &i in neighbors {
-        result.get_mut(i).map(|x| *x = Bool8x8::TRUE);
+    /// Returns the number of alive cells in the `Node`.
+    pub fn population(&self) -> u128 {
+        match self {
+            Self::Leaf(leaf) => leaf.alive.0.count_ones() as u128,
+            Self::Branch(branch) => branch.population,
+        }
     }
-    result
 }
 
 /// An 8 by 8 grid of dead or alive cells in a cellular automaton.
 ///
 /// ```
-/// # use smeagol::leaf::{Bool8x8, Leaf};
+/// # use smeagol::node::{Bool8x8, Leaf};
 /// let glider = Leaf::new(Bool8x8(0x0000_1008_3800_0000));
 /// ```
 ///
@@ -71,30 +63,25 @@ fn make_rule(neighbors: &[usize]) -> [Bool8x8; 9] {
 /// ```
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Leaf {
-    pub alive: Bool8x8,
+    alive: Bool8x8,
 }
 
 impl Leaf {
     /// # Examples
     ///
     /// ```
-    /// # use smeagol::leaf::{Bool8x8, Leaf};
+    /// # use smeagol::node::{Bool8x8, Leaf};
+    /// let all_dead = Leaf::new(Bool8x8::FALSE);
+    /// let all_alive = Leaf::new(Bool8x8::TRUE);
+    ///
     /// let glider = Leaf::new(Bool8x8(0x0000_1008_3800_0000));
     /// ```
-    pub fn new(alive: Bool8x8) -> Self {
+    pub const fn new(alive: Bool8x8) -> Self {
         Self { alive }
     }
 
-    pub fn mask(self, mask: Bool8x8) -> Self {
-        Self::new(self.alive & mask)
-    }
-
-    pub fn population(&self) -> u128 {
-        u128::from(self.alive.0.count_ones())
-    }
-
-    pub fn step(&self, rule: Rule) -> Self {
-        let (alive, dead) = (self.alive, !self.alive);
+    const fn step(&self, rule: Rule) -> Self {
+        let (alive, dead) = (self.alive, self.alive.not());
 
         let alive_neighbor_count = Bool8x8::sum(&[
             alive.up(1),
@@ -107,31 +94,150 @@ impl Leaf {
             alive.left(1).right(1),
         ]);
 
-        let alive_next = Bool8x8::FALSE
-            | dead & alive_neighbor_count[0] & rule.birth[0]
-            | dead & alive_neighbor_count[1] & rule.birth[1]
-            | dead & alive_neighbor_count[2] & rule.birth[2]
-            | dead & alive_neighbor_count[3] & rule.birth[3]
-            | dead & alive_neighbor_count[4] & rule.birth[4]
-            | dead & alive_neighbor_count[5] & rule.birth[5]
-            | dead & alive_neighbor_count[6] & rule.birth[6]
-            | dead & alive_neighbor_count[7] & rule.birth[7]
-            | dead & alive_neighbor_count[8] & rule.birth[8]
-            | alive & alive_neighbor_count[0] & rule.survival[0]
-            | alive & alive_neighbor_count[1] & rule.survival[1]
-            | alive & alive_neighbor_count[2] & rule.survival[2]
-            | alive & alive_neighbor_count[3] & rule.survival[3]
-            | alive & alive_neighbor_count[4] & rule.survival[4]
-            | alive & alive_neighbor_count[5] & rule.survival[5]
-            | alive & alive_neighbor_count[6] & rule.survival[6]
-            | alive & alive_neighbor_count[7] & rule.survival[7]
-            | alive & alive_neighbor_count[8] & rule.survival[8];
+        let result = Bool8x8::FALSE
+            .or(dead.and(alive_neighbor_count[0]).and(rule.birth[0]))
+            .or(dead.and(alive_neighbor_count[1]).and(rule.birth[1]))
+            .or(dead.and(alive_neighbor_count[2]).and(rule.birth[2]))
+            .or(dead.and(alive_neighbor_count[3]).and(rule.birth[3]))
+            .or(dead.and(alive_neighbor_count[4]).and(rule.birth[4]))
+            .or(dead.and(alive_neighbor_count[5]).and(rule.birth[5]))
+            .or(dead.and(alive_neighbor_count[6]).and(rule.birth[6]))
+            .or(dead.and(alive_neighbor_count[7]).and(rule.birth[7]))
+            .or(dead.and(alive_neighbor_count[8]).and(rule.birth[8]))
+            .or(alive.and(alive_neighbor_count[0]).and(rule.survival[0]))
+            .or(alive.and(alive_neighbor_count[1]).and(rule.survival[1]))
+            .or(alive.and(alive_neighbor_count[2]).and(rule.survival[2]))
+            .or(alive.and(alive_neighbor_count[3]).and(rule.survival[3]))
+            .or(alive.and(alive_neighbor_count[4]).and(rule.survival[4]))
+            .or(alive.and(alive_neighbor_count[5]).and(rule.survival[5]))
+            .or(alive.and(alive_neighbor_count[6]).and(rule.survival[6]))
+            .or(alive.and(alive_neighbor_count[7]).and(rule.survival[7]))
+            .or(alive.and(alive_neighbor_count[8]).and(rule.survival[8]));
 
-        Self::new(alive_next)
+        Self::new(result)
     }
 
-    pub fn jump(&self, rule: Rule) -> Self {
+    const fn jump(&self, rule: Rule) -> Self {
         self.step(rule).step(rule)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Branch {
+    children: Grid2x2<NodeId>,
+    level: Level,
+    population: u128,
+}
+
+/// A description of how one state of a cellular automaton transitions into the next.
+#[derive(Clone, Copy, Debug)]
+pub struct Rule {
+    birth: [Bool8x8; 9],
+    survival: [Bool8x8; 9],
+}
+
+impl Rule {
+    /// Creates a new `Rule` in B/S notation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use smeagol::node::Rule;
+    /// // Conway's Game of Life: B3/S23
+    /// let life = Rule::new(&[3], &[2, 3]);
+    /// ```
+    ///
+    /// [B/S notation]: https://www.conwaylife.com/wiki/Rulestring#B.2FS_notation
+    pub const fn new(birth: &[usize], survival: &[usize]) -> Self {
+        let empty = [Bool8x8::FALSE; 9];
+        Self {
+            birth: Self::make_rule(empty, birth),
+            survival: Self::make_rule(empty, survival),
+        }
+    }
+
+    const fn make_rule(rule: [Bool8x8; 9], neighbors: &[usize]) -> [Bool8x8; 9] {
+        const T: Bool8x8 = Bool8x8::TRUE;
+        const F: Bool8x8 = Bool8x8::FALSE;
+        match neighbors {
+            [] => [F; 9],
+            [head, tail @ ..] => {
+                let [a, b, c, d, e, f, g, h, i] = rule;
+                let rule = match head {
+                    0 => [T, b, c, d, e, f, g, h, i],
+                    1 => [a, T, c, d, e, f, g, h, i],
+                    2 => [a, b, T, d, e, f, g, h, i],
+                    3 => [a, b, c, T, e, f, g, h, i],
+                    4 => [a, b, c, d, T, f, g, h, i],
+                    5 => [a, b, c, d, e, T, g, h, i],
+                    6 => [a, b, c, d, e, f, T, h, i],
+                    7 => [a, b, c, d, e, f, g, T, i],
+                    8 => [a, b, c, d, e, f, g, h, T],
+                    _ => [a, b, c, d, e, f, g, h, i],
+                };
+                Self::make_rule(rule, tail)
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Quadtree {
+    rule: Rule,
+    id_lookup: HashMap<Node, NodeId>,
+    nodes: SlotMap<NodeId, Node>,
+    steps: SecondaryMap<NodeId, NodeId>,
+    jumps: SecondaryMap<NodeId, NodeId>,
+}
+
+impl Quadtree {
+    pub fn make_leaf(&mut self, leaf: Leaf) -> Option<NodeId> {
+        Some(self.get_id(Node::Leaf(leaf)))
+    }
+
+    pub fn make_inner(&mut self, children: Grid2x2<NodeId>) -> Option<NodeId> {
+        let [[a, b], [c, d]] = children.try_map(|id| self.get_node(id))?.unpack();
+        let level = a.level();
+        debug_assert_eq!(level, b.level());
+        debug_assert_eq!(level, c.level());
+        debug_assert_eq!(level, d.level());
+        let population = a.population() + b.population() + c.population() + d.population();
+        let node = Node::Branch(Branch {
+            children,
+            level,
+            population,
+        });
+        Some(self.get_id(node))
+    }
+
+    pub fn get_node(&self, id: NodeId) -> Option<Node> {
+        self.nodes.get(id).copied()
+    }
+
+    pub fn jump(&mut self, children: Grid2x2<NodeId>) -> Option<NodeId> {
+        match children.try_map(|id| self.get_node(id))?.unpack() {
+            [[Node::Leaf(w), Node::Leaf(x)], [Node::Leaf(y), Node::Leaf(z)]] => {
+                let grid2x2 = Grid2x2::pack([w, x, y, z]);
+                self.make_leaf(grid2x2.jump(self.rule))
+            }
+
+            [[Node::Branch(w), Node::Branch(x)], [Node::Branch(y), Node::Branch(z)]] => {
+                let grandchildren = Grid2x2::pack([w, x, y, z]).map(|branch| branch.children);
+                let grid4x4 = Grid4x4::flatten(grandchildren);
+                let grid2x2 = grid4x4.reduce(|x| self.jump(x))?.reduce(|x| self.jump(x))?;
+                self.make_inner(grid2x2)
+            }
+
+            _ => None,
+        }
+    }
+
+    fn get_id(&mut self, node: Node) -> NodeId {
+        self.id_lookup.get(&node).copied().unwrap_or_else(|| {
+            let id = self.nodes.insert(node);
+            self.id_lookup.insert(node, id);
+            id
+        })
     }
 }
 
@@ -167,8 +273,9 @@ impl Leaf {
 /// # Examples
 ///
 /// ```
-/// # use smeagol::leaf::Bool8x8;
+/// # use smeagol::node::Bool8x8;
 /// let uppercase_f = Bool8x8::from_rows([0x00, 0x3C, 0x20, 0x38, 0x20, 0x20, 0x20, 0x00]);
+/// // alternatively, Bool8x8(0x003C_2038_2020_2000);
 /// ```
 ///
 /// ```text
@@ -195,202 +302,90 @@ pub struct Bool8x8(pub u64);
 
 impl Bool8x8 {
     /// The `Bool8x8` where all elements are `false`.
-    ///
-    /// ```text
-    /// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
-    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
-    /// ┠                   ╎                   ┨
-    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
-    /// ┠                   ╎                   ┨
-    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
-    /// ┠                   ╎                   ┨
-    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
-    /// ┠  ╌  ╌ ╌  ╌ ╌  ╌ ╌   ╌ ╌  ╌ ╌  ╌ ╌  ╌  ┨
-    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
-    /// ┠                   ╎                   ┨
-    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
-    /// ┠                   ╎                   ┨
-    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
-    /// ┠                   ╎                   ┨
-    /// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃
-    /// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
-    /// ```
     pub const FALSE: Self = Self(0);
 
     /// The `Bool8x8` where all elements are `true`.
-    ///
-    /// ```text
-    /// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
-    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
-    /// ┠                   ╎                   ┨
-    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
-    /// ┠                   ╎                   ┨
-    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
-    /// ┠                   ╎                   ┨
-    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
-    /// ┠╌ ╌  ╌ ╌  ╌ ╌  ╌ ╌   ╌ ╌  ╌ ╌  ╌ ╌  ╌  ┨
-    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
-    /// ┠                   ╎                   ┨
-    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
-    /// ┠                   ╎                   ┨
-    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
-    /// ┠                   ╎                   ┨
-    /// ┃ ██   ██   ██   ██ ╎ ██   ██   ██   ██ ┃
-    /// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
-    /// ```
     pub const TRUE: Self = Self(u64::MAX);
 
-    pub fn from_rows(rows: [u8; 8]) -> Self {
+    pub const fn from_rows(rows: [u8; 8]) -> Self {
         Self(u64::from_be_bytes(rows))
     }
 
+    pub const fn not(self) -> Self {
+        Self(!self.0)
+    }
+
+    pub const fn and(self, other: Self) -> Self {
+        Self(self.0 & other.0)
+    }
+
+    pub const fn or(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+
+    pub const fn xor(self, other: Self) -> Self {
+        Self(self.0 ^ other.0)
+    }
+
     /// Shifts the `Bool8x8` to the left by the given number of steps.
-    pub fn left(&self, steps: u8) -> Self {
+    pub const fn left(&self, steps: u8) -> Self {
         Self(self.0 << steps)
     }
 
     /// Shifts the `Bool8x8` to the right by the given number of steps.
-    pub fn right(&self, steps: u8) -> Self {
+    pub const fn right(&self, steps: u8) -> Self {
         Self(self.0 >> steps)
     }
 
     /// Shifts the `Bool8x8` up by the given number of steps.
-    pub fn up(&self, steps: u8) -> Self {
+    pub const fn up(&self, steps: u8) -> Self {
         Self(self.0 << (steps * 8))
     }
 
     /// Shifts the `Bool8x8` down by the given number of steps.
-    pub fn down(&self, steps: u8) -> Self {
+    pub const fn down(&self, steps: u8) -> Self {
         Self(self.0 >> (steps * 8))
     }
 
-    pub fn sum(addends: &[Self]) -> [Self; 9] {
-        let mut digits = [Self::FALSE; 4];
-
-        for &addend in addends {
-            // add `addend` to the first digit `digits[0]`
-            let carry0 = digits[0] & addend;
-            digits[0] ^= addend;
-
-            // add `carry0` to the next digit `digits[1]`
-            let carry1 = digits[1] & carry0;
-            digits[1] ^= carry0;
-
-            // add `carry1` to the next digit `digits[2]`
-            let carry2 = digits[2] & carry1;
-            digits[2] ^= carry1;
-
-            // add `carry2` to the final digit `digits[3]`
-            digits[3] |= carry2;
-        }
-
-        let [a1, b1, c1, d1] = digits;
-        let [a0, b0, c0, d0] = [!a1, !b1, !c1, !d1];
+    pub const fn sum(addends: &[Self]) -> [Self; 9] {
+        let [a1, b1, c1, d1] = Self::sum_helper([Bool8x8::FALSE; 4], addends);
+        let [a0, b0, c0, d0] = [a1.not(), b1.not(), c1.not(), d1.not()];
         [
-            d0 & c0 & b0 & a0, // 0000 = 0
-            d0 & c0 & b0 & a1, // 0001 = 1
-            d0 & c0 & b1 & a0, // 0010 = 2
-            d0 & c0 & b1 & a1, // 0011 = 3
-            d0 & c1 & b0 & a0, // 0100 = 4
-            d0 & c1 & b0 & a1, // 0101 = 5
-            d0 & c1 & b1 & a0, // 0110 = 6
-            d0 & c1 & b1 & a1, // 0111 = 7
-            d1 & c0 & b0 & a0, // 1000 = 8
+            d0.and(c0).and(b0).and(a0), // 0000 = 0
+            d0.and(c0).and(b0).and(a1), // 0001 = 1
+            d0.and(c0).and(b1).and(a0), // 0010 = 2
+            d0.and(c0).and(b1).and(a1), // 0011 = 3
+            d0.and(c1).and(b0).and(a0), // 0100 = 4
+            d0.and(c1).and(b0).and(a1), // 0101 = 5
+            d0.and(c1).and(b1).and(a0), // 0110 = 6
+            d0.and(c1).and(b1).and(a1), // 0111 = 7
+            d1.and(c0).and(b0).and(a0), // 1000 = 8
         ]
     }
-}
 
-impl BitAnd for Bool8x8 {
-    type Output = Self;
+    const fn sum_helper(digits: [Self; 4], addends: &[Self]) -> [Self; 4] {
+        match addends {
+            [] => digits,
+            [head, tail @ ..] => {
+                // add `head` to the first digit `digits[0]`
+                let carry0 = digits[0].and(*head);
+                let a = digits[0].xor(*head);
 
-    fn bitand(self, other: Self) -> Self {
-        Self(self.0 & other.0)
-    }
-}
+                // add `carry0` to the next digit `digits[1]`
+                let carry1 = digits[1].and(carry0);
+                let b = digits[1].xor(carry0);
 
-impl BitAndAssign for Bool8x8 {
-    fn bitand_assign(&mut self, other: Self) {
-        *self = *self & other;
-    }
-}
+                // add `carry1` to the next digit `digits[2]`
+                let carry2 = digits[2].and(carry1);
+                let c = digits[2].xor(carry1);
 
-impl BitOr for Bool8x8 {
-    type Output = Self;
+                // add `carry2` to the final digit `digits[3]`
+                let d = digits[3].or(carry2);
 
-    fn bitor(self, other: Self) -> Self {
-        Self(self.0 | other.0)
-    }
-}
-
-impl BitOrAssign for Bool8x8 {
-    fn bitor_assign(&mut self, other: Self) {
-        *self = *self | other;
-    }
-}
-
-impl BitXor for Bool8x8 {
-    type Output = Self;
-
-    fn bitxor(self, other: Self) -> Self {
-        Self(self.0 ^ other.0)
-    }
-}
-
-impl BitXorAssign for Bool8x8 {
-    fn bitxor_assign(&mut self, other: Self) {
-        *self = *self ^ other;
-    }
-}
-
-impl Not for Bool8x8 {
-    type Output = Self;
-
-    fn not(self) -> Self {
-        Self(!self.0)
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Level(u8);
-
-new_key_type! {
-    pub struct NodeId;
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum Node {
-    Leaf(Leaf),
-    Branch(Branch),
-}
-
-impl Node {
-    pub fn children(&self) -> Option<Grid2x2<NodeId>> {
-        match self {
-            Self::Leaf(_) => None,
-            Self::Branch(branch) => Some(branch.children),
+                Self::sum_helper([a, b, c, d], tail)
+            }
         }
     }
-
-    pub fn level(&self) -> Level {
-        match self {
-            Self::Leaf(_) => Level(3),
-            Self::Branch(branch) => branch.level,
-        }
-    }
-
-    pub fn population(&self) -> u128 {
-        match self {
-            Self::Leaf(leaf) => leaf.population(),
-            Self::Branch(branch) => branch.population,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Branch {
-    pub children: Grid2x2<NodeId>,
-    pub level: Level,
-    pub population: u128,
 }
 
 /// A 2 by 2 grid of values.
@@ -406,6 +401,22 @@ impl<T> Grid2x2<T> {
     pub fn unpack(self) -> [[T; 2]; 2] {
         self.0
     }
+
+    pub fn map<F, U>(self, f: F) -> Grid2x2<U>
+    where
+        F: Fn(T) -> U,
+    {
+        let [[a, b], [c, d]] = self.unpack();
+        Grid2x2([[f(a), f(b)], [f(c), f(d)]])
+    }
+
+    pub fn try_map<F, U>(self, f: F) -> Option<Grid2x2<U>>
+    where
+        F: Fn(T) -> Option<U>,
+    {
+        let [[a, b], [c, d]] = self.unpack();
+        Some(Grid2x2([[f(a)?, f(b)?], [f(c)?, f(d)?]]))
+    }
 }
 
 /// A 3 by 3 grid of values.
@@ -416,44 +427,7 @@ impl<T> Grid3x3<T> {
     pub fn unpack(self) -> [[T; 3]; 3] {
         self.0
     }
-}
 
-/// A 4 by 4 grid of values.
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Grid4x4<T>([[T; 4]; 4]);
-
-impl<T> Grid4x4<T> {
-    pub fn pack(grid: [T; 16]) -> Self {
-        let [a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p] = grid;
-        Self([[a, b, c, d], [e, f, g, h], [i, j, k, l], [m, n, o, p]])
-    }
-
-    pub fn unpack(self) -> [[T; 4]; 4] {
-        self.0
-    }
-}
-
-impl<T> Grid2x2<T> {
-    pub fn map<F, U>(self, f: F) -> Grid2x2<U>
-    where
-        F: Fn(T) -> U,
-        T: Copy,
-    {
-        let [[a, b], [c, d]] = self.unpack();
-        Grid2x2([[f(a), f(b)], [f(c), f(d)]])
-    }
-
-    pub fn try_map<F, U>(self, f: F) -> Option<Grid2x2<U>>
-    where
-        F: Fn(T) -> Option<U>,
-        T: Copy,
-    {
-        let [[a, b], [c, d]] = self.unpack();
-        Some(Grid2x2([[f(a)?, f(b)?], [f(c)?, f(d)?]]))
-    }
-}
-
-impl<T> Grid3x3<T> {
     pub fn reduce<F>(&self, mut map: F) -> Option<Grid2x2<T>>
     where
         F: FnMut(Grid2x2<T>) -> Option<T>,
@@ -470,7 +444,26 @@ impl<T> Grid3x3<T> {
     }
 }
 
+/// A 4 by 4 grid of values.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Grid4x4<T>([[T; 4]; 4]);
+
 impl<T> Grid4x4<T> {
+    pub fn pack(grid: [T; 16]) -> Self {
+        let [a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p] = grid;
+        Self([[a, b, c, d], [e, f, g, h], [i, j, k, l], [m, n, o, p]])
+    }
+
+    pub fn flatten(grid: Grid2x2<Grid2x2<T>>) -> Self {
+        let [[[[a, b], [e, f]], [[c, d], [g, h]]], [[[i, j], [m, n]], [[k, l], [o, p]]]] =
+            grid.map(|inner| inner.unpack()).unpack();
+        Self::pack([a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p])
+    }
+
+    pub fn unpack(self) -> [[T; 4]; 4] {
+        self.0
+    }
+
     pub fn map<F, U>(&self, f: F) -> Grid4x4<U>
     where
         F: Fn(T) -> U,
@@ -508,7 +501,7 @@ impl<T> Grid4x4<T> {
 }
 
 impl Grid2x2<Leaf> {
-    pub fn jump(&self, rule: Rule) -> Leaf {
+    fn jump(&self, rule: Rule) -> Leaf {
         let a = self.0[0][0].jump(rule);
         let b = self.north().jump(rule);
         let c = self.0[0][1].jump(rule);
@@ -523,10 +516,10 @@ impl Grid2x2<Leaf> {
         let combine_jumps = |nw: Leaf, ne: Leaf, sw: Leaf, se: Leaf| {
             Leaf::new(
                 Bool8x8::FALSE
-                    | (nw.alive & mask_center).up(2).left(2)
-                    | ne.mask(mask_center).alive.up(2).right(2)
-                    | sw.mask(mask_center).alive.down(2).left(2)
-                    | se.mask(mask_center).alive.down(2).right(2),
+                    .or(nw.alive.and(mask_center).up(2).left(2))
+                    .or(ne.alive.and(mask_center).up(2).right(2))
+                    .or(sw.alive.and(mask_center).down(2).left(2))
+                    .or(se.alive.and(mask_center).down(2).right(2)),
             )
         };
 
@@ -541,28 +534,36 @@ impl Grid2x2<Leaf> {
     fn join_horizontal(left: Leaf, right: Leaf) -> Leaf {
         let mask_left = Bool8x8(0xFF00_FF00_FF00_FF00);
         let mask_right = Bool8x8(0x00FF00_00FF_00FF_00FF);
-        Leaf::new((left.alive.left(4) & mask_left) | (right.alive.right(4) & mask_right))
+        Leaf::new(
+            Bool8x8::FALSE
+                .or(left.alive.left(4).and(mask_left))
+                .or(right.alive.right(4).and(mask_right)),
+        )
     }
 
     fn join_vertical(top: Leaf, bottom: Leaf) -> Leaf {
         let mask_top = Bool8x8(0xFFFF_FFFF_0000_0000);
         let mask_bottom = Bool8x8(0x0000_0000_FFFF_FFFF);
-        Leaf::new((top.alive.up(4) & mask_top) | (bottom.alive.down(4) & mask_bottom))
+        Leaf::new(
+            Bool8x8::FALSE
+                .or(top.alive.up(4).and(mask_top))
+                .or(bottom.alive.down(4).and(mask_bottom)),
+        )
     }
 
-    pub fn north(&self) -> Leaf {
+    fn north(&self) -> Leaf {
         Self::join_horizontal(self.0[0][0], self.0[0][1])
     }
 
-    pub fn south(&self) -> Leaf {
+    fn south(&self) -> Leaf {
         Self::join_horizontal(self.0[1][0], self.0[1][1])
     }
 
-    pub fn east(&self) -> Leaf {
+    fn east(&self) -> Leaf {
         Self::join_vertical(self.0[0][0], self.0[1][0])
     }
 
-    pub fn west(&self) -> Leaf {
+    fn west(&self) -> Leaf {
         Self::join_vertical(self.0[0][1], self.0[1][1])
     }
 
@@ -573,78 +574,12 @@ impl Grid2x2<Leaf> {
         let mask_se = Bool8x8(0x0000_0000_0F0F_0F0F);
 
         let center = Bool8x8::FALSE
-            | self.0[0][0].alive.up(4).left(4) & mask_nw
-            | self.0[0][1].alive.up(4).right(4) & mask_ne
-            | self.0[1][0].alive.down(4).left(4) & mask_sw
-            | self.0[1][1].alive.down(4).right(4) & mask_se;
+            .or(self.0[0][0].alive.up(4).left(4).and(mask_nw))
+            .or(self.0[0][1].alive.up(4).right(4).and(mask_ne))
+            .or(self.0[1][0].alive.down(4).left(4).and(mask_sw))
+            .or(self.0[1][1].alive.down(4).right(4).and(mask_se));
 
         Leaf::new(center)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Store {
-    rule: Rule,
-    ids: HashMap<Node, NodeId>,
-    nodes: SlotMap<NodeId, Node>,
-    steps: SecondaryMap<NodeId, NodeId>,
-    jumps: SecondaryMap<NodeId, NodeId>,
-}
-
-impl Store {
-    fn get_id(&mut self, node: Node) -> NodeId {
-        self.ids.get(&node).copied().unwrap_or_else(|| {
-            let id = self.nodes.insert(node);
-            self.ids.insert(node, id);
-            id
-        })
-    }
-
-    pub fn make_leaf(&mut self, leaf: Leaf) -> Option<NodeId> {
-        Some(self.get_id(Node::Leaf(leaf)))
-    }
-
-    pub fn make_inner(&mut self, children: Grid2x2<NodeId>) -> Option<NodeId> {
-        let [[a, b], [c, d]] = children.try_map(|id| self.get_node(id))?.unpack();
-        let level = a.level();
-        assert_eq!(level, b.level());
-        assert_eq!(level, c.level());
-        assert_eq!(level, d.level());
-        let population = a.population() + b.population() + c.population() + d.population();
-        let branch = Branch {
-            children,
-            level,
-            population,
-        };
-        Some(self.get_id(Node::Branch(branch)))
-    }
-
-    pub fn get_node(&self, id: NodeId) -> Option<Node> {
-        self.nodes.get(id).copied()
-    }
-
-    pub fn jump(&mut self, children: Grid2x2<NodeId>) -> Option<NodeId> {
-        match children.try_map(|id| self.get_node(id))?.unpack() {
-            [[Node::Leaf(w), Node::Leaf(x)], [Node::Leaf(y), Node::Leaf(z)]] => {
-                let grid2x2 = Grid2x2::pack([w, x, y, z]);
-                self.make_leaf(grid2x2.jump(self.rule))
-            }
-
-            [[Node::Branch(w), Node::Branch(x)], [Node::Branch(y), Node::Branch(z)]] => {
-                let [[a, b], [e, f]] = w.children.unpack();
-                let [[c, d], [g, h]] = x.children.unpack();
-                let [[i, j], [m, n]] = y.children.unpack();
-                let [[k, l], [o, p]] = z.children.unpack();
-                let grid4x4 = Grid4x4::pack([a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p]);
-
-                let grid3x3 = grid4x4.reduce(|x| self.jump(x))?;
-                let grid2x2 = grid3x3.reduce(|x| self.jump(x))?;
-
-                self.make_inner(grid2x2)
-            }
-
-            _ => None,
-        }
     }
 }
 
@@ -674,16 +609,5 @@ mod tests {
         assert_eq!(Bool8x8(0x00F00000000000F0), buckets[2]);
         assert_eq!(Bool8x8(0x0F0000000000000F), buckets[1]);
         assert_eq!(Bool8x8(0xF000000000000000), buckets[0]);
-    }
-
-    #[test]
-    fn test_make_rule() {
-        let empty = [Bool8x8::FALSE; 9];
-        assert_eq!(make_rule(&[]), empty);
-        assert_eq!(make_rule(&[9]), empty);
-        assert_eq!(
-            make_rule(&[8, 8, 1, 8, 3, 100, 3, 1, 33]),
-            make_rule(&[8, 3, 1])
-        );
     }
 }
