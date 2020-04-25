@@ -311,6 +311,7 @@ impl Bool8x8 {
         Self(u64::from_be_bytes(rows))
     }
 
+    /// Performs an element-wise boolean NOT.
     pub fn not(self) -> Self {
         Self(!self.0)
     }
