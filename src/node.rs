@@ -80,7 +80,7 @@ impl Leaf {
         Self { alive }
     }
 
-    const fn step(&self, rule: Rule) -> Self {
+    fn step(&self, rule: Rule) -> Self {
         let (alive, dead) = (self.alive, self.alive.not());
 
         let alive_neighbor_count = Bool8x8::sum(&[
@@ -117,7 +117,7 @@ impl Leaf {
         Self::new(result)
     }
 
-    const fn jump(&self, rule: Rule) -> Self {
+    fn jump(&self, rule: Rule) -> Self {
         self.step(rule).step(rule)
     }
 }
@@ -148,7 +148,7 @@ impl Rule {
     /// ```
     ///
     /// [B/S notation]: https://www.conwaylife.com/wiki/Rulestring#B.2FS_notation
-    pub const fn new(birth: &[usize], survival: &[usize]) -> Self {
+    pub fn new(birth: &[usize], survival: &[usize]) -> Self {
         let empty = [Bool8x8::FALSE; 9];
         Self {
             birth: Self::make_rule(empty, birth),
@@ -156,7 +156,7 @@ impl Rule {
         }
     }
 
-    const fn make_rule(rule: [Bool8x8; 9], neighbors: &[usize]) -> [Bool8x8; 9] {
+    fn make_rule(rule: [Bool8x8; 9], neighbors: &[usize]) -> [Bool8x8; 9] {
         const T: Bool8x8 = Bool8x8::TRUE;
         const F: Bool8x8 = Bool8x8::FALSE;
         match neighbors {
@@ -307,47 +307,47 @@ impl Bool8x8 {
     /// The `Bool8x8` where all elements are `true`.
     pub const TRUE: Self = Self(u64::MAX);
 
-    pub const fn from_rows(rows: [u8; 8]) -> Self {
+    pub fn from_rows(rows: [u8; 8]) -> Self {
         Self(u64::from_be_bytes(rows))
     }
 
-    pub const fn not(self) -> Self {
+    pub fn not(self) -> Self {
         Self(!self.0)
     }
 
-    pub const fn and(self, other: Self) -> Self {
+    pub fn and(self, other: Self) -> Self {
         Self(self.0 & other.0)
     }
 
-    pub const fn or(self, other: Self) -> Self {
+    pub fn or(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
 
-    pub const fn xor(self, other: Self) -> Self {
+    pub fn xor(self, other: Self) -> Self {
         Self(self.0 ^ other.0)
     }
 
     /// Shifts the `Bool8x8` to the left by the given number of steps.
-    pub const fn left(&self, steps: u8) -> Self {
+    pub fn left(&self, steps: u8) -> Self {
         Self(self.0 << steps)
     }
 
     /// Shifts the `Bool8x8` to the right by the given number of steps.
-    pub const fn right(&self, steps: u8) -> Self {
+    pub fn right(&self, steps: u8) -> Self {
         Self(self.0 >> steps)
     }
 
     /// Shifts the `Bool8x8` up by the given number of steps.
-    pub const fn up(&self, steps: u8) -> Self {
+    pub fn up(&self, steps: u8) -> Self {
         Self(self.0 << (steps * 8))
     }
 
     /// Shifts the `Bool8x8` down by the given number of steps.
-    pub const fn down(&self, steps: u8) -> Self {
+    pub fn down(&self, steps: u8) -> Self {
         Self(self.0 >> (steps * 8))
     }
 
-    pub const fn sum(addends: &[Self]) -> [Self; 9] {
+    pub fn sum(addends: &[Self]) -> [Self; 9] {
         let [a1, b1, c1, d1] = Self::sum_helper([Bool8x8::FALSE; 4], addends);
         let [a0, b0, c0, d0] = [a1.not(), b1.not(), c1.not(), d1.not()];
         [
@@ -363,7 +363,7 @@ impl Bool8x8 {
         ]
     }
 
-    const fn sum_helper(digits: [Self; 4], addends: &[Self]) -> [Self; 4] {
+    fn sum_helper(digits: [Self; 4], addends: &[Self]) -> [Self; 4] {
         match addends {
             [] => digits,
             [head, tail @ ..] => {
