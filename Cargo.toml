@@ -12,4 +12,3 @@ edition = "2018"
 
 [dependencies]
 slotmap = "0.4.0"
-either = "1.5.3"
