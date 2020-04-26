@@ -12,3 +12,4 @@ edition = "2018"
 
 [dependencies]
 slotmap = "0.4.0"
+tinyvec = "0.3.3"
