@@ -5,6 +5,7 @@
 use crate::{
     bool8x8::Bool8x8,
     grid::{Grid2x2, Grid3x3, Grid4x4},
+    Rule,
 };
 use slotmap::{new_key_type, SecondaryMap, SlotMap};
 use std::collections::HashMap;
@@ -55,7 +56,7 @@ impl Leaf {
     /// # Examples
     ///
     /// ```
-    /// # use smeagol::node::{Bool8x8, Leaf};
+    /// # use smeagol::{bool8x8::Bool8x8, node::Leaf};
     /// let all_dead = Leaf::new(Bool8x8::FALSE);
     /// let all_alive = Leaf::new(Bool8x8::TRUE);
     ///
@@ -114,41 +115,6 @@ pub struct Branch {
     population: u128,
 }
 
-/// A description of how one state of a cellular automaton transitions into the next.
-#[derive(Clone, Copy, Debug)]
-pub struct Rule {
-    birth: [Bool8x8; 9],
-    survival: [Bool8x8; 9],
-}
-
-impl Rule {
-    /// Creates a new `Rule` in B/S notation.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use smeagol::node::Rule;
-    /// // Conway's Game of Life: B3/S23
-    /// let life = Rule::new(&[3], &[2, 3]);
-    /// ```
-    ///
-    /// [B/S notation]: https://www.conwaylife.com/wiki/Rulestring#B.2FS_notation
-    pub fn new(birth: &[usize], survival: &[usize]) -> Self {
-        Self {
-            birth: Self::make_rule(birth),
-            survival: Self::make_rule(survival),
-        }
-    }
-
-    fn make_rule(neighbors: &[usize]) -> [Bool8x8; 9] {
-        let mut result = [Bool8x8::FALSE; 9];
-        for &i in neighbors.iter().filter(|&&i| i < 9) {
-            result[i] = Bool8x8::TRUE;
-        }
-        result
-    }
-}
-
 #[derive(Clone)]
 pub struct Quadtree {
     rule: Rule,
@@ -184,6 +150,31 @@ impl Quadtree {
 
     pub fn get_node(&self, id: NodeId) -> Option<Node> {
         self.nodes.get(id).copied()
+    }
+
+    pub fn recurse<F, G>(&mut self, children: Grid2x2<NodeId>, f: F, g: G) -> Option<NodeId>
+    where
+        F: Fn(&mut Self, Grid2x2<NodeId>) -> Option<NodeId>,
+        G: Fn(&mut Self, Grid2x2<NodeId>) -> Option<NodeId>,
+    {
+        let nodes: Grid2x2<_> = children.try_map(|id| self.get_node(id))?;
+        match nodes.unpack() {
+            [Node::Leaf(w), Node::Leaf(x), Node::Leaf(y), Node::Leaf(z)] => {
+                let grid2x2 = Grid2x2::pack(&[*w, *x, *y, *z]);
+                self.make_leaf(grid2x2.jump(self.rule))
+            }
+
+            [Node::Branch(w), Node::Branch(x), Node::Branch(y), Node::Branch(z)] => {
+                let _: Grid2x2<_> = Grid2x2::pack(&[*w, *x, *y, *z]).map(|branch| branch.children);
+                // let grid4x4 = Grid4x4::flatten(grandchildren);
+                let grid4x4 = Grid4x4::default();
+                let partial: Grid3x3<_> = grid4x4.reduce(|x| f(self, x))?;
+                let grid2x2: Grid2x2<_> = partial.reduce(|x| g(self, x))?;
+                self.make_inner(grid2x2)
+            }
+
+            _ => None,
+        }
     }
 
     pub fn jump(&mut self, children: Grid2x2<NodeId>) -> Option<NodeId> {

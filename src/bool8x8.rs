@@ -1,4 +1,4 @@
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
+use std::ops::{BitAnd, BitOr, BitXor, Not};
 
 /// A `u64` interpreted as a grid of boolean values.
 ///
@@ -65,6 +65,11 @@ impl Bool8x8 {
     /// The `Bool8x8` where all elements are `true`.
     pub const TRUE: Self = Self(u64::MAX);
 
+    /// Creates a `Bool8x8` from the given rows ordered from top to bottom.
+    pub fn from_rows(rows: [u8; 8]) -> Self {
+        Self(u64::from_be_bytes(rows))
+    }
+
     /// Shifts the `Bool8x8` to the left by the given number of steps.
     pub fn left(&self, steps: u8) -> Self {
         Self(self.0 << steps)
@@ -86,20 +91,21 @@ impl Bool8x8 {
     }
 
     pub fn sum(addends: &[Self]) -> [Self; 9] {
-        let [mut a, mut b, mut c, mut d] = [Bool8x8::FALSE; 4];
+        let mut digits = [Bool8x8::FALSE; 4];
 
-        // adds `addend` to `sum`, returning the carry
-        let half_adder = |sum: &mut Self, addend: Self| {
-            let carry = *sum & addend;
-            *sum ^= addend;
-            carry
+        let half_adder = |a: &mut Self, b: Self| {
+            *a = *a ^ b;
+            (*a ^ b) & b
         };
 
         for &addend in addends {
-            d |= half_adder(&mut c, half_adder(&mut b, half_adder(&mut a, addend)));
+            let carry = half_adder(&mut digits[0], addend);
+            let carry = half_adder(&mut digits[1], carry);
+            let carry = half_adder(&mut digits[2], carry);
+            digits[3] = digits[3] | carry;
         }
 
-        Self::finish_sum([a, b, c, d])
+        Self::finish_sum(digits)
     }
 
     // separate function to preserve formatting
@@ -128,12 +134,6 @@ impl BitAnd for Bool8x8 {
     }
 }
 
-impl BitAndAssign for Bool8x8 {
-    fn bitand_assign(&mut self, other: Self) {
-        *self = *self & other;
-    }
-}
-
 impl BitOr for Bool8x8 {
     type Output = Self;
 
@@ -142,23 +142,11 @@ impl BitOr for Bool8x8 {
     }
 }
 
-impl BitOrAssign for Bool8x8 {
-    fn bitor_assign(&mut self, other: Self) {
-        *self = *self | other;
-    }
-}
-
 impl BitXor for Bool8x8 {
     type Output = Self;
 
     fn bitxor(self, other: Self) -> Self {
         Self(self.0 ^ other.0)
-    }
-}
-
-impl BitXorAssign for Bool8x8 {
-    fn bitxor_assign(&mut self, other: Self) {
-        *self = *self ^ other;
     }
 }
 
@@ -173,6 +161,20 @@ impl Not for Bool8x8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shift() {
+        let center = Bool8x8::from_rows([0x00, 0x00, 0x00, 0x18, 0x18, 0x00, 0x00, 0x00]);
+        let north = Bool8x8::from_rows([0x00, 0x00, 0x18, 0x18, 0x00, 0x00, 0x00, 0x00]);
+        let south = Bool8x8::from_rows([0x00, 0x00, 0x00, 0x00, 0x18, 0x18, 0x00, 0x00]);
+        let east = Bool8x8::from_rows([0x00, 0x00, 0x00, 0x0C, 0x0C, 0x00, 0x00, 0x00]);
+        let west = Bool8x8::from_rows([0x00, 0x00, 0x00, 0x30, 0x30, 0x00, 0x00, 0x00]);
+
+        assert_eq!(center.up(1), north);
+        assert_eq!(center.down(1), south);
+        assert_eq!(center.right(1), east);
+        assert_eq!(center.left(1), west);
+    }
 
     #[test]
     fn adder_histogram() {

@@ -1,43 +1,74 @@
-use crate::node::{Leaf, Rule};
+use crate::{node::Leaf, Rule};
 use std::{
     hash::{Hash, Hasher},
+    mem::MaybeUninit,
     ops::Index,
 };
 use tinyvec::{Array, ArrayVec};
-
-#[derive(Clone, Copy, Default)]
-pub struct Grid<A: Array>(ArrayVec<A>);
 
 pub type Grid2x2<T> = Grid<[T; 4]>;
 pub type Grid3x3<T> = Grid<[T; 9]>;
 pub type Grid4x4<T> = Grid<[T; 16]>;
 
-impl<A> Hash for Grid<A>
+pub struct Square<T, const N: usize>([[T; N]; N]);
+
+impl<T, const N: usize> Square<T, N>
 where
-    A: Array,
-    A::Item: Hash,
+    T: Copy,
 {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
+    pub fn pack(items: &[T]) -> Self {
+        assert_eq!(items.len(), N * N);
+        let grid_ptr = items as *const [T] as *const [[T; N]; N];
+        let grid = unsafe { *grid_ptr };
+        Self(grid)
+    }
+
+    pub fn unpack(&self) -> [[T; N]; N] {
+        self.0
+    }
+
+    pub fn map<F, U>(&self, mut f: F) -> Square<U, N>
+    where
+        F: FnMut(T) -> U,
+        U: Copy,
+    {
+        self.try_map(|x| Some(f(x))).unwrap()
+    }
+
+    pub fn try_map<F, U>(&self, mut f: F) -> Option<Square<U, N>>
+    where
+        F: FnMut(T) -> Option<U>,
+        U: Copy,
+    {
+        let mut result = [MaybeUninit::<[U; N]>::uninit(); N];
+        for (&row, uninit_row) in self.0.iter().zip(result.iter_mut()) {
+            let mut result_row = [MaybeUninit::<U>::uninit(); N];
+            for (&t, u) in row.iter().zip(result_row.iter_mut()) {
+                *u = MaybeUninit::new(f(t)?);
+            }
+            let result_row_slice = unsafe { MaybeUninit::slice_get_ref(&result_row) };
+            let result_row_ptr = result_row_slice as *const [U] as *const [U; N];
+            let result_row = unsafe { *result_row_ptr };
+            *uninit_row = MaybeUninit::new(result_row);
+        }
+        let result_slice = unsafe { MaybeUninit::slice_get_ref(&result) };
+        let result_ptr = result_slice as *const [[U; N]] as *const [[U; N]; N];
+        let result = unsafe { *result_ptr };
+        Some(Square(result))
     }
 }
 
-impl<A> Eq for Grid<A>
-where
-    A: Array,
-    A::Item: Eq,
-{
+#[test]
+fn test() {
+    let foo = Square::<u8, 3>::pack(&[0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    let bar = foo.try_map(|x| Some((x + 65) as char)).unwrap();
+
+    println!("{:?}", foo.unpack());
+    println!("{:?}", bar.unpack());
 }
 
-impl<A> PartialEq for Grid<A>
-where
-    A: Array,
-    A::Item: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
+#[derive(Clone, Copy, Default)]
+pub struct Grid<A: Array>(ArrayVec<A>);
 
 impl<A> Grid<A>
 where
@@ -51,6 +82,7 @@ where
     where
         A::Item: Clone,
     {
+        assert_eq!(items.len(), Self::side_len().pow(2));
         let mut array = ArrayVec::default();
         array.extend_from_slice(items);
         Self(array)
@@ -70,7 +102,7 @@ where
         let new_side_len = Grid::<B>::side_len();
         assert_eq!(side_len, new_side_len + 1);
 
-        let array = (0..(new_side_len * new_side_len))
+        let array = (0..new_side_len.pow(2))
             .map(|i| {
                 let (row, col) = (i / new_side_len, i % new_side_len);
                 let a = self[(row, col)];
@@ -103,6 +135,23 @@ where
     }
 }
 
+impl<A> Eq for Grid<A>
+where
+    A: Array,
+    A::Item: Eq,
+{
+}
+
+impl<A> Hash for Grid<A>
+where
+    A: Array,
+    A::Item: Hash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
+
 impl<A> Index<(usize, usize)> for Grid<A>
 where
     A: Array + Default,
@@ -112,6 +161,16 @@ where
     fn index(&self, (row, col): (usize, usize)) -> &A::Item {
         let side_len = Self::side_len();
         &self.0[row * side_len + col]
+    }
+}
+
+impl<A> PartialEq for Grid<A>
+where
+    A: Array,
+    A::Item: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
     }
 }
 
