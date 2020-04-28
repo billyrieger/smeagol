@@ -66,7 +66,7 @@ impl Leaf {
         Self { alive }
     }
 
-    fn step(&self, rule: Rule) -> Self {
+    fn _step(&self, rule: Rule) -> Self {
         let (alive, dead) = (self.alive, !self.alive);
 
         let alive_neighbor_count = Bool8x8::sum(&[
@@ -101,10 +101,6 @@ impl Leaf {
             | alive & alive_neighbor_count[8] & rule.survival[8];
 
         Self::new(result)
-    }
-
-    fn jump(&self, rule: Rule) -> Self {
-        self.step(rule).step(rule)
     }
 }
 
@@ -159,13 +155,13 @@ impl Quadtree {
     {
         let nodes: Grid2x2<_> = children.try_map(|id| self.get_node(id))?;
         match nodes.unpack() {
-            [Node::Leaf(w), Node::Leaf(x), Node::Leaf(y), Node::Leaf(z)] => {
-                let grid2x2 = Grid2x2::pack(&[*w, *x, *y, *z]);
+            &[Node::Leaf(w), Node::Leaf(x), Node::Leaf(y), Node::Leaf(z)] => {
+                let grid2x2 = Grid2x2::pack(&[w, x, y, z]);
                 self.make_leaf(grid2x2.jump(self.rule))
             }
 
-            [Node::Branch(w), Node::Branch(x), Node::Branch(y), Node::Branch(z)] => {
-                let _: Grid2x2<_> = Grid2x2::pack(&[*w, *x, *y, *z]).map(|branch| branch.children);
+            &[Node::Branch(w), Node::Branch(x), Node::Branch(y), Node::Branch(z)] => {
+                let _: Grid2x2<_> = Grid2x2::pack(&[w, x, y, z]).map(|branch| branch.children);
                 // let grid4x4 = Grid4x4::flatten(grandchildren);
                 let grid4x4 = Grid4x4::default();
                 let partial: Grid3x3<_> = grid4x4.reduce(|x| f(self, x))?;
@@ -178,24 +174,25 @@ impl Quadtree {
     }
 
     pub fn jump(&mut self, children: Grid2x2<NodeId>) -> Option<NodeId> {
-        let nodes: Grid2x2<_> = children.try_map(|id| self.get_node(id))?;
-        match nodes.unpack() {
-            [Node::Leaf(w), Node::Leaf(x), Node::Leaf(y), Node::Leaf(z)] => {
-                let grid2x2 = Grid2x2::pack(&[*w, *x, *y, *z]);
-                self.make_leaf(grid2x2.jump(self.rule))
-            }
+        self.recurse(children, Self::jump, Self::jump)
+        // let nodes: Grid2x2<_> = children.try_map(|id| self.get_node(id))?;
+        // match nodes.unpack() {
+        //     [Node::Leaf(w), Node::Leaf(x), Node::Leaf(y), Node::Leaf(z)] => {
+        //         let grid2x2 = Grid2x2::pack(&[*w, *x, *y, *z]);
+        //         self.make_leaf(grid2x2.jump(self.rule))
+        //     }
 
-            [Node::Branch(w), Node::Branch(x), Node::Branch(y), Node::Branch(z)] => {
-                let _: Grid2x2<_> = Grid2x2::pack(&[*w, *x, *y, *z]).map(|branch| branch.children);
-                // let grid4x4 = Grid4x4::flatten(grandchildren);
-                let grid4x4 = Grid4x4::default();
-                let partial: Grid3x3<_> = grid4x4.reduce(|x| self.jump(x))?;
-                let grid2x2: Grid2x2<_> = partial.reduce(|x| self.jump(x))?;
-                self.make_inner(grid2x2)
-            }
+        //     [Node::Branch(w), Node::Branch(x), Node::Branch(y), Node::Branch(z)] => {
+        //         let _: Grid2x2<_> = Grid2x2::pack(&[*w, *x, *y, *z]).map(|branch| branch.children);
+        //         // let grid4x4 = Grid4x4::flatten(grandchildren);
+        //         let grid4x4 = Grid4x4::default();
+        //         let partial: Grid3x3<_> = grid4x4.reduce(|x| self.jump(x))?;
+        //         let grid2x2: Grid2x2<_> = partial.reduce(|x| self.jump(x))?;
+        //         self.make_inner(grid2x2)
+        //     }
 
-            _ => None,
-        }
+        //     _ => None,
+        // }
     }
 
     fn get_id(&mut self, node: Node) -> NodeId {
