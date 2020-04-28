@@ -66,7 +66,7 @@ where
         F: Fn(A::Item) -> Option<B::Item>,
     {
         assert_eq!(A::SIDE_LEN, B::SIDE_LEN);
-        let array = self.0.into_iter().map(|x| f(x)).collect::<Option<_>>()?;
+        let array: ArrayVec<B> = self.0.into_iter().map(|x| f(x)).collect::<Option<_>>()?;
         Some(Grid(array))
     }
 
@@ -76,26 +76,30 @@ where
         F: FnMut(Grid2x2<A::Item>) -> Option<B::Item>,
     {
         assert_eq!(A::SIDE_LEN, B::SIDE_LEN + 1);
-        let array = (0..B::CAPACITY)
+        let array: ArrayVec<B> = (0..B::CAPACITY)
             .map(|i| {
                 let (row, col) = (i / B::SIDE_LEN, i % B::SIDE_LEN);
-                let grid2x2 = unsafe { self.subgrid(row, col) };
+                let grid2x2 = self.subgrid(row, col)?;
                 f(grid2x2)
             })
             .collect::<Option<_>>()?;
         Some(Grid(array))
     }
 
-    unsafe fn subgrid(&self, row: usize, col: usize) -> Grid2x2<A::Item> {
-        let a = self.get_unchecked(row, col);
-        let b = self.get_unchecked(row, col + 1);
-        let c = self.get_unchecked(row + 1, col);
-        let d = self.get_unchecked(row + 1, col + 1);
-        Grid::pack(&[a, b, c, d])
+    fn subgrid(&self, row: usize, col: usize) -> Option<Grid2x2<A::Item>> {
+        let a = self.get(row, col)?;
+        let b = self.get(row, col + 1)?;
+        let c = self.get(row + 1, col)?;
+        let d = self.get(row + 1, col + 1)?;
+        Some(Grid::pack(&[a, b, c, d]))
     }
 
-    unsafe fn get_unchecked(&self, row: usize, col: usize) -> A::Item {
-        *self.0.get_unchecked(row * A::SIDE_LEN + col)
+    fn get(&self, row: usize, col: usize) -> Option<A::Item> {
+        if row < A::SIDE_LEN && col < A::SIDE_LEN {
+            self.0.get(row * A::SIDE_LEN + col).copied()
+        } else {
+            None
+        }
     }
 }
 
@@ -158,51 +162,51 @@ impl Grid2x2<Leaf> {
         // combine_jumps(w, x, y, z)
     }
 
-//     fn join_horizontal(left: Leaf, right: Leaf) -> Leaf {
-//         todo!()
-//         // let mask_left = Bool8x8(0xFF00_FF00_FF00_FF00);
-//         // let mask_right = Bool8x8(0x00FF00_00FF_00FF_00FF);
-//         // Leaf::new(
-//         //     Bool8x8::FALSE | left.alive.left(4) & mask_left | right.alive.right(4) & mask_right,
-//         // )
-//     }
+    //     fn join_horizontal(left: Leaf, right: Leaf) -> Leaf {
+    //         todo!()
+    //         // let mask_left = Bool8x8(0xFF00_FF00_FF00_FF00);
+    //         // let mask_right = Bool8x8(0x00FF00_00FF_00FF_00FF);
+    //         // Leaf::new(
+    //         //     Bool8x8::FALSE | left.alive.left(4) & mask_left | right.alive.right(4) & mask_right,
+    //         // )
+    //     }
 
-//     fn join_vertical(top: Leaf, bottom: Leaf) -> Leaf {
-//         todo!()
-//         // let mask_top = Bool8x8(0xFFFF_FFFF_0000_0000);
-//         // let mask_bottom = Bool8x8(0x0000_0000_FFFF_FFFF);
-//         // Leaf::new(Bool8x8::FALSE | top.alive.up(4) & mask_top | bottom.alive.down(4) & mask_bottom)
-//     }
+    //     fn join_vertical(top: Leaf, bottom: Leaf) -> Leaf {
+    //         todo!()
+    //         // let mask_top = Bool8x8(0xFFFF_FFFF_0000_0000);
+    //         // let mask_bottom = Bool8x8(0x0000_0000_FFFF_FFFF);
+    //         // Leaf::new(Bool8x8::FALSE | top.alive.up(4) & mask_top | bottom.alive.down(4) & mask_bottom)
+    //     }
 
-//     fn north(&self) -> Leaf {
-//         Self::join_horizontal(self.0[0], self.0[1])
-//     }
+    //     fn north(&self) -> Leaf {
+    //         Self::join_horizontal(self.0[0], self.0[1])
+    //     }
 
-//     fn south(&self) -> Leaf {
-//         Self::join_horizontal(self.0[2], self.0[3])
-//     }
+    //     fn south(&self) -> Leaf {
+    //         Self::join_horizontal(self.0[2], self.0[3])
+    //     }
 
-//     fn east(&self) -> Leaf {
-//         Self::join_vertical(self.0[0], self.0[2])
-//     }
+    //     fn east(&self) -> Leaf {
+    //         Self::join_vertical(self.0[0], self.0[2])
+    //     }
 
-//     fn west(&self) -> Leaf {
-//         Self::join_vertical(self.0[1], self.0[3])
-//     }
+    //     fn west(&self) -> Leaf {
+    //         Self::join_vertical(self.0[1], self.0[3])
+    //     }
 
-//     fn center(&self) -> Leaf {
-//         todo!()
-//         // let mask_nw = Bool8x8(0xF0F0_F0F0_0000_0000);
-//         // let mask_ne = Bool8x8(0x0F0F_0F0F_0000_0000);
-//         // let mask_sw = Bool8x8(0x0000_0000_F0F0_F0F0);
-//         // let mask_se = Bool8x8(0x0000_0000_0F0F_0F0F);
+    //     fn center(&self) -> Leaf {
+    //         todo!()
+    //         // let mask_nw = Bool8x8(0xF0F0_F0F0_0000_0000);
+    //         // let mask_ne = Bool8x8(0x0F0F_0F0F_0000_0000);
+    //         // let mask_sw = Bool8x8(0x0000_0000_F0F0_F0F0);
+    //         // let mask_se = Bool8x8(0x0000_0000_0F0F_0F0F);
 
-//         // let center = Bool8x8::FALSE
-//         //     | self.0[0].alive.up(4).left(4) & mask_nw
-//         //     | self.0[1].alive.up(4).right(4) & mask_ne
-//         //     | self.0[2].alive.down(4).left(4) & mask_sw
-//         //     | self.0[3].alive.down(4).right(4) & mask_se;
+    //         // let center = Bool8x8::FALSE
+    //         //     | self.0[0].alive.up(4).left(4) & mask_nw
+    //         //     | self.0[1].alive.up(4).right(4) & mask_ne
+    //         //     | self.0[2].alive.down(4).left(4) & mask_sw
+    //         //     | self.0[3].alive.down(4).right(4) & mask_se;
 
-//         // Leaf::new(center)
-//     }
+    //         // Leaf::new(center)
+    //     }
 }
