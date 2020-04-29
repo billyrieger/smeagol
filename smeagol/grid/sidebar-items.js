@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Grid",""]],"trait":[["SquareArray",""]],"type":[["Grid2x2",""],["Grid3x3",""],["Grid4x4",""]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Node",""]],"struct":[["Branch",""],["Leaf","An 8 by 8 grid of dead or alive cells in a cellular automaton."],["Level",""],["NodeId",""],["Quadtree",""]]});

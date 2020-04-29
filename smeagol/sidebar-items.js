@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["bool8x8",""],["grid",""],["node",""]],"struct":[["Rule","A description of how one state of a cellular automaton transitions into the next."]]});
