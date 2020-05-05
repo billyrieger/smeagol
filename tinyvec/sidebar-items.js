@@ -1,1 +1,0 @@
-initSidebarItems({"macro":[["array_vec","Helper to make an `ArrayVec`."]],"struct":[["ArrayVec","An array-backed, vector-like data structure."],["ArrayVecDrain","Draining iterator for `ArrayVecDrain`"],["ArrayVecIterator","Iterator for consuming an `ArrayVec` and returning owned elements."]],"trait":[["Array","A trait for types that are an array."]]});

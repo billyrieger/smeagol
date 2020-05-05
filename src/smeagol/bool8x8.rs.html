@@ -200,10 +200,37 @@
 <span id="200">200</span>
 <span id="201">201</span>
 <span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ops</span>::{<span class="ident">BitAnd</span>, <span class="ident">BitOr</span>, <span class="ident">BitXor</span>, <span class="ident">Not</span>};
 
-<span class="doccomment">/// A `u64` interpreted as a grid of boolean values.</span>
+<span class="doccomment">/// A `u64` interpreted as a square grid of boolean values.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Bit layout</span>
 <span class="doccomment">///</span>
@@ -235,28 +262,16 @@
 <span class="doccomment">/// # Examples</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// # use smeagol::bool8x8::Bool8x8;</span>
-<span class="doccomment">/// let uppercase_f = Bool8x8::from_rows([0x00, 0x3C, 0x20, 0x38, 0x20, 0x20, 0x20, 0x00]);</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```text</span>
-<span class="doccomment">/// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓</span>
-<span class="doccomment">/// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 0 0   0 0 0 0  =  0x00</span>
-<span class="doccomment">/// ┠                   ╎                   ┨</span>
-<span class="doccomment">/// ┃ ░░   ░░   ██   ██ ╎ ██   ██   ░░   ░░ ┃   0 0 1 1   1 1 0 0  =  0x3C</span>
-<span class="doccomment">/// ┠                   ╎                   ┨</span>
-<span class="doccomment">/// ┃ ░░   ░░   ██   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 1 0   0 0 0 0  =  0x20</span>
-<span class="doccomment">/// ┠                   ╎                   ┨</span>
-<span class="doccomment">/// ┃ ░░   ░░   ██   ██ ╎ ██   ░░   ░░   ░░ ┃   0 0 1 1   1 0 0 0  =  0x38</span>
-<span class="doccomment">/// ┠  ╌  ╌ ╌  ╌ ╌  ╌ ╌   ╌ ╌  ╌ ╌  ╌ ╌  ╌  ┨</span>
-<span class="doccomment">/// ┃ ░░   ░░   ██   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 1 0   0 0 0 0  =  0x20</span>
-<span class="doccomment">/// ┠                   ╎                   ┨</span>
-<span class="doccomment">/// ┃ ░░   ░░   ██   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 1 0   0 0 0 0  =  0x20</span>
-<span class="doccomment">/// ┠                   ╎                   ┨</span>
-<span class="doccomment">/// ┃ ░░   ░░   ██   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 1 0   0 0 0 0  =  0x20</span>
-<span class="doccomment">/// ┠                   ╎                   ┨</span>
-<span class="doccomment">/// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 0 0   0 0 0 0  =  0x00</span>
-<span class="doccomment">/// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛</span>
+<span class="doccomment">/// # use smeagol::Bool8x8;</span>
+<span class="doccomment">/// // 00 | . . . . . . . .</span>
+<span class="doccomment">/// // 3C | . . # # # # . .</span>
+<span class="doccomment">/// // 20 | . . # . . . . .</span>
+<span class="doccomment">/// // 38 | . . # # # . . .</span>
+<span class="doccomment">/// // 20 | . . # . . . . .</span>
+<span class="doccomment">/// // 20 | . . # . . . . .</span>
+<span class="doccomment">/// // 20 | . . # . . . . .</span>
+<span class="doccomment">/// // 00 | . . . . . . . .</span>
+<span class="doccomment">/// let uppercase_f = Bool8x8(0x003C_2038_2020_2000);</span>
 <span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Bool8x8</span>(<span class="kw">pub</span> <span class="ident">u64</span>);
@@ -267,11 +282,6 @@
 
     <span class="doccomment">/// The `Bool8x8` where all elements are `true`.</span>
     <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TRUE</span>: <span class="self">Self</span> <span class="op">=</span> <span class="self">Self</span>(<span class="ident">u64</span>::<span class="ident">MAX</span>);
-
-    <span class="doccomment">/// Creates a `Bool8x8` from the given rows ordered from top to bottom.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_rows</span>(<span class="ident">rows</span>: [<span class="ident">u8</span>; <span class="number">8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">u64</span>::<span class="ident">from_be_bytes</span>(<span class="ident">rows</span>))
-    }
 
     <span class="doccomment">/// Shifts the `Bool8x8` to the left by the given number of steps.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">steps</span>: <span class="ident">u8</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
@@ -367,11 +377,55 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">shift</span>() {
-        <span class="kw">let</span> <span class="ident">center</span> <span class="op">=</span> <span class="ident">Bool8x8</span>::<span class="ident">from_rows</span>([<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x18</span>, <span class="number">0x18</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>]);
-        <span class="kw">let</span> <span class="ident">north</span> <span class="op">=</span> <span class="ident">Bool8x8</span>::<span class="ident">from_rows</span>([<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x18</span>, <span class="number">0x18</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>]);
-        <span class="kw">let</span> <span class="ident">south</span> <span class="op">=</span> <span class="ident">Bool8x8</span>::<span class="ident">from_rows</span>([<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x18</span>, <span class="number">0x18</span>, <span class="number">0x00</span>, <span class="number">0x00</span>]);
-        <span class="kw">let</span> <span class="ident">east</span> <span class="op">=</span> <span class="ident">Bool8x8</span>::<span class="ident">from_rows</span>([<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x0C</span>, <span class="number">0x0C</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>]);
-        <span class="kw">let</span> <span class="ident">west</span> <span class="op">=</span> <span class="ident">Bool8x8</span>::<span class="ident">from_rows</span>([<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x30</span>, <span class="number">0x30</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>]);
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 18 | . . . # # . . .</span>
+        <span class="comment">// 18 | . . . # # . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="kw">let</span> <span class="ident">center</span> <span class="op">=</span> <span class="ident">Bool8x8</span>(<span class="number">0x0000_0018_1800_0000</span>);
+
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 18 | . . . # # . . .</span>
+        <span class="comment">// 18 | . . . # # . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="kw">let</span> <span class="ident">north</span> <span class="op">=</span> <span class="ident">Bool8x8</span>(<span class="number">0x0000_1818_0000_0000</span>);
+
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 18 | . . . # # . . .</span>
+        <span class="comment">// 18 | . . . # # . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="kw">let</span> <span class="ident">south</span> <span class="op">=</span> <span class="ident">Bool8x8</span>(<span class="number">0x0000_0000_1818_0000</span>);
+
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 0C | . . . . # # . .</span>
+        <span class="comment">// 0C | . . . . # # . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="kw">let</span> <span class="ident">east</span> <span class="op">=</span> <span class="ident">Bool8x8</span>(<span class="number">0x0000_000C_0C00_0000</span>);
+
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 30 | . . # # . . . .</span>
+        <span class="comment">// 30 | . . # # . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="comment">// 00 | . . . . . . . .</span>
+        <span class="kw">let</span> <span class="ident">west</span> <span class="op">=</span> <span class="ident">Bool8x8</span>(<span class="number">0x0000_0030_3000_0000</span>);
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">center</span>.<span class="ident">up</span>(<span class="number">1</span>), <span class="ident">north</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">center</span>.<span class="ident">down</span>(<span class="number">1</span>), <span class="ident">south</span>);

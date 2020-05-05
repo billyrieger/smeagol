@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Bool8x8","A `u64` interpreted as a grid of boolean values."]]});

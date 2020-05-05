@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["bool8x8",""],["grid",""],["node",""]],"struct":[["Rule","A description of how one state of a cellular automaton transitions into the next."]]});
+initSidebarItems({"mod":[["grid",""],["node",""],["store",""]],"struct":[["Bool8x8","A `u64` interpreted as a square grid of boolean values."],["Rule","A description of how one state of a cellular automaton transitions into the next."]]});
