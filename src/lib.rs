@@ -2,15 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#![allow(incomplete_features)]
-#![feature(const_generics)]
-
-pub mod bool8x8;
+mod bool8x8;
 pub mod grid;
 pub mod node;
 pub mod store;
 
-use crate::bool8x8::Bool8x8;
+pub use crate::bool8x8::Bool8x8;
 
 /// A description of how one state of a cellular automaton transitions into the next.
 #[derive(Clone, Copy, Debug)]

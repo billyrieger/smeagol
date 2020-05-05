@@ -2,11 +2,23 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::{bool8x8::Bool8x8, grid::Grid2x2, Rule};
+use crate::{grid::Grid2, Bool8x8, Rule};
 use slotmap::new_key_type;
 
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Level(u8);
+
+impl Level {
+    const MAX_LEVEL: Self = Self(63);
+
+    pub fn increment(self) -> Option<Self> {
+        if self < Self::MAX_LEVEL {
+            Some(Self(self.0 + 1))
+        } else {
+            None
+        }
+    }
+}
 
 new_key_type! {
     pub struct NodeId;
@@ -16,12 +28,6 @@ new_key_type! {
 pub enum Node {
     Leaf(Leaf),
     Branch(Branch),
-}
-
-impl Default for Node {
-    fn default() -> Self {
-        Self::Leaf(Leaf::default())
-    }
 }
 
 impl Node {
@@ -42,12 +48,20 @@ impl Node {
 }
 
 /// An 8 by 8 grid of dead or alive cells in a cellular automaton.
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Leaf {
     alive: Bool8x8,
 }
 
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+pub struct Branch {
+    pub children: Grid2<NodeId>,
+    pub level: Level,
+    pub population: u128,
+}
+
 impl Leaf {
+    /// Creates a new `Leaf`.
     pub fn new(alive: Bool8x8) -> Self {
         Self { alive }
     }
@@ -70,33 +84,93 @@ impl Leaf {
             alive.left(1).right(1),
         ]);
 
-        let result = Bool8x8::FALSE
-            | dead & alive_neighbor_count[0] & rule.birth[0]
-            | dead & alive_neighbor_count[1] & rule.birth[1]
-            | dead & alive_neighbor_count[2] & rule.birth[2]
-            | dead & alive_neighbor_count[3] & rule.birth[3]
-            | dead & alive_neighbor_count[4] & rule.birth[4]
-            | dead & alive_neighbor_count[5] & rule.birth[5]
-            | dead & alive_neighbor_count[6] & rule.birth[6]
-            | dead & alive_neighbor_count[7] & rule.birth[7]
-            | dead & alive_neighbor_count[8] & rule.birth[8]
-            | alive & alive_neighbor_count[0] & rule.survival[0]
-            | alive & alive_neighbor_count[1] & rule.survival[1]
-            | alive & alive_neighbor_count[2] & rule.survival[2]
-            | alive & alive_neighbor_count[3] & rule.survival[3]
-            | alive & alive_neighbor_count[4] & rule.survival[4]
-            | alive & alive_neighbor_count[5] & rule.survival[5]
-            | alive & alive_neighbor_count[6] & rule.survival[6]
-            | alive & alive_neighbor_count[7] & rule.survival[7]
-            | alive & alive_neighbor_count[8] & rule.survival[8];
+        let combine = |a: [Bool8x8; 9], b: [Bool8x8; 9]| -> Bool8x8 {
+            a.iter()
+                .zip(b.iter())
+                .map(|(&a, &b)| a & b)
+                .fold(Bool8x8::FALSE, |a, b| a | b)
+        };
 
-        Self::new(result)
+        let born = combine(alive_neighbor_count, rule.birth);
+        let survives = combine(alive_neighbor_count, rule.survival);
+
+        Self::new(dead & born | alive & survives)
     }
 }
 
-#[derive(Clone, Copy, Default, Eq, Hash, PartialEq)]
-pub struct Branch {
-    pub children: Grid2x2<NodeId>,
-    pub level: Level,
-    pub population: u128,
+impl Grid2<Leaf> {
+    pub fn jump(&self, rule: Rule) -> Leaf {
+        let a = self.0[0].step(rule);
+        let b = self.north().step(rule);
+        let c = self.0[1].step(rule);
+        let d = self.west().step(rule);
+        let e = self.center().step(rule);
+        let f = self.east().step(rule);
+        let g = self.0[2].step(rule);
+        let h = self.south().step(rule);
+        let i = self.0[3].step(rule);
+
+        let mask_center = Bool8x8(0x0000_3C3C_3C3C_0000);
+        let combine_jumps = |nw: Leaf, ne: Leaf, sw: Leaf, se: Leaf| {
+            Leaf::new(
+                Bool8x8::FALSE
+                    | (nw.alive & mask_center).up(2).left(2)
+                    | (ne.alive & mask_center).up(2).right(2)
+                    | (sw.alive & mask_center).down(2).left(2)
+                    | (se.alive & mask_center).down(2).right(2),
+            )
+        };
+
+        let w = combine_jumps(a, b, d, e).step(rule);
+        let x = combine_jumps(b, c, e, f).step(rule);
+        let y = combine_jumps(d, e, g, h).step(rule);
+        let z = combine_jumps(e, f, h, i).step(rule);
+
+        combine_jumps(w, x, y, z)
+    }
+
+    fn join_horizontal(left: Leaf, right: Leaf) -> Leaf {
+        let mask_left = Bool8x8(0xFF00_FF00_FF00_FF00);
+        let mask_right = Bool8x8(0x00FF00_00FF_00FF_00FF);
+        Leaf::new(
+            Bool8x8::FALSE | left.alive.left(4) & mask_left | right.alive.right(4) & mask_right,
+        )
+    }
+
+    fn join_vertical(top: Leaf, bottom: Leaf) -> Leaf {
+        let mask_top = Bool8x8(0xFFFF_FFFF_0000_0000);
+        let mask_bottom = Bool8x8(0x0000_0000_FFFF_FFFF);
+        Leaf::new(Bool8x8::FALSE | top.alive.up(4) & mask_top | bottom.alive.down(4) & mask_bottom)
+    }
+
+    fn north(&self) -> Leaf {
+        Self::join_horizontal(self.0[0], self.0[1])
+    }
+
+    fn south(&self) -> Leaf {
+        Self::join_horizontal(self.0[2], self.0[3])
+    }
+
+    fn east(&self) -> Leaf {
+        Self::join_vertical(self.0[0], self.0[2])
+    }
+
+    fn west(&self) -> Leaf {
+        Self::join_vertical(self.0[1], self.0[3])
+    }
+
+    fn center(&self) -> Leaf {
+        let mask_nw = Bool8x8(0xF0F0_F0F0_0000_0000);
+        let mask_ne = Bool8x8(0x0F0F_0F0F_0000_0000);
+        let mask_sw = Bool8x8(0x0000_0000_F0F0_F0F0);
+        let mask_se = Bool8x8(0x0000_0000_0F0F_0F0F);
+
+        let center = Bool8x8::FALSE
+            | self.0[0].alive.up(4).left(4) & mask_nw
+            | self.0[1].alive.up(4).right(4) & mask_ne
+            | self.0[2].alive.down(4).left(4) & mask_sw
+            | self.0[3].alive.down(4).right(4) & mask_se;
+
+        Leaf::new(center)
+    }
 }

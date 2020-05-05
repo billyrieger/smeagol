@@ -1,6 +1,6 @@
 use std::ops::{BitAnd, BitOr, BitXor, Not};
 
-/// A `u64` interpreted as a grid of boolean values.
+/// A `u64` interpreted as a square grid of boolean values.
 ///
 /// # Bit layout
 ///
@@ -32,28 +32,16 @@ use std::ops::{BitAnd, BitOr, BitXor, Not};
 /// # Examples
 ///
 /// ```
-/// # use smeagol::bool8x8::Bool8x8;
-/// let uppercase_f = Bool8x8::from_rows([0x00, 0x3C, 0x20, 0x38, 0x20, 0x20, 0x20, 0x00]);
-/// ```
-///
-/// ```text
-/// ┏━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┯━━━━┓
-/// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 0 0   0 0 0 0  =  0x00
-/// ┠                   ╎                   ┨
-/// ┃ ░░   ░░   ██   ██ ╎ ██   ██   ░░   ░░ ┃   0 0 1 1   1 1 0 0  =  0x3C
-/// ┠                   ╎                   ┨
-/// ┃ ░░   ░░   ██   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 1 0   0 0 0 0  =  0x20
-/// ┠                   ╎                   ┨
-/// ┃ ░░   ░░   ██   ██ ╎ ██   ░░   ░░   ░░ ┃   0 0 1 1   1 0 0 0  =  0x38
-/// ┠  ╌  ╌ ╌  ╌ ╌  ╌ ╌   ╌ ╌  ╌ ╌  ╌ ╌  ╌  ┨
-/// ┃ ░░   ░░   ██   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 1 0   0 0 0 0  =  0x20
-/// ┠                   ╎                   ┨
-/// ┃ ░░   ░░   ██   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 1 0   0 0 0 0  =  0x20
-/// ┠                   ╎                   ┨
-/// ┃ ░░   ░░   ██   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 1 0   0 0 0 0  =  0x20
-/// ┠                   ╎                   ┨
-/// ┃ ░░   ░░   ░░   ░░ ╎ ░░   ░░   ░░   ░░ ┃   0 0 0 0   0 0 0 0  =  0x00
-/// ┗━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┷━━━━┛
+/// # use smeagol::Bool8x8;
+/// // 00 | . . . . . . . .
+/// // 3C | . . # # # # . .
+/// // 20 | . . # . . . . .
+/// // 38 | . . # # # . . .
+/// // 20 | . . # . . . . .
+/// // 20 | . . # . . . . .
+/// // 20 | . . # . . . . .
+/// // 00 | . . . . . . . .
+/// let uppercase_f = Bool8x8(0x003C_2038_2020_2000);
 /// ```
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub struct Bool8x8(pub u64);
@@ -64,11 +52,6 @@ impl Bool8x8 {
 
     /// The `Bool8x8` where all elements are `true`.
     pub const TRUE: Self = Self(u64::MAX);
-
-    /// Creates a `Bool8x8` from the given rows ordered from top to bottom.
-    pub fn from_rows(rows: [u8; 8]) -> Self {
-        Self(u64::from_be_bytes(rows))
-    }
 
     /// Shifts the `Bool8x8` to the left by the given number of steps.
     pub fn left(&self, steps: u8) -> Self {
@@ -164,11 +147,55 @@ mod tests {
 
     #[test]
     fn shift() {
-        let center = Bool8x8::from_rows([0x00, 0x00, 0x00, 0x18, 0x18, 0x00, 0x00, 0x00]);
-        let north = Bool8x8::from_rows([0x00, 0x00, 0x18, 0x18, 0x00, 0x00, 0x00, 0x00]);
-        let south = Bool8x8::from_rows([0x00, 0x00, 0x00, 0x00, 0x18, 0x18, 0x00, 0x00]);
-        let east = Bool8x8::from_rows([0x00, 0x00, 0x00, 0x0C, 0x0C, 0x00, 0x00, 0x00]);
-        let west = Bool8x8::from_rows([0x00, 0x00, 0x00, 0x30, 0x30, 0x00, 0x00, 0x00]);
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 18 | . . . # # . . .
+        // 18 | . . . # # . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        let center = Bool8x8(0x0000_0018_1800_0000);
+
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 18 | . . . # # . . .
+        // 18 | . . . # # . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        let north = Bool8x8(0x0000_1818_0000_0000);
+
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 18 | . . . # # . . .
+        // 18 | . . . # # . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        let south = Bool8x8(0x0000_0000_1818_0000);
+
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 0C | . . . . # # . .
+        // 0C | . . . . # # . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        let east = Bool8x8(0x0000_000C_0C00_0000);
+
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 30 | . . # # . . . .
+        // 30 | . . # # . . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        // 00 | . . . . . . . .
+        let west = Bool8x8(0x0000_0030_3000_0000);
 
         assert_eq!(center.up(1), north);
         assert_eq!(center.down(1), south);
