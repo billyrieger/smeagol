@@ -1,6 +1,120 @@
 use crate::{node::Leaf, Rule};
-use std::hash::{Hash, Hasher};
+use std::{
+    hash::{Hash, Hasher},
+    mem::{transmute_copy, MaybeUninit},
+};
 use tinyvec::{Array, ArrayVec};
+
+#[derive(Clone, Copy)]
+pub struct Grid<T, const N: usize>([T; N]);
+
+pub type Grid2<T> = Grid<T, 4>;
+pub type Grid3<T> = Grid<T, 9>;
+pub type Grid4<T> = Grid<T, 16>;
+
+impl<T> Grid2<Grid2<T>>
+where
+    T: Copy,
+{
+    pub fn flatten(&self) -> Grid4<T> {
+        let [w, x, y, z] = self.0;
+
+        let [a, b, e, f] = w.0;
+        let [c, d, g, h] = x.0;
+        let [i, j, m, n] = y.0;
+        let [k, l, o, p] = z.0;
+
+        Grid([a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p])
+    }
+}
+
+impl<T> Grid4<T>
+where
+    T: Copy,
+{
+    pub fn shrink<F, U>(&self, mut closure: F) -> Option<Grid3<U>>
+    where
+        F: FnMut(Grid2<T>) -> Option<U>,
+        U: Copy,
+    {
+        // a b c d
+        // e f g h
+        // i j k l
+        // m n o p
+        let [a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p] = self.0;
+
+        // r s t
+        // u v w
+        // x y z
+        let r = closure(Grid([a, b, e, f]))?;
+        let s = closure(Grid([b, c, f, g]))?;
+        let t = closure(Grid([c, d, g, h]))?;
+        let u = closure(Grid([e, f, i, j]))?;
+        let v = closure(Grid([f, g, j, k]))?;
+        let w = closure(Grid([g, h, k, l]))?;
+        let x = closure(Grid([i, j, m, n]))?;
+        let y = closure(Grid([j, k, n, o]))?;
+        let z = closure(Grid([k, l, o, p]))?;
+
+        Some(Grid([r, s, t, u, v, w, x, y, z]))
+    }
+}
+
+impl<T> Grid3<T>
+where
+    T: Copy,
+{
+    pub fn shrink<F, U>(&self, mut closure: F) -> Option<Grid2<U>>
+    where
+        F: FnMut(Grid2<T>) -> Option<U>,
+        U: Copy,
+    {
+        // a b c
+        // d e f
+        // g h i
+        let [a, b, c, d, e, f, g, h, i] = self.0;
+
+        // w x
+        // y z
+        let w = closure(Grid([a, b, d, e]))?;
+        let x = closure(Grid([b, c, e, f]))?;
+        let y = closure(Grid([d, e, g, h]))?;
+        let z = closure(Grid([e, f, h, i]))?;
+
+        Some(Grid([w, x, y, z]))
+    }
+}
+
+impl<T, const N: usize> Grid<T, N>
+where
+    T: Copy,
+{
+    pub fn map<F, U>(&self, mut closure: F) -> Grid<U, N>
+    where
+        F: FnMut(T) -> U,
+        U: Copy,
+    {
+        let mut grid = [MaybeUninit::uninit(); N];
+        for (&t, u) in self.0.iter().zip(grid.iter_mut()) {
+            *u = MaybeUninit::new(closure(t));
+        }
+        let grid = unsafe { transmute_copy::<[MaybeUninit<U>; N], [U; N]>(&grid) };
+        Grid(grid)
+    }
+
+    pub fn try_map<F, U>(self, closure: F) -> Option<Grid<U, N>>
+    where
+        F: Fn(T) -> Option<U>,
+        U: Copy,
+    {
+        let mut grid = [MaybeUninit::uninit(); N];
+        for (&t, u) in self.0.iter().zip(grid.iter_mut()) {
+            *u = MaybeUninit::new(closure(t)?);
+        }
+        let grid = unsafe { transmute_copy::<[MaybeUninit<U>; N], [U; N]>(&grid) };
+        Some(Grid(grid))
+    }
+}
 
 pub trait SquareArray: Array + Default {
     const SIDE_LEN: usize;
@@ -28,11 +142,11 @@ where
 }
 
 #[derive(Clone, Copy, Default)]
-pub struct Grid<A: SquareArray>(ArrayVec<A>);
+pub struct Gridd<A: SquareArray>(ArrayVec<A>);
 
-pub type Grid2x2<T> = Grid<[T; 4]>;
-pub type Grid3x3<T> = Grid<[T; 9]>;
-pub type Grid4x4<T> = Grid<[T; 16]>;
+pub type Grid2x2<T> = Gridd<[T; 4]>;
+pub type Grid3x3<T> = Gridd<[T; 9]>;
+pub type Grid4x4<T> = Gridd<[T; 16]>;
 
 impl<T> Grid2x2<Grid2x2<T>>
 where
@@ -49,43 +163,41 @@ where
     }
 }
 
-impl<A> Grid<A>
+impl<A> Gridd<A>
 where
     A: SquareArray,
     A::Item: Copy,
 {
     pub fn pack(items: &[A::Item]) -> Self {
         assert_eq!(items.len(), A::CAPACITY);
-        let mut array = ArrayVec::default();
-        array.extend_from_slice(items);
-        Self(array)
+        Self(items.iter().copied().collect())
     }
 
     pub fn unpack(&self) -> &[A::Item] {
         self.0.as_slice()
     }
 
-    pub fn map<B, F>(self, f: F) -> Grid<B>
+    pub fn map<B, F>(self, f: F) -> Gridd<B>
     where
         B: SquareArray,
         F: Fn(A::Item) -> B::Item,
     {
         assert_eq!(A::SIDE_LEN, B::SIDE_LEN);
         let array = self.0.into_iter().map(|x| f(x)).collect();
-        Grid(array)
+        Gridd(array)
     }
 
-    pub fn try_map<B, F>(self, f: F) -> Option<Grid<B>>
+    pub fn try_map<B, F>(self, f: F) -> Option<Gridd<B>>
     where
         B: SquareArray,
         F: Fn(A::Item) -> Option<B::Item>,
     {
         assert_eq!(A::SIDE_LEN, B::SIDE_LEN);
         let array = self.0.into_iter().map(|x| f(x)).collect::<Option<_>>()?;
-        Some(Grid(array))
+        Some(Gridd(array))
     }
 
-    pub fn shrink<B, F>(self, mut f: F) -> Option<Grid<B>>
+    pub fn shrink<B, F>(self, mut f: F) -> Option<Gridd<B>>
     where
         B: SquareArray,
         F: FnMut(Grid2x2<A::Item>) -> Option<B::Item>,
@@ -97,7 +209,7 @@ where
                 f(self.subgrid(row, col)?)
             })
             .collect::<Option<_>>()?;
-        Some(Grid(array))
+        Some(Gridd(array))
     }
 
     fn subgrid(&self, row: usize, col: usize) -> Option<Grid2x2<A::Item>> {
@@ -105,7 +217,7 @@ where
         let b = self.get(row, col + 1)?;
         let c = self.get(row + 1, col)?;
         let d = self.get(row + 1, col + 1)?;
-        Some(Grid::pack(&[a, b, c, d]))
+        Some(Gridd::pack(&[a, b, c, d]))
     }
 
     fn get(&self, row: usize, col: usize) -> Option<A::Item> {
@@ -117,14 +229,14 @@ where
     }
 }
 
-impl<A> Eq for Grid<A>
+impl<A> Eq for Gridd<A>
 where
     A: SquareArray,
     A::Item: Eq,
 {
 }
 
-impl<A> Hash for Grid<A>
+impl<A> Hash for Gridd<A>
 where
     A: SquareArray,
     A::Item: Hash,
@@ -134,7 +246,7 @@ where
     }
 }
 
-impl<A> PartialEq for Grid<A>
+impl<A> PartialEq for Gridd<A>
 where
     A: SquareArray,
     A::Item: PartialEq,
