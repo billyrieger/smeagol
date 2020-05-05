@@ -5,6 +5,7 @@
 pub mod bool8x8;
 pub mod grid;
 pub mod node;
+pub mod store;
 
 use crate::bool8x8::Bool8x8;
 

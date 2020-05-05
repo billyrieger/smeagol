@@ -34,6 +34,21 @@ pub type Grid2x2<T> = Grid<[T; 4]>;
 pub type Grid3x3<T> = Grid<[T; 9]>;
 pub type Grid4x4<T> = Grid<[T; 16]>;
 
+impl<T> Grid2x2<Grid2x2<T>>
+where
+    T: Copy + Default,
+{
+    pub fn flatten(&self) -> Grid4x4<T> {
+        todo!()
+        // match self.map(|grid| grid.unpack()).unpack() {
+        //     &[&[a, b, e, f], &[c, d, g, h], &[i, j, m, n], &[k, l, o, p]] => {
+        //         Grid::pack(&[a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p])
+        //     }
+        //     _ => unreachable!(),
+        // }
+    }
+}
+
 impl<A> Grid<A>
 where
     A: SquareArray,
@@ -66,21 +81,20 @@ where
         F: Fn(A::Item) -> Option<B::Item>,
     {
         assert_eq!(A::SIDE_LEN, B::SIDE_LEN);
-        let array: ArrayVec<B> = self.0.into_iter().map(|x| f(x)).collect::<Option<_>>()?;
+        let array = self.0.into_iter().map(|x| f(x)).collect::<Option<_>>()?;
         Some(Grid(array))
     }
 
-    pub fn reduce<B, F>(self, mut f: F) -> Option<Grid<B>>
+    pub fn shrink<B, F>(self, mut f: F) -> Option<Grid<B>>
     where
         B: SquareArray,
         F: FnMut(Grid2x2<A::Item>) -> Option<B::Item>,
     {
         assert_eq!(A::SIDE_LEN, B::SIDE_LEN + 1);
-        let array: ArrayVec<B> = (0..B::CAPACITY)
+        let array = (0..B::CAPACITY)
             .map(|i| {
                 let (row, col) = (i / B::SIDE_LEN, i % B::SIDE_LEN);
-                let grid2x2 = self.subgrid(row, col)?;
-                f(grid2x2)
+                f(self.subgrid(row, col)?)
             })
             .collect::<Option<_>>()?;
         Some(Grid(array))
