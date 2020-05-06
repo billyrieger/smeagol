@@ -11,7 +11,7 @@ use slotmap::{SecondaryMap, SlotMap};
 use std::collections::HashMap;
 
 #[derive(Clone)]
-pub struct Quadtree {
+pub struct Store {
     rule: Rule,
     id_lookup: HashMap<Node, NodeId>,
     nodes: SlotMap<NodeId, Node>,
@@ -19,7 +19,7 @@ pub struct Quadtree {
     jumps: SecondaryMap<NodeId, NodeId>,
 }
 
-impl Quadtree {
+impl Store {
     pub fn make_leaf(&mut self, leaf: Leaf) -> Option<NodeId> {
         Some(self.get_id(Node::Leaf(leaf)))
     }
@@ -40,20 +40,28 @@ impl Quadtree {
         self.nodes.get(id).copied()
     }
 
-    pub fn recurse<F, G>(&mut self, children: Grid2<NodeId>, f: F, g: G) -> Option<NodeId>
+    pub fn recurse<B, F, G>(
+        &mut self,
+        children: Grid2<NodeId>,
+        base_case: B,
+        f: F,
+        g: G,
+    ) -> Option<NodeId>
     where
+        B: Fn(Grid2<Leaf>) -> Leaf,
         F: Fn(&mut Self, Grid2<NodeId>) -> Option<NodeId>,
         G: Fn(&mut Self, Grid2<NodeId>) -> Option<NodeId>,
     {
         let Grid2(nodes) = children.try_map(|id| self.get_node(id))?;
         match nodes {
-            [Node::Leaf(w), Node::Leaf(x), Node::Leaf(y), Node::Leaf(z)] => {
-                let grid2x2 = Grid2([w, x, y, z]);
-                self.make_leaf(grid2x2.jump(self.rule))
+            [Node::Leaf(a), Node::Leaf(b), Node::Leaf(c), Node::Leaf(d)] => {
+                let leaves = Grid2([a, b, c, d]);
+                self.make_leaf(base_case(leaves))
             }
 
-            [Node::Branch(w), Node::Branch(x), Node::Branch(y), Node::Branch(z)] => {
-                let grandchildren = Grid2([w, x, y, z]).map(|branch| branch.children).flatten();
+            [Node::Branch(a), Node::Branch(b), Node::Branch(c), Node::Branch(d)] => {
+                let branches = Grid2([a, b, c, d]);
+                let grandchildren = branches.map(|branch| branch.children).flatten();
                 let shrunk = grandchildren
                     .shrink(|x| f(self, x))?
                     .shrink(|x| g(self, x))?;
@@ -64,8 +72,15 @@ impl Quadtree {
         }
     }
 
-    pub fn jump(&mut self, children: Grid2<NodeId>) -> Option<NodeId> {
-        self.recurse(children, Self::jump, Self::jump)
+    pub fn jump(&mut self, id: NodeId) -> Option<NodeId> {
+        let children = self.get_node(id)?.children()?;
+        self.jump_helper(children)
+    }
+
+    fn jump_helper(&mut self, children: Grid2<NodeId>) -> Option<NodeId> {
+        let rule = self.rule;
+        let base_case = |leaves: Grid2<Leaf>| leaves.jump(rule);
+        self.recurse(children, base_case, Self::jump_helper, Self::jump_helper)
     }
 
     fn get_id(&mut self, node: Node) -> NodeId {

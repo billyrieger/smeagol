@@ -204,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn adder_histogram() {
+    fn adder() {
         let buckets = Bool8x8::sum(&[
             Bool8x8(0x00000000F0000000),
             Bool8x8(0x0000000FFF000000),

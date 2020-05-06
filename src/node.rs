@@ -31,6 +31,13 @@ pub enum Node {
 }
 
 impl Node {
+    pub fn children(&self) -> Option<Grid2<NodeId>> {
+        match self {
+            Self::Leaf(_) => None,
+            Self::Branch(branch) => Some(branch.children),
+        }
+    }
+
     pub fn level(&self) -> Level {
         match self {
             Self::Leaf(_) => Level(3),
@@ -41,7 +48,7 @@ impl Node {
     /// Returns the number of alive cells in the `Node`.
     pub fn population(&self) -> u128 {
         match self {
-            Self::Leaf(leaf) => leaf.alive.0.count_ones() as u128,
+            Self::Leaf(leaf) => u128::from(leaf.alive.0.count_ones()),
             Self::Branch(branch) => branch.population,
         }
     }
@@ -50,7 +57,7 @@ impl Node {
 /// An 8 by 8 grid of dead or alive cells in a cellular automaton.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Leaf {
-    alive: Bool8x8,
+    pub alive: Bool8x8,
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
@@ -64,10 +71,6 @@ impl Leaf {
     /// Creates a new `Leaf`.
     pub fn new(alive: Bool8x8) -> Self {
         Self { alive }
-    }
-
-    pub fn alive(&self) -> Bool8x8 {
-        self.alive
     }
 
     pub fn step(&self, rule: Rule) -> Self {
@@ -95,6 +98,10 @@ impl Leaf {
         let survives = combine(alive_neighbor_count, rule.survival);
 
         Self::new(dead & born | alive & survives)
+    }
+
+    pub fn jump(&self, rule: Rule) -> Self {
+        self.step(rule).step(rule)
     }
 }
 
@@ -131,7 +138,9 @@ impl Grid2<Leaf> {
 
     fn join_horizontal(left: Leaf, right: Leaf) -> Leaf {
         let mask_left = Bool8x8(0xFF00_FF00_FF00_FF00);
-        let mask_right = Bool8x8(0x00FF00_00FF_00FF_00FF);
+        let mask_right = Bool8x8(0x00FF_00FF_00FF_00FF);
+        debug_assert_eq!(mask_left & mask_right, Bool8x8::FALSE);
+        debug_assert_eq!(mask_left | mask_right, Bool8x8::TRUE);
         Leaf::new(
             Bool8x8::FALSE | left.alive.left(4) & mask_left | right.alive.right(4) & mask_right,
         )
@@ -140,6 +149,8 @@ impl Grid2<Leaf> {
     fn join_vertical(top: Leaf, bottom: Leaf) -> Leaf {
         let mask_top = Bool8x8(0xFFFF_FFFF_0000_0000);
         let mask_bottom = Bool8x8(0x0000_0000_FFFF_FFFF);
+        debug_assert_eq!(mask_top & mask_bottom, Bool8x8::FALSE);
+        debug_assert_eq!(mask_top | mask_bottom, Bool8x8::TRUE);
         Leaf::new(Bool8x8::FALSE | top.alive.up(4) & mask_top | bottom.alive.down(4) & mask_bottom)
     }
 
