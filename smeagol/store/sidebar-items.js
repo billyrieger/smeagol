@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Quadtree",""]]});
+initSidebarItems({"struct":[["Store",""]]});
