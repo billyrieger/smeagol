@@ -75,57 +75,64 @@ impl Node {
 /// An 8 by 8 grid of dead or alive cells in a cellular automaton.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Leaf {
-    alive: Bool8x8,
+    pub alive: Bool8x8,
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct Branch {
-    pub(crate) children: Grid2<Id>,
-    pub(crate) level: Level,
-    pub(crate) population: u128,
+    pub children: Grid2<Id>,
+    pub level: Level,
+    pub population: u128,
 }
 
 impl Leaf {
-    /// Creates a new `Leaf`.
+    /// Creates a new `Leaf` with the given alive cells.
     fn new(alive: Bool8x8) -> Self {
         Self { alive }
     }
 
-    /// Advances the leaf by one generation.
-    fn step(&self, rule: Rule) -> Self {
-        let result = rule.step(self.alive);
-        Self::new(result)
+    /// Advances the leaf by 0 generations.
+    fn idle(&self, _rule: Rule) -> Self {
+        *self
     }
 
-    /// Advances the leaf by two generations.
+    /// Advances the leaf by 1 generation.
+    fn step(&self, rule: Rule) -> Self {
+        let alive = rule.step(self.alive);
+        Self { alive }
+    }
+
+    /// Advances the leaf by 2 generations.
     fn jump(&self, rule: Rule) -> Self {
-        let result = rule.step(rule.step(self.alive));
-        Self::new(result)
+        self.step(rule).step(rule)
     }
 }
 
 impl Grid2<Leaf> {
-    pub fn evolve(&self, rule: Rule, steps: u64) -> Leaf {
-        assert!(steps < 4);
-        let idle = |x| x;
-        let step = |leaf: Leaf| leaf.step(rule);
-        let jump = |leaf: Leaf| leaf.jump(rule);
-        match steps {
-            0 => self.apply(idle, idle),
-            1 => self.apply(idle, step),
-            2 => self.apply(idle, jump),
-            3 => self.apply(step, jump),
-            4 => self.apply(jump, jump),
-            _ => unreachable!(),
-        }
+    /// Advances the leaves by 0 generations.
+    pub fn idle(&self, rule: Rule) -> Leaf {
+        self.apply(rule, Leaf::idle, Leaf::idle)
     }
 
-    fn apply<F, G>(&self, first: F, second: G) -> Leaf
+    /// Advances the leaves by 1 generation.
+    pub fn step(&self, rule: Rule) -> Leaf {
+        self.apply(rule, Leaf::idle, Leaf::step)
+    }
+
+    /// Advances the leaves by 4 generations.
+    pub fn jump(&self, rule: Rule) -> Leaf {
+        self.apply(rule, Leaf::jump, Leaf::jump)
+    }
+
+    fn apply<F, G>(&self, rule: Rule, first: F, second: G) -> Leaf
     where
-        F: Fn(Leaf) -> Leaf,
-        G: Fn(Leaf) -> Leaf,
+        F: Fn(&Leaf, Rule) -> Leaf,
+        G: Fn(&Leaf, Rule) -> Leaf,
     {
-        let [nw, ne, sw, se] = self.0;
+        let first = |leaf| first(&leaf, rule);
+        let second = |leaf| second(&leaf, rule);
+
+        let Grid2([nw, ne, sw, se]) = *self;
 
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .

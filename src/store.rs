@@ -44,6 +44,31 @@ impl Store {
         todo!()
     }
 
+    fn jump(&mut self, id: Id) -> Option<Id> {
+        use Node::*;
+
+        self.jumps
+            .get(id)
+            .copied()
+            .or_else(|| match self.get_node(id)? {
+                Leaf(_) => None,
+                Branch(branch) => match branch.children.try_map(|id| self.get_node(id))? {
+                    Grid2([Leaf(a), Leaf(b), Leaf(c), Leaf(d)]) => {
+                        let leaves = Grid2([a, b, c, d]);
+                        todo!();
+                    }
+
+                    Grid2([Branch(a), Branch(b), Branch(c), Branch(d)]) => {
+                        todo!();
+                        todo!();
+                        todo!();
+                    }
+
+                    _ => None,
+                },
+            })
+    }
+
     pub fn evolve(&mut self, ids: Grid2<Id>, steps: u64) -> Option<Id> {
         let Grid2(nodes) = ids.try_map(|id| self.get_node(id))?;
         match nodes {
