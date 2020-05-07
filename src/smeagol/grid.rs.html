@@ -143,15 +143,10 @@
 <span id="143">143</span>
 <span id="144">144</span>
 <span id="145">145</span>
-<span id="146">146</span>
-<span id="147">147</span>
-<span id="148">148</span>
-<span id="149">149</span>
-<span id="150">150</span>
-<span id="151">151</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">hash</span>::<span class="ident">Hash</span>;
 
+<span class="doccomment">/// A 2 by 2 square grid of values.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">Ord</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="kw">pub</span> [<span class="ident">T</span>; <span class="number">4</span>]);
 
@@ -162,7 +157,6 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">map</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">U</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">f</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">F</span>: <span class="ident">FnMut</span>(<span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">U</span>,
-        <span class="ident">U</span>: <span class="ident">Copy</span>,
     {
         <span class="kw">let</span> [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>] <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>;
         <span class="ident">Grid2</span>([<span class="ident">f</span>(<span class="ident">a</span>), <span class="ident">f</span>(<span class="ident">b</span>), <span class="ident">f</span>(<span class="ident">c</span>), <span class="ident">f</span>(<span class="ident">d</span>)])
@@ -171,7 +165,6 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_map</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">U</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">f</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">F</span>: <span class="ident">FnMut</span>(<span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>,
-        <span class="ident">U</span>: <span class="ident">Copy</span>,
     {
         <span class="kw">let</span> [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>] <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>;
         <span class="prelude-val">Some</span>(<span class="ident">Grid2</span>([<span class="ident">f</span>(<span class="ident">a</span>)<span class="question-mark">?</span>, <span class="ident">f</span>(<span class="ident">b</span>)<span class="question-mark">?</span>, <span class="ident">f</span>(<span class="ident">c</span>)<span class="question-mark">?</span>, <span class="ident">f</span>(<span class="ident">d</span>)<span class="question-mark">?</span>]))
@@ -183,10 +176,11 @@
     <span class="ident">T</span>: <span class="ident">Copy</span>,
 {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">flatten</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Grid4</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="comment">// a b c d</span>
-        <span class="comment">// e f g h</span>
-        <span class="comment">// i j k l</span>
-        <span class="comment">// m n o p</span>
+        <span class="comment">// a b | c d</span>
+        <span class="comment">// e f | g h</span>
+        <span class="comment">// ----+----</span>
+        <span class="comment">// i j | k l</span>
+        <span class="comment">// m n | o p</span>
         <span class="kw">let</span> [[<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">e</span>, <span class="ident">f</span>], [<span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">g</span>, <span class="ident">h</span>], [<span class="ident">i</span>, <span class="ident">j</span>, <span class="ident">m</span>, <span class="ident">n</span>], [<span class="ident">k</span>, <span class="ident">l</span>, <span class="ident">o</span>, <span class="ident">p</span>]] <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">grid</span><span class="op">|</span> <span class="ident">grid</span>.<span class="number">0</span>).<span class="number">0</span>;
         <span class="ident">Grid4</span>([<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>, <span class="ident">i</span>, <span class="ident">j</span>, <span class="ident">k</span>, <span class="ident">l</span>, <span class="ident">m</span>, <span class="ident">n</span>, <span class="ident">o</span>, <span class="ident">p</span>])
     }
@@ -199,23 +193,20 @@
 <span class="kw">where</span>
     <span class="ident">T</span>: <span class="ident">Copy</span>,
 {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">shrink</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">U</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">func</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">shrink</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">U</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">map</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">F</span>: <span class="ident">FnMut</span>(<span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>,
-        <span class="ident">U</span>: <span class="ident">Copy</span>,
     {
-        <span class="comment">// a b c</span>
-        <span class="comment">// d e f</span>
-        <span class="comment">// g h i</span>
+        <span class="comment">// a---b---c</span>
+        <span class="comment">// | w | x |</span>
+        <span class="comment">// d---e---f</span>
+        <span class="comment">// | y | z |</span>
+        <span class="comment">// g---h---i</span>
         <span class="kw">let</span> [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>, <span class="ident">i</span>] <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>;
-
-        <span class="comment">// w x</span>
-        <span class="comment">// y z</span>
-        <span class="kw">let</span> <span class="ident">w</span> <span class="op">=</span> <span class="ident">func</span>(<span class="ident">Grid2</span>([<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">d</span>, <span class="ident">e</span>]))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">func</span>(<span class="ident">Grid2</span>([<span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">e</span>, <span class="ident">f</span>]))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">y</span> <span class="op">=</span> <span class="ident">func</span>(<span class="ident">Grid2</span>([<span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">g</span>, <span class="ident">h</span>]))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">z</span> <span class="op">=</span> <span class="ident">func</span>(<span class="ident">Grid2</span>([<span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">h</span>, <span class="ident">i</span>]))<span class="question-mark">?</span>;
-
+        <span class="kw">let</span> <span class="ident">w</span> <span class="op">=</span> <span class="ident">map</span>(<span class="ident">Grid2</span>([<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">d</span>, <span class="ident">e</span>]))<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">map</span>(<span class="ident">Grid2</span>([<span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">e</span>, <span class="ident">f</span>]))<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">y</span> <span class="op">=</span> <span class="ident">map</span>(<span class="ident">Grid2</span>([<span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">g</span>, <span class="ident">h</span>]))<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">z</span> <span class="op">=</span> <span class="ident">map</span>(<span class="ident">Grid2</span>([<span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">h</span>, <span class="ident">i</span>]))<span class="question-mark">?</span>;
         <span class="prelude-val">Some</span>(<span class="ident">Grid2</span>([<span class="ident">w</span>, <span class="ident">x</span>, <span class="ident">y</span>, <span class="ident">z</span>]))
     }
 }
@@ -230,17 +221,15 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">shrink</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">U</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">func</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Grid3</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">F</span>: <span class="ident">FnMut</span>(<span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>,
-        <span class="ident">U</span>: <span class="ident">Copy</span>,
     {
-        <span class="comment">// a b c d</span>
-        <span class="comment">// e f g h</span>
-        <span class="comment">// i j k l</span>
-        <span class="comment">// m n o p</span>
+        <span class="comment">// a---b---c---d</span>
+        <span class="comment">// | r | s | t |</span>
+        <span class="comment">// e---f---g---h</span>
+        <span class="comment">// | u | v | w |</span>
+        <span class="comment">// i---j---k---l</span>
+        <span class="comment">// | x | y | z |</span>
+        <span class="comment">// m---n---o---p</span>
         <span class="kw">let</span> [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>, <span class="ident">i</span>, <span class="ident">j</span>, <span class="ident">k</span>, <span class="ident">l</span>, <span class="ident">m</span>, <span class="ident">n</span>, <span class="ident">o</span>, <span class="ident">p</span>] <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>;
-
-        <span class="comment">// r s t</span>
-        <span class="comment">// u v w</span>
-        <span class="comment">// x y z</span>
         <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">func</span>(<span class="ident">Grid2</span>([<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">e</span>, <span class="ident">f</span>]))<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">func</span>(<span class="ident">Grid2</span>([<span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">f</span>, <span class="ident">g</span>]))<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">func</span>(<span class="ident">Grid2</span>([<span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">g</span>, <span class="ident">h</span>]))<span class="question-mark">?</span>;
@@ -250,7 +239,6 @@
         <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">func</span>(<span class="ident">Grid2</span>([<span class="ident">i</span>, <span class="ident">j</span>, <span class="ident">m</span>, <span class="ident">n</span>]))<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">y</span> <span class="op">=</span> <span class="ident">func</span>(<span class="ident">Grid2</span>([<span class="ident">j</span>, <span class="ident">k</span>, <span class="ident">n</span>, <span class="ident">o</span>]))<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">z</span> <span class="op">=</span> <span class="ident">func</span>(<span class="ident">Grid2</span>([<span class="ident">k</span>, <span class="ident">l</span>, <span class="ident">o</span>, <span class="ident">p</span>]))<span class="question-mark">?</span>;
-
         <span class="prelude-val">Some</span>(<span class="ident">Grid3</span>([<span class="ident">r</span>, <span class="ident">s</span>, <span class="ident">t</span>, <span class="ident">u</span>, <span class="ident">v</span>, <span class="ident">w</span>, <span class="ident">x</span>, <span class="ident">y</span>, <span class="ident">z</span>]))
     }
 }
@@ -261,13 +249,13 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">try_map</span>() {
-        <span class="kw">let</span> <span class="ident">map</span> <span class="op">=</span> <span class="op">|</span><span class="ident">x</span>: <span class="ident">u32</span><span class="op">|</span> <span class="kw">if</span> <span class="ident">x</span> <span class="op">%</span> <span class="number">2</span> <span class="op">=</span><span class="op">=</span> <span class="number">1</span> { <span class="prelude-val">Some</span>(<span class="ident">x</span>.<span class="ident">pow</span>(<span class="number">3</span>)) } <span class="kw">else</span> { <span class="prelude-val">None</span> };
+        <span class="kw">let</span> <span class="ident">odd_cube</span> <span class="op">=</span> <span class="op">|</span><span class="ident">x</span>: <span class="ident">u32</span><span class="op">|</span> <span class="kw">if</span> <span class="ident">x</span> <span class="op">%</span> <span class="number">2</span> <span class="op">=</span><span class="op">=</span> <span class="number">1</span> { <span class="prelude-val">Some</span>(<span class="ident">x</span>.<span class="ident">pow</span>(<span class="number">3</span>)) } <span class="kw">else</span> { <span class="prelude-val">None</span> };
 
         <span class="kw">let</span> <span class="ident">odds</span> <span class="op">=</span> <span class="ident">Grid2</span>([<span class="number">1</span>, <span class="number">3</span>, <span class="number">5</span>, <span class="number">7</span>]);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">odds</span>.<span class="ident">try_map</span>(<span class="ident">map</span>), <span class="prelude-val">Some</span>(<span class="ident">Grid2</span>([<span class="number">1</span>, <span class="number">27</span>, <span class="number">125</span>, <span class="number">343</span>])));
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">odds</span>.<span class="ident">try_map</span>(<span class="ident">odd_cube</span>), <span class="prelude-val">Some</span>(<span class="ident">Grid2</span>([<span class="number">1</span>, <span class="number">27</span>, <span class="number">125</span>, <span class="number">343</span>])));
 
-        <span class="kw">let</span> <span class="ident">evens</span> <span class="op">=</span> <span class="ident">Grid2</span>([<span class="number">2</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">8</span>]);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">evens</span>.<span class="ident">try_map</span>(<span class="ident">map</span>), <span class="prelude-val">None</span>);
+        <span class="kw">let</span> <span class="ident">not_odds</span> <span class="op">=</span> <span class="ident">Grid2</span>([<span class="number">1</span>, <span class="number">4</span>, <span class="number">3</span>, <span class="number">8</span>]);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">not_odds</span>.<span class="ident">try_map</span>(<span class="ident">odd_cube</span>), <span class="prelude-val">None</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>

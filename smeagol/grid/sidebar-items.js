@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Grid2",""],["Grid3",""],["Grid4",""]]});
+initSidebarItems({"struct":[["Grid2","A 2 by 2 square grid of values."],["Grid3",""],["Grid4",""]]});
