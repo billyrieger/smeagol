@@ -4,7 +4,7 @@
 
 use crate::{
     grid::Grid2,
-    node::{Branch, Id, Leaf, Level, Node},
+    node::{Branch, Id, Leaf, Node},
     Rule,
 };
 use slotmap::{SecondaryMap, SlotMap};
@@ -40,67 +40,74 @@ impl Store {
         self.nodes.get(id).copied()
     }
 
-    fn idle(&mut self, _ids: Grid2<Id>) -> Option<Id> {
-        todo!()
-    }
+//     fn idle(&mut self, _ids: Grid2<Id>) -> Option<Id> {
+//         todo!()
+//     }
 
-    fn jump(&mut self, id: Id) -> Option<Id> {
-        use Node::*;
+//     fn jump(&mut self, id: Id) -> Option<Id> {
+//         use Node::*;
 
-        self.jumps
-            .get(id)
-            .copied()
-            .or_else(|| match self.get_node(id)? {
-                Leaf(_) => None,
-                Branch(branch) => match branch.children.try_map(|id| self.get_node(id))? {
-                    Grid2([Leaf(a), Leaf(b), Leaf(c), Leaf(d)]) => {
-                        let leaves = Grid2([a, b, c, d]);
-                        todo!();
-                    }
+//         self.jumps
+//             .get(id)
+//             .copied()
+//             .or_else(|| match self.get_node(id)? {
+//                 Leaf(_) => None,
+//                 Branch(branch) => match branch.children.try_map(|id| self.get_node(id))? {
+//                     Grid2([Leaf(a), Leaf(b), Leaf(c), Leaf(d)]) => {
+//                         let leaves = Grid2([a, b, c, d]);
+//                         todo!();
+//                     }
 
-                    Grid2([Branch(a), Branch(b), Branch(c), Branch(d)]) => {
-                        todo!();
-                        todo!();
-                        todo!();
-                    }
+//                     Grid2([Branch(a), Branch(b), Branch(c), Branch(d)]) => {
+//                         todo!();
+//                     }
 
-                    _ => None,
-                },
-            })
-    }
+//                     _ => None,
+//                 },
+//             })
+//     }
 
-    pub fn evolve(&mut self, ids: Grid2<Id>, steps: u64) -> Option<Id> {
-        let Grid2(nodes) = ids.try_map(|id| self.get_node(id))?;
-        match nodes {
-            [Node::Leaf(a), Node::Leaf(b), Node::Leaf(c), Node::Leaf(d)] => {
-                let leaves = Grid2([a, b, c, d]);
-                self.make_leaf(leaves.evolve(self.rule, steps))
-            }
+//     pub fn evolve(&mut self, id: Id, steps: u64) -> Option<Id> {
+//         use Node::{Branch, Leaf};
 
-            [Node::Branch(a), Node::Branch(b), Node::Branch(c), Node::Branch(d)] => {
-                let max_steps = a.level.max_steps();
-                let branches = Grid2([a, b, c, d]);
-                let grandchildren = branches.map(|branch| branch.children).flatten();
+//         match self.get_node(id)? {
+//             Leaf(_) => todo!(),
+//             Branch(branch) => {
+//                 let max_steps = branch.level.max_steps();
+//                 let Grid2(child_nodes) = branch.children.try_map(|id| self.get_node(id))?;
+//                 match child_nodes {
+//                     [Node::Leaf(a), Node::Leaf(b), Node::Leaf(c), Node::Leaf(d)] => {
+//                         let child_leaves = Grid2([a, b, c, d]);
+//                         let new_leaf = match steps {
+//                             0 => Some(child_leaves.idle_idle(self.rule)),
+//                             1 => Some(child_leaves.idle_step(self.rule)),
+//                             2 => Some(child_leaves.idle_jump(self.rule)),
+//                             3 => Some(child_leaves.step_jump(self.rule)),
+//                             4 => Some(child_leaves.jump_jump(self.rule)),
+//                             _ => None,
+//                         }?;
+//                         self.make_leaf(new_leaf);
+//                         todo!()
+//                     }
 
-                let result = if steps <= max_steps / 2 {
-                    grandchildren
-                        .shrink(|ids| self.idle(ids))?
-                        .shrink(|ids| self.evolve(ids, steps))?
-                } else if steps <= max_steps {
-                    let leftover_steps = steps - max_steps / 2;
-                    grandchildren
-                        .shrink(|ids| self.evolve(ids, leftover_steps))?
-                        .shrink(|ids| self.evolve(ids, max_steps / 2))?
-                } else {
-                    None?
-                };
-                self.make_branch(result)
-            }
+//                     [Node::Branch(a), Node::Branch(b), Node::Branch(c), Node::Branch(d)] => {
+//                         let result = if steps <= max_steps / 2 {
+//                             todo!()
+//                         } else if steps <= max_steps {
+//                             todo!()
+//                         } else {
+//                             None
+//                         }?;
+//                         self.make_branch(result);
+//                         todo!()
+//                     }
 
-            _ => None,
-        };
-        todo!()
-    }
+//                     _ => todo!(),
+//                 }
+//             }
+//         };
+//         todo!()
+//     }
 
     fn get_id(&mut self, node: Node) -> Id {
         self.id_lookup.get(&node).copied().unwrap_or_else(|| {

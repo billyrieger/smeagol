@@ -110,17 +110,27 @@ impl Leaf {
 
 impl Grid2<Leaf> {
     /// Advances the leaves by 0 generations.
-    pub fn idle(&self, rule: Rule) -> Leaf {
+    pub fn idle_idle(&self, rule: Rule) -> Leaf {
         self.apply(rule, Leaf::idle, Leaf::idle)
     }
 
     /// Advances the leaves by 1 generation.
-    pub fn step(&self, rule: Rule) -> Leaf {
+    pub fn idle_step(&self, rule: Rule) -> Leaf {
         self.apply(rule, Leaf::idle, Leaf::step)
     }
 
+    /// Advances the leaves by 2 generations.
+    pub fn idle_jump(&self, rule: Rule) -> Leaf {
+        self.apply(rule, Leaf::idle, Leaf::jump)
+    }
+
+    /// Advances the leaves by 3 generations.
+    pub fn step_jump(&self, rule: Rule) -> Leaf {
+        self.apply(rule, Leaf::step, Leaf::jump)
+    }
+
     /// Advances the leaves by 4 generations.
-    pub fn jump(&self, rule: Rule) -> Leaf {
+    pub fn jump_jump(&self, rule: Rule) -> Leaf {
         self.apply(rule, Leaf::jump, Leaf::jump)
     }
 
@@ -131,6 +141,14 @@ impl Grid2<Leaf> {
     {
         let first = |leaf| first(&leaf, rule);
         let second = |leaf| second(&leaf, rule);
+
+        let debug = |leaf: Leaf| println!("{:016x}", leaf.alive.0);
+
+        println!("input:");
+        debug(self.0[0]);
+        debug(self.0[1]);
+        debug(self.0[2]);
+        debug(self.0[3]);
 
         let Grid2([nw, ne, sw, se]) = *self;
 
@@ -156,6 +174,8 @@ impl Grid2<Leaf> {
         let c = first(ne);
         let d = first(Self::join_vert(nw, sw));
         let e = first(Self::center(nw, ne, sw, se));
+        println!("center:");
+        debug(e);
         let f = first(Self::join_vert(ne, se));
         let g = first(sw);
         let h = first(Self::join_horiz(sw, se));
@@ -189,19 +209,19 @@ impl Grid2<Leaf> {
     fn center(nw: Leaf, ne: Leaf, sw: Leaf, se: Leaf) -> Leaf {
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .
-        // . . a a a a . . | . . b b b b . .
-        // . . a a a a . . | . . b b b b . .
-        // . . a a a a . . | . . b b b b . .
-        // . . a a a a . . | . . b b b b . .
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .
+        // . . . . a a a a | b b b b . . . .
+        // . . . . a a a a | b b b b . . . .
+        // . . . . a a a a | b b b b . . . .
+        // . . . . a a a a | b b b b . . . .
         // ----------------+----------------
+        // . . . . c c c c | d d d d . . . .
+        // . . . . c c c c | d d d d . . . .
+        // . . . . c c c c | d d d d . . . .
+        // . . . . c c c c | d d d d . . . .
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .
-        // . . c c c c . . | . . d d d d . .
-        // . . c c c c . . | . . d d d d . .
-        // . . c c c c . . | . . d d d d . .
-        // . . c c c c . . | . . d d d d . .
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .
         let a = nw.alive.up(4).left(4) & Bool8x8::NORTHWEST;
@@ -249,11 +269,28 @@ impl Grid2<Leaf> {
     }
 
     fn join_centers(nw: Leaf, ne: Leaf, sw: Leaf, se: Leaf) -> Leaf {
+        // . . . . . . . . | . . . . . . . .
+        // . . . . . . . . | . . . . . . . .
+        // . . a a a a . . | . . b b b b . .
+        // . . a a a a . . | . . b b b b . .
+        // . . a a a a . . | . . b b b b . .
+        // . . a a a a . . | . . b b b b . .
+        // . . . . . . . . | . . . . . . . .
+        // . . . . . . . . | . . . . . . . .
+        // ----------------+----------------
+        // . . . . . . . . | . . . . . . . .
+        // . . . . . . . . | . . . . . . . .
+        // . . c c c c . . | . . d d d d . .
+        // . . c c c c . . | . . d d d d . .
+        // . . c c c c . . | . . d d d d . .
+        // . . c c c c . . | . . d d d d . .
+        // . . . . . . . . | . . . . . . . .
+        // . . . . . . . . | . . . . . . . .
         let combined = Bool8x8::FALSE
-            | nw.alive.up(2).left(2)
-            | ne.alive.up(2).right(2)
-            | sw.alive.down(2).left(2)
-            | se.alive.down(2).right(2);
+            | nw.alive.up(2).left(2) & Bool8x8::NORTHWEST
+            | ne.alive.up(2).right(2) & Bool8x8::NORTHEAST
+            | sw.alive.down(2).left(2) & Bool8x8::SOUTHWEST
+            | se.alive.down(2).right(2) & Bool8x8::SOUTHEAST;
         Leaf::new(combined)
     }
 }
@@ -261,4 +298,60 @@ impl Grid2<Leaf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn glider() {
+        let life = Rule::new(&[3], &[2, 3]);
+
+        //      +-----------------+-----------------+
+        // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
+        // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
+        // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
+        // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
+        // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
+        // 0x01 | . . . . . . . # | . . . . . . . . | 0x00
+        // 0x00 | . . . . . . . . | # . . . . . . . | 0x80
+        //      +-----------------+-----------------+
+        // 0x03 | . . . . . . # # | # . . . . . . . | 0x80
+        // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
+        // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
+        // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
+        // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
+        // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
+        // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
+        // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
+        //      +-----------------+-----------------+
+        let nw_start = Bool8x8(0x0000_0000_0000_0100);
+        let ne_start = Bool8x8(0x0000_0000_0000_0080);
+        let sw_start = Bool8x8(0x0300_0000_0000_0000);
+        let se_start = Bool8x8(0x8000_0000_0000_0000);
+        let start = Grid2([nw_start, ne_start, sw_start, se_start]).map(Leaf::new);
+
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        // 0x10 | . . . # . . . .
+        // 0x08 | . . . . # . . .
+        // 0x38 | . . # # # . . .
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        let idle_leaf = Leaf::new(Bool8x8(0x0000_1008_3800_0000));
+        assert_eq!(idle_leaf, Grid2::center(start.0[0], start.0[1], start.0[2], start.0[3]));
+
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        // 0x08 | . . . . # . . .
+        // 0x04 | . . . . . # . .
+        // 0x1C | . . . # # # . .
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        let jump_leaf = Leaf::new(Bool8x8(0x0000_0008_041C_0000));
+        assert_eq!(idle_leaf.alive.down(1).right(1), jump_leaf.alive);
+
+        let idled = start.idle_idle(life);
+        let jumped = start.jump_jump(life);
+        assert_eq!(idled, idle_leaf);
+        assert_eq!(jumped, jump_leaf);
+    }
 }
