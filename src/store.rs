@@ -24,25 +24,20 @@ impl Store {
         Some(self.get_id(Node::Leaf(leaf)))
     }
 
-    pub fn make_branch(&mut self, children: Grid2<Id>) -> Option<Id> {
+    pub fn make_branch(&mut self, children: Grid2<Id>) -> Option<Branch> {
         let Grid2(nodes) = children.try_map(|id| self.get_node(id))?;
         let level = nodes[0].level().increment()?;
         let population = nodes.iter().map(Node::population).sum();
-        let node = Node::Branch(Branch {
+        Some(Branch {
             children,
             level,
             population,
-        });
-        Some(self.get_id(node))
+        })
     }
 
     pub fn get_node(&self, id: Id) -> Option<Node> {
         self.nodes.get(id).copied()
     }
-
-    //     fn idle(&mut self, _ids: Grid2<Id>) -> Option<Id> {
-    //         todo!()
-    //     }
 
     //     fn jump(&mut self, id: Id) -> Option<Id> {
     //         use Node::*;
@@ -67,47 +62,38 @@ impl Store {
     //             })
     //     }
 
-    //     pub fn evolve(&mut self, id: Id, steps: u64) -> Option<Id> {
-    //         use Node::{Branch, Leaf};
+    pub fn evolve(&mut self, branch: Branch, steps: u64) -> Option<Id> {
+        let max_steps = branch.level.max_steps();
+        assert!(steps <= max_steps, format!("step too large"));
+        let child_nodes = branch.children.try_map(|id| self.get_node(id))?;
+        match child_nodes {
+            Grid2([Node::Leaf(a), Node::Leaf(b), Node::Leaf(c), Node::Leaf(d)]) => {
+                let child_leaves = Grid2([a, b, c, d]);
+                let (idle, step, jump) = (Leaf::idle, Leaf::step, Leaf::jump);
+                let new_leaf = match steps {
+                    0 => Some(Leaf::apply(child_leaves, self.rule, idle, idle)),
+                    1 => Some(Leaf::apply(child_leaves, self.rule, idle, step)),
+                    2 => Some(Leaf::apply(child_leaves, self.rule, idle, jump)),
+                    3 => Some(Leaf::apply(child_leaves, self.rule, step, jump)),
+                    4 => Some(Leaf::apply(child_leaves, self.rule, jump, jump)),
+                    _ => None,
+                }?;
+                self.make_leaf(new_leaf);
+                todo!()
+            }
 
-    //         match self.get_node(id)? {
-    //             Leaf(_) => todo!(),
-    //             Branch(branch) => {
-    //                 let max_steps = branch.level.max_steps();
-    //                 let Grid2(child_nodes) = branch.children.try_map(|id| self.get_node(id))?;
-    //                 match child_nodes {
-    //                     [Node::Leaf(a), Node::Leaf(b), Node::Leaf(c), Node::Leaf(d)] => {
-    //                         let child_leaves = Grid2([a, b, c, d]);
-    //                         let new_leaf = match steps {
-    //                             0 => Some(child_leaves.idle_idle(self.rule)),
-    //                             1 => Some(child_leaves.idle_step(self.rule)),
-    //                             2 => Some(child_leaves.idle_jump(self.rule)),
-    //                             3 => Some(child_leaves.step_jump(self.rule)),
-    //                             4 => Some(child_leaves.jump_jump(self.rule)),
-    //                             _ => None,
-    //                         }?;
-    //                         self.make_leaf(new_leaf);
-    //                         todo!()
-    //                     }
+            Grid2([Node::Branch(a), Node::Branch(b), Node::Branch(c), Node::Branch(d)]) => {
+                let child_branches = Grid2([a, b, c, d]);
+                let grandchildren = child_branches.map(|branch| branch.children).flatten();
+                let foo = grandchildren.shrink(|children| self.make_branch(children));
+                println!("asdf");
+                println!("asdf");
+                todo!()
+            }
 
-    //                     [Node::Branch(a), Node::Branch(b), Node::Branch(c), Node::Branch(d)] => {
-    //                         let result = if steps <= max_steps / 2 {
-    //                             todo!()
-    //                         } else if steps <= max_steps {
-    //                             todo!()
-    //                         } else {
-    //                             None
-    //                         }?;
-    //                         self.make_branch(result);
-    //                         todo!()
-    //                     }
-
-    //                     _ => todo!(),
-    //                 }
-    //             }
-    //         };
-    //         todo!()
-    //     }
+            _ => None,
+        }
+    }
 
     fn get_id(&mut self, node: Node) -> Id {
         self.id_lookup.get(&node).copied().unwrap_or_else(|| {
