@@ -299,7 +299,10 @@ mod tests {
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
         let idle_leaf = Leaf::new(Bool8x8(0x0000_1008_3800_0000));
-        assert_eq!(idle_leaf, Leaf::center(nw_start, ne_start, sw_start, se_start));
+        assert_eq!(
+            idle_leaf,
+            Leaf::center(nw_start, ne_start, sw_start, se_start)
+        );
 
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
