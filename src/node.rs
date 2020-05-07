@@ -336,7 +336,10 @@ mod tests {
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
         let idle_leaf = Leaf::new(Bool8x8(0x0000_1008_3800_0000));
-        assert_eq!(idle_leaf, Grid2::center(start.0[0], start.0[1], start.0[2], start.0[3]));
+        assert_eq!(
+            idle_leaf,
+            Grid2::center(start.0[0], start.0[1], start.0[2], start.0[3])
+        );
 
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
