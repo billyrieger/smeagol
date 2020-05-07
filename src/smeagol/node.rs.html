@@ -355,6 +355,9 @@
 <span id="355">355</span>
 <span id="356">356</span>
 <span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This Source Code Form is subject to the terms of the Mozilla Public</span>
 <span class="comment">// License, v. 2.0. If a copy of the MPL was not distributed with this</span>
@@ -694,7 +697,10 @@
         <span class="comment">// 0x00 | . . . . . . . .</span>
         <span class="comment">// 0x00 | . . . . . . . .</span>
         <span class="kw">let</span> <span class="ident">idle_leaf</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x0000_1008_3800_0000</span>));
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">idle_leaf</span>, <span class="ident">Grid2</span>::<span class="ident">center</span>(<span class="ident">start</span>.<span class="number">0</span>[<span class="number">0</span>], <span class="ident">start</span>.<span class="number">0</span>[<span class="number">1</span>], <span class="ident">start</span>.<span class="number">0</span>[<span class="number">2</span>], <span class="ident">start</span>.<span class="number">0</span>[<span class="number">3</span>]));
+        <span class="macro">assert_eq</span><span class="macro">!</span>(
+            <span class="ident">idle_leaf</span>,
+            <span class="ident">Grid2</span>::<span class="ident">center</span>(<span class="ident">start</span>.<span class="number">0</span>[<span class="number">0</span>], <span class="ident">start</span>.<span class="number">0</span>[<span class="number">1</span>], <span class="ident">start</span>.<span class="number">0</span>[<span class="number">2</span>], <span class="ident">start</span>.<span class="number">0</span>[<span class="number">3</span>])
+        );
 
         <span class="comment">// 0x00 | . . . . . . . .</span>
         <span class="comment">// 0x00 | . . . . . . . .</span>

@@ -160,74 +160,74 @@
         <span class="self">self</span>.<span class="ident">nodes</span>.<span class="ident">get</span>(<span class="ident">id</span>).<span class="ident">copied</span>()
     }
 
-<span class="comment">//     fn idle(&amp;mut self, _ids: Grid2&lt;Id&gt;) -&gt; Option&lt;Id&gt; {</span>
-<span class="comment">//         todo!()</span>
-<span class="comment">//     }</span>
+    <span class="comment">//     fn idle(&amp;mut self, _ids: Grid2&lt;Id&gt;) -&gt; Option&lt;Id&gt; {</span>
+    <span class="comment">//         todo!()</span>
+    <span class="comment">//     }</span>
 
-<span class="comment">//     fn jump(&amp;mut self, id: Id) -&gt; Option&lt;Id&gt; {</span>
-<span class="comment">//         use Node::*;</span>
+    <span class="comment">//     fn jump(&amp;mut self, id: Id) -&gt; Option&lt;Id&gt; {</span>
+    <span class="comment">//         use Node::*;</span>
 
-<span class="comment">//         self.jumps</span>
-<span class="comment">//             .get(id)</span>
-<span class="comment">//             .copied()</span>
-<span class="comment">//             .or_else(|| match self.get_node(id)? {</span>
-<span class="comment">//                 Leaf(_) =&gt; None,</span>
-<span class="comment">//                 Branch(branch) =&gt; match branch.children.try_map(|id| self.get_node(id))? {</span>
-<span class="comment">//                     Grid2([Leaf(a), Leaf(b), Leaf(c), Leaf(d)]) =&gt; {</span>
-<span class="comment">//                         let leaves = Grid2([a, b, c, d]);</span>
-<span class="comment">//                         todo!();</span>
-<span class="comment">//                     }</span>
+    <span class="comment">//         self.jumps</span>
+    <span class="comment">//             .get(id)</span>
+    <span class="comment">//             .copied()</span>
+    <span class="comment">//             .or_else(|| match self.get_node(id)? {</span>
+    <span class="comment">//                 Leaf(_) =&gt; None,</span>
+    <span class="comment">//                 Branch(branch) =&gt; match branch.children.try_map(|id| self.get_node(id))? {</span>
+    <span class="comment">//                     Grid2([Leaf(a), Leaf(b), Leaf(c), Leaf(d)]) =&gt; {</span>
+    <span class="comment">//                         let leaves = Grid2([a, b, c, d]);</span>
+    <span class="comment">//                         todo!();</span>
+    <span class="comment">//                     }</span>
 
-<span class="comment">//                     Grid2([Branch(a), Branch(b), Branch(c), Branch(d)]) =&gt; {</span>
-<span class="comment">//                         todo!();</span>
-<span class="comment">//                     }</span>
+    <span class="comment">//                     Grid2([Branch(a), Branch(b), Branch(c), Branch(d)]) =&gt; {</span>
+    <span class="comment">//                         todo!();</span>
+    <span class="comment">//                     }</span>
 
-<span class="comment">//                     _ =&gt; None,</span>
-<span class="comment">//                 },</span>
-<span class="comment">//             })</span>
-<span class="comment">//     }</span>
+    <span class="comment">//                     _ =&gt; None,</span>
+    <span class="comment">//                 },</span>
+    <span class="comment">//             })</span>
+    <span class="comment">//     }</span>
 
-<span class="comment">//     pub fn evolve(&amp;mut self, id: Id, steps: u64) -&gt; Option&lt;Id&gt; {</span>
-<span class="comment">//         use Node::{Branch, Leaf};</span>
+    <span class="comment">//     pub fn evolve(&amp;mut self, id: Id, steps: u64) -&gt; Option&lt;Id&gt; {</span>
+    <span class="comment">//         use Node::{Branch, Leaf};</span>
 
-<span class="comment">//         match self.get_node(id)? {</span>
-<span class="comment">//             Leaf(_) =&gt; todo!(),</span>
-<span class="comment">//             Branch(branch) =&gt; {</span>
-<span class="comment">//                 let max_steps = branch.level.max_steps();</span>
-<span class="comment">//                 let Grid2(child_nodes) = branch.children.try_map(|id| self.get_node(id))?;</span>
-<span class="comment">//                 match child_nodes {</span>
-<span class="comment">//                     [Node::Leaf(a), Node::Leaf(b), Node::Leaf(c), Node::Leaf(d)] =&gt; {</span>
-<span class="comment">//                         let child_leaves = Grid2([a, b, c, d]);</span>
-<span class="comment">//                         let new_leaf = match steps {</span>
-<span class="comment">//                             0 =&gt; Some(child_leaves.idle_idle(self.rule)),</span>
-<span class="comment">//                             1 =&gt; Some(child_leaves.idle_step(self.rule)),</span>
-<span class="comment">//                             2 =&gt; Some(child_leaves.idle_jump(self.rule)),</span>
-<span class="comment">//                             3 =&gt; Some(child_leaves.step_jump(self.rule)),</span>
-<span class="comment">//                             4 =&gt; Some(child_leaves.jump_jump(self.rule)),</span>
-<span class="comment">//                             _ =&gt; None,</span>
-<span class="comment">//                         }?;</span>
-<span class="comment">//                         self.make_leaf(new_leaf);</span>
-<span class="comment">//                         todo!()</span>
-<span class="comment">//                     }</span>
+    <span class="comment">//         match self.get_node(id)? {</span>
+    <span class="comment">//             Leaf(_) =&gt; todo!(),</span>
+    <span class="comment">//             Branch(branch) =&gt; {</span>
+    <span class="comment">//                 let max_steps = branch.level.max_steps();</span>
+    <span class="comment">//                 let Grid2(child_nodes) = branch.children.try_map(|id| self.get_node(id))?;</span>
+    <span class="comment">//                 match child_nodes {</span>
+    <span class="comment">//                     [Node::Leaf(a), Node::Leaf(b), Node::Leaf(c), Node::Leaf(d)] =&gt; {</span>
+    <span class="comment">//                         let child_leaves = Grid2([a, b, c, d]);</span>
+    <span class="comment">//                         let new_leaf = match steps {</span>
+    <span class="comment">//                             0 =&gt; Some(child_leaves.idle_idle(self.rule)),</span>
+    <span class="comment">//                             1 =&gt; Some(child_leaves.idle_step(self.rule)),</span>
+    <span class="comment">//                             2 =&gt; Some(child_leaves.idle_jump(self.rule)),</span>
+    <span class="comment">//                             3 =&gt; Some(child_leaves.step_jump(self.rule)),</span>
+    <span class="comment">//                             4 =&gt; Some(child_leaves.jump_jump(self.rule)),</span>
+    <span class="comment">//                             _ =&gt; None,</span>
+    <span class="comment">//                         }?;</span>
+    <span class="comment">//                         self.make_leaf(new_leaf);</span>
+    <span class="comment">//                         todo!()</span>
+    <span class="comment">//                     }</span>
 
-<span class="comment">//                     [Node::Branch(a), Node::Branch(b), Node::Branch(c), Node::Branch(d)] =&gt; {</span>
-<span class="comment">//                         let result = if steps &lt;= max_steps / 2 {</span>
-<span class="comment">//                             todo!()</span>
-<span class="comment">//                         } else if steps &lt;= max_steps {</span>
-<span class="comment">//                             todo!()</span>
-<span class="comment">//                         } else {</span>
-<span class="comment">//                             None</span>
-<span class="comment">//                         }?;</span>
-<span class="comment">//                         self.make_branch(result);</span>
-<span class="comment">//                         todo!()</span>
-<span class="comment">//                     }</span>
+    <span class="comment">//                     [Node::Branch(a), Node::Branch(b), Node::Branch(c), Node::Branch(d)] =&gt; {</span>
+    <span class="comment">//                         let result = if steps &lt;= max_steps / 2 {</span>
+    <span class="comment">//                             todo!()</span>
+    <span class="comment">//                         } else if steps &lt;= max_steps {</span>
+    <span class="comment">//                             todo!()</span>
+    <span class="comment">//                         } else {</span>
+    <span class="comment">//                             None</span>
+    <span class="comment">//                         }?;</span>
+    <span class="comment">//                         self.make_branch(result);</span>
+    <span class="comment">//                         todo!()</span>
+    <span class="comment">//                     }</span>
 
-<span class="comment">//                     _ =&gt; todo!(),</span>
-<span class="comment">//                 }</span>
-<span class="comment">//             }</span>
-<span class="comment">//         };</span>
-<span class="comment">//         todo!()</span>
-<span class="comment">//     }</span>
+    <span class="comment">//                     _ =&gt; todo!(),</span>
+    <span class="comment">//                 }</span>
+    <span class="comment">//             }</span>
+    <span class="comment">//         };</span>
+    <span class="comment">//         todo!()</span>
+    <span class="comment">//     }</span>
 
     <span class="kw">fn</span> <span class="ident">get_id</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Id</span> {
         <span class="self">self</span>.<span class="ident">id_lookup</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>).<span class="ident">copied</span>().<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> {
