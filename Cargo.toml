@@ -13,3 +13,5 @@ publish = false
 
 [dependencies]
 slotmap = "0.4.0"
+thiserror = "1.0.16"
+either = "1.5.3"

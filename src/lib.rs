@@ -6,7 +6,26 @@ pub mod grid;
 pub mod node;
 pub mod store;
 
+use crate::node::Id;
+use crate::node::Level;
+
 use std::ops::{BitAnd, BitOr, BitXor, Not};
+
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("step size {step:?} too large for node with level {level:?}")]
+    StepOverflow { step: u64, level: Level },
+    #[error("cannot increment past the maximum level")]
+    Increment,
+    #[error("id {0:?} not found")]
+    IdNotFound(Id),
+    #[error("unbalanced")]
+    Unbalanced,
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// A `u64` interpreted as a square grid of boolean values.
 ///
@@ -235,7 +254,7 @@ impl Not for Bool8x8 {
 }
 
 /// A description of how one state of a cellular automaton transitions into the next.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Rule {
     birth_neighbors: SumResult,
     survival_neighbors: SumResult,

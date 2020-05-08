@@ -2,7 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::{grid::Grid2, Bool8x8, Rule};
+use crate::{grid::Grid2, Bool8x8, Error, Result, Rule};
+
+use std::hash::{Hash, Hasher};
+
+use either::Either;
 use slotmap::new_key_type;
 
 /// A measure of the size of a `Node`.
@@ -24,11 +28,11 @@ impl Level {
     /// assert_eq!(Level(5).increment(), Some(Level(6)));
     /// assert_eq!(Level::MAX_LEVEL.increment(), None);
     /// ```
-    pub fn increment(self) -> Option<Self> {
+    pub fn increment(self) -> Result<Self> {
         if self < Self::MAX_LEVEL {
-            Some(Self(self.0 + 1))
+            Ok(Self(self.0 + 1))
         } else {
-            None
+            Err(Error::Increment)
         }
     }
 
@@ -41,7 +45,7 @@ new_key_type! {
     pub struct Id;
 }
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy)]
 pub enum Node {
     Leaf(Leaf),
     Branch(Branch),
@@ -68,6 +72,43 @@ impl Node {
         match self {
             Self::Leaf(leaf) => u128::from(leaf.alive.0.count_ones()),
             Self::Branch(branch) => branch.population,
+        }
+    }
+}
+
+impl Eq for Node {}
+
+impl Hash for Node {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Leaf(leaf) => leaf.hash(state),
+            Self::Branch(branch) => branch.children.hash(state),
+        }
+    }
+}
+
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Leaf(x), Self::Leaf(y)) => x == y,
+            (Self::Branch(x), Self::Branch(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
+impl Grid2<Node> {
+    pub fn classify(&self) -> Result<Either<Grid2<Leaf>, Grid2<Branch>>> {
+        match *self {
+            Grid2([Node::Leaf(a), Node::Leaf(b), Node::Leaf(c), Node::Leaf(d)]) => {
+                Ok(Either::Left(Grid2([a, b, c, d])))
+            }
+
+            Grid2([Node::Branch(a), Node::Branch(b), Node::Branch(c), Node::Branch(d)]) => {
+                Ok(Either::Right(Grid2([a, b, c, d])))
+            }
+
+            _ => Err(Error::Unbalanced),
         }
     }
 }

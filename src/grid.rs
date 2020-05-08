@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 use std::hash::Hash;
 
 /// A 2 by 2 square grid of values.
@@ -16,12 +20,12 @@ where
         Grid2([f(a), f(b), f(c), f(d)])
     }
 
-    pub fn try_map<F, U>(&self, mut f: F) -> Option<Grid2<U>>
+    pub fn try_map<E, F, U>(&self, mut f: F) -> Result<Grid2<U>, E>
     where
-        F: FnMut(T) -> Option<U>,
+        F: FnMut(T) -> Result<U, E>,
     {
         let [a, b, c, d] = self.0;
-        Some(Grid2([f(a)?, f(b)?, f(c)?, f(d)?]))
+        Ok(Grid2([f(a)?, f(b)?, f(c)?, f(d)?]))
     }
 }
 
@@ -47,9 +51,9 @@ impl<T> Grid3<T>
 where
     T: Copy,
 {
-    pub fn shrink<F, U>(&self, mut map: F) -> Option<Grid2<U>>
+    pub fn shrink<E, F, U>(&self, mut map: F) -> Result<Grid2<U>, E>
     where
-        F: FnMut(Grid2<T>) -> Option<U>,
+        F: FnMut(Grid2<T>) -> Result<U, E>,
     {
         // a---b---c
         // | w | x |
@@ -61,7 +65,7 @@ where
         let x = map(Grid2([b, c, e, f]))?;
         let y = map(Grid2([d, e, g, h]))?;
         let z = map(Grid2([e, f, h, i]))?;
-        Some(Grid2([w, x, y, z]))
+        Ok(Grid2([w, x, y, z]))
     }
 }
 
@@ -72,9 +76,14 @@ impl<T> Grid4<T>
 where
     T: Copy,
 {
-    pub fn shrink<F, U>(&self, mut func: F) -> Option<Grid3<U>>
+    pub fn center(&self) -> Grid2<T> {
+        let [_, _, _, _, _, f, g, _, _, j, k, _, _, _, _, _] = self.0;
+        Grid2([f, g, j, k])
+    }
+
+    pub fn shrink<E, F, U>(&self, mut func: F) -> Result<Grid3<U>, E>
     where
-        F: FnMut(Grid2<T>) -> Option<U>,
+        F: FnMut(Grid2<T>) -> Result<U, E>,
     {
         // a---b---c---d
         // | r | s | t |
@@ -93,7 +102,7 @@ where
         let x = func(Grid2([i, j, m, n]))?;
         let y = func(Grid2([j, k, n, o]))?;
         let z = func(Grid2([k, l, o, p]))?;
-        Some(Grid3([r, s, t, u, v, w, x, y, z]))
+        Ok(Grid3([r, s, t, u, v, w, x, y, z]))
     }
 }
 
@@ -103,13 +112,13 @@ mod tests {
 
     #[test]
     fn try_map() {
-        let odd_cube = |x: u32| if x % 2 == 1 { Some(x.pow(3)) } else { None };
+        let odd_cube = |x: u32| if x % 2 == 1 { Ok(x.pow(3)) } else { Err(()) };
 
         let odds = Grid2([1, 3, 5, 7]);
-        assert_eq!(odds.try_map(odd_cube), Some(Grid2([1, 27, 125, 343])));
+        assert_eq!(odds.try_map(odd_cube), Ok(Grid2([1, 27, 125, 343])));
 
         let not_odds = Grid2([1, 4, 3, 8]);
-        assert_eq!(not_odds.try_map(odd_cube), None);
+        assert_eq!(not_odds.try_map(odd_cube), Err(()));
     }
 
     #[test]
