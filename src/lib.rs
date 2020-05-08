@@ -6,8 +6,7 @@ pub mod grid;
 pub mod node;
 pub mod store;
 
-use crate::node::Id;
-use crate::node::Level;
+use crate::node::{Id, Level};
 
 use std::ops::{BitAnd, BitOr, BitXor, Not};
 

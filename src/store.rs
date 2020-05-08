@@ -3,8 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use crate::{
-    grid::Grid2,
-    grid::Grid4,
+    grid::{Grid2, Grid4},
     node::{Branch, Id, Leaf, Level, Node},
     Error, Result, Rule,
 };
