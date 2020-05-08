@@ -8,14 +8,12 @@ use crate::{
     Error, Result, Rule,
 };
 use either::Either;
-use slotmap::DenseSlotMap;
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 struct Data {
     node: Node,
     idle: Option<Id>,
-    steps: [Option<Id>; 4],
     jump: Option<Id>,
 }
 
@@ -23,7 +21,7 @@ struct Data {
 pub struct Store {
     rule: Rule,
     id_lookup: HashMap<Node, Id>,
-    node_data: DenseSlotMap<Id, Data>,
+    node_data: Vec<Data>,
 }
 
 impl Store {
@@ -32,7 +30,7 @@ impl Store {
         Self {
             rule,
             id_lookup: HashMap::new(),
-            node_data: DenseSlotMap::with_key(),
+            node_data: Vec::new(),
         }
     }
 
@@ -41,7 +39,7 @@ impl Store {
             todo!()
         };
 
-        let dead_leaf_id = self.make_id(Node::Leaf(Leaf::dead()));
+        let dead_leaf_id = self.make_id(Node::Leaf(Leaf::DEAD));
 
         let mut dead_branch = self.make_branch(Grid2([dead_leaf_id; 4]))?;
         for _ in 4..depth {
@@ -53,11 +51,13 @@ impl Store {
     }
 
     fn get_data(&self, id: Id) -> Result<&Data> {
-        self.node_data.get(id).ok_or(Error::IdNotFound(id))
+        self.node_data.get(id.index()).ok_or(Error::IdNotFound(id))
     }
 
     fn get_data_mut(&mut self, id: Id) -> Result<&mut Data> {
-        self.node_data.get_mut(id).ok_or(Error::IdNotFound(id))
+        self.node_data
+            .get_mut(id.index())
+            .ok_or(Error::IdNotFound(id))
     }
 
     fn make_id(&mut self, node: Node) -> Id {
@@ -65,10 +65,10 @@ impl Store {
             let data = Data {
                 node,
                 idle: None,
-                steps: [None; 4],
                 jump: None,
             };
-            let new_id = self.node_data.insert(data);
+            let new_id = Id::new(self.node_data.len());
+            self.node_data.push(data);
             self.id_lookup.insert(node, new_id);
             new_id
         })

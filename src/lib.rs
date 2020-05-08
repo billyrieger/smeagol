@@ -2,13 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+#![feature(const_fn, const_if_match)]
+
 pub mod grid;
 pub mod node;
 pub mod store;
 
 use node::{Id, Level};
-
-use std::ops::{BitAnd, BitOr, BitXor, Not};
 
 use thiserror::Error;
 
@@ -160,98 +160,92 @@ impl Bool8x8 {
     /// The `Bool8x8` where the middle quarter is true.
     pub const CENTER: Self = Self(0x0000_3C3C_3C3C_0000);
 
+    /// Performs bitwise boolean AND.
+    pub const fn and(&self, other: Self) -> Self {
+        Self(self.0 & other.0)
+    }
+
+    /// Performs bitwise boolean OR.
+    pub const fn or(&self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+
+    /// Performs bitwise boolean XOR.
+    pub const fn xor(&self, other: Self) -> Self {
+        Self(self.0 ^ other.0)
+    }
+
+    /// Performs bitwise boolean NOT.
+    pub const fn not(&self) -> Self {
+        Self(!self.0)
+    }
+
     /// Shifts the `Bool8x8` to the left by the given number of steps.
-    pub fn left(&self, steps: u8) -> Self {
+    pub const fn left(&self, steps: u8) -> Self {
         Self(self.0 << steps)
     }
 
     /// Shifts the `Bool8x8` to the right by the given number of steps.
-    pub fn right(&self, steps: u8) -> Self {
+    pub const fn right(&self, steps: u8) -> Self {
         Self(self.0 >> steps)
     }
 
     /// Shifts the `Bool8x8` up by the given number of steps.
-    pub fn up(&self, steps: u8) -> Self {
+    pub const fn up(&self, steps: u8) -> Self {
         self.left(steps * 8)
     }
 
     /// Shifts the `Bool8x8` down by the given number of steps.
-    pub fn down(&self, steps: u8) -> Self {
+    pub const fn down(&self, steps: u8) -> Self {
         self.right(steps * 8)
     }
 
     /// Performs a bitwise sum of the given `Bool8x8`s.
     ///
     /// The adder can only count to 8.
-    pub fn sum(addends: &[Self]) -> SumResult {
-        // the big-endian binary digits of the sum
-        let mut digits = [Self::FALSE; 4];
-
-        // https://en.wikipedia.org/wiki/Adder_(electronics)#Half_adder
-        let half_adder = |a: &mut Self, b: Self| {
-            let carry = *a & b;
-            *a = *a ^ b;
-            carry
-        };
-
-        for &addend in addends {
-            let carry = half_adder(&mut digits[3], addend);
-            let carry = half_adder(&mut digits[2], carry);
-            let carry = half_adder(&mut digits[1], carry);
-            // saturing sum ignores the final carry because the adder only counts to 8
-            digits[0] = digits[0] | carry;
-        }
-
-        Self::finish_sum(digits)
-    }
-
-    // separate function to preserve formatting
-    #[rustfmt::skip]
-    fn finish_sum(digits: [Self; 4]) -> SumResult {
-        let [a, b, c, d] = digits;
+    pub const fn sum(addends: &[Self]) -> SumResult {
+        let [a1, b1, c1, d1] = Self::adder([Self::FALSE; 4], addends);
+        let [a0, b0, c0, d0] = [a1.not(), b1.not(), c1.not(), d1.not()];
         [
-            !a & !b & !c & !d, // 0000 = 0
-            !a & !b & !c &  d, // 0001 = 1
-            !a & !b &  c & !d, // 0010 = 2
-            !a & !b &  c &  d, // 0011 = 3
-            !a &  b & !c & !d, // 0100 = 4
-            !a &  b & !c &  d, // 0101 = 5
-            !a &  b &  c & !d, // 0110 = 6
-            !a &  b &  c &  d, // 0111 = 7
-             a & !b & !c & !d, // 1000 = 8
+            (a0).and(b0).and(c0).and(d0), // 0000 = 0
+            (a0).and(b0).and(c0).and(d1), // 0001 = 1
+            (a0).and(b0).and(c1).and(d0), // 0010 = 2
+            (a0).and(b0).and(c1).and(d1), // 0011 = 3
+            (a0).and(b1).and(c0).and(d0), // 0100 = 4
+            (a0).and(b1).and(c0).and(d1), // 0101 = 5
+            (a0).and(b1).and(c1).and(d0), // 0110 = 6
+            (a0).and(b1).and(c1).and(d1), // 0111 = 7
+            (a1).and(b0).and(c0).and(d0), // 1000 = 8
         ]
     }
-}
 
-impl BitAnd for Bool8x8 {
-    type Output = Self;
-
-    fn bitand(self, other: Self) -> Self {
-        Self(self.0 & other.0)
+    const fn adder(sum: [Self; 4], addends: &[Self]) -> [Self; 4] {
+        let [a, b, c, d] = sum;
+        match addends {
+            [] => sum,
+            &[addend, ref tail @ ..] => {
+                let (d, carry) = (d.xor(addend), d.and(addend));
+                let (c, carry) = (c.xor(carry), c.and(carry));
+                let (b, carry) = (b.xor(carry), b.and(carry));
+                let a = a.or(carry);
+                Self::adder([a, b, c, d], tail)
+            }
+        }
     }
-}
 
-impl BitOr for Bool8x8 {
-    type Output = Self;
-
-    fn bitor(self, other: Self) -> Self {
-        Self(self.0 | other.0)
-    }
-}
-
-impl BitXor for Bool8x8 {
-    type Output = Self;
-
-    fn bitxor(self, other: Self) -> Self {
-        Self(self.0 ^ other.0)
-    }
-}
-
-impl Not for Bool8x8 {
-    type Output = Self;
-
-    fn not(self) -> Self {
-        Self(!self.0)
+    const fn any_are_both_true(x: SumResult, y: SumResult) -> Self {
+        let [ax, bx, cx, dx, ex, fx, gx, hx, ix] = x;
+        let [ay, by, cy, dy, ey, fy, gy, hy, iy] = y;
+        Self::FALSE
+            .or(ax.and(ay))
+            .or(bx.and(by))
+            .or(cx.and(cy))
+            .or(dx.and(dy))
+            .or(ex.and(ey))
+            .or(fx.and(fy))
+            .or(gx.and(gy))
+            .or(hx.and(hy))
+            .or(ix.and(iy))
     }
 }
 
@@ -282,16 +276,17 @@ impl Rule {
     /// ```
     ///
     /// [LifeWiki]: https://www.conwaylife.com/wiki/Rulestring#B.2FS_notation
-    pub fn new(birth: &[usize], survival: &[usize]) -> Self {
+    pub const fn new(birth: &[usize], survival: &[usize]) -> Self {
+        let empty = [Bool8x8::FALSE; 9];
         Self {
-            birth_neighbors: Self::make_rule(birth),
-            survival_neighbors: Self::make_rule(survival),
+            birth_neighbors: Self::make_rule(empty, birth),
+            survival_neighbors: Self::make_rule(empty, survival),
         }
     }
 
     /// Evolves a `Bool8x8` to its next state, treating `true` as alive and `false` as dead.
-    pub fn step(&self, cells: Bool8x8) -> Bool8x8 {
-        let (alive, dead) = (cells, !cells);
+    pub const fn step(&self, cells: Bool8x8) -> Bool8x8 {
+        let (alive, dead) = (cells, cells.not());
 
         let alive_neighbors = Bool8x8::sum(&[
             alive.up(1),
@@ -304,25 +299,33 @@ impl Rule {
             alive.down(1).right(1),
         ]);
 
-        let any_are_both_true = |a: SumResult, b: SumResult| -> Bool8x8 {
-            a.iter()
-                .zip(b.iter())
-                .map(|(&a, &b)| a & b)
-                .fold(Bool8x8::FALSE, BitOr::bitor)
-        };
+        let born = Bool8x8::any_are_both_true(alive_neighbors, self.birth_neighbors);
+        let survives = Bool8x8::any_are_both_true(alive_neighbors, self.survival_neighbors);
 
-        let born = any_are_both_true(alive_neighbors, self.birth_neighbors);
-        let survives = any_are_both_true(alive_neighbors, self.survival_neighbors);
-
-        dead & born | alive & survives
+        dead.and(born).or(alive.and(survives))
     }
 
-    fn make_rule(neighbors: &[usize]) -> SumResult {
-        let mut result = SumResult::default();
-        for &i in neighbors.iter().filter(move |&&i| i < result.len()) {
-            result[i] = Bool8x8::TRUE;
+    const fn make_rule(result: SumResult, neighbors: &[usize]) -> SumResult {
+        let t_ = Bool8x8::TRUE;
+        let [a, b, c, d, e, f, g, h, i] = result;
+        match neighbors {
+            [] => result,
+            [head, tail @ ..] => {
+                let result = match head {
+                    0 => [t_, b, c, d, e, f, g, h, i],
+                    1 => [a, t_, c, d, e, f, g, h, i],
+                    2 => [a, b, t_, d, e, f, g, h, i],
+                    3 => [a, b, c, t_, e, f, g, h, i],
+                    4 => [a, b, c, d, t_, f, g, h, i],
+                    5 => [a, b, c, d, e, t_, g, h, i],
+                    6 => [a, b, c, d, e, f, t_, h, i],
+                    7 => [a, b, c, d, e, f, g, t_, i],
+                    8 => [a, b, c, d, e, f, g, h, t_],
+                    _ => result,
+                };
+                Self::make_rule(result, tail)
+            }
         }
-        result
     }
 }
 
@@ -332,14 +335,14 @@ mod tests {
 
     #[test]
     fn mask_partitions() {
-        assert_eq!(Bool8x8::NORTH ^ Bool8x8::SOUTH, Bool8x8::TRUE);
-        assert_eq!(Bool8x8::EAST ^ Bool8x8::WEST, Bool8x8::TRUE);
+        assert_eq!(Bool8x8::NORTH.xor(Bool8x8::SOUTH), Bool8x8::TRUE);
+        assert_eq!(Bool8x8::EAST.xor(Bool8x8::WEST), Bool8x8::TRUE);
         assert_eq!(
             Bool8x8::FALSE
-                ^ Bool8x8::NORTHEAST
-                ^ Bool8x8::NORTHWEST
-                ^ Bool8x8::SOUTHEAST
-                ^ Bool8x8::SOUTHWEST,
+                .xor(Bool8x8::NORTHEAST)
+                .xor(Bool8x8::NORTHWEST)
+                .xor(Bool8x8::SOUTHEAST)
+                .xor(Bool8x8::SOUTHWEST),
             Bool8x8::TRUE
         );
     }
