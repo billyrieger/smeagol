@@ -21,13 +21,6 @@ impl Level {
     /// This ensures that the population of a node can be stored in a `u128`.
     pub const MAX_LEVEL: Self = Self(63);
 
-    /// Attempts to increment the `Level`, returning `None` if the result would be too large.
-    ///
-    /// ```
-    /// # use smeagol::node::Level;
-    /// assert_eq!(Level(5).increment(), Some(Level(6)));
-    /// assert_eq!(Level::MAX_LEVEL.increment(), None);
-    /// ```
     pub fn increment(self) -> Result<Self> {
         if self < Self::MAX_LEVEL {
             Ok(Self(self.0 + 1))
@@ -119,7 +112,7 @@ pub struct Leaf {
     pub alive: Bool8x8,
 }
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Branch {
     pub children: Grid2<Id>,
     pub level: Level,
@@ -130,6 +123,14 @@ impl Leaf {
     /// Creates a new `Leaf` with the given alive cells.
     pub fn new(alive: Bool8x8) -> Self {
         Self { alive }
+    }
+
+    pub fn dead() -> Self {
+        Self::new(Bool8x8::FALSE)
+    }
+
+    pub fn alive() -> Self {
+        Self::new(Bool8x8::TRUE)
     }
 
     /// Advances the leaf by 0 generations.

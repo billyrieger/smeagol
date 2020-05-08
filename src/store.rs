@@ -15,6 +15,7 @@ use std::collections::HashMap;
 struct Data {
     node: Node,
     idle: Option<Id>,
+    steps: [Option<Id>; 4],
     jump: Option<Id>,
 }
 
@@ -26,12 +27,29 @@ pub struct Store {
 }
 
 impl Store {
+    /// Creates an empty `Store` that uses the given `Rule`.
     pub fn new(rule: Rule) -> Self {
         Self {
             rule,
             id_lookup: HashMap::new(),
             node_data: DenseSlotMap::with_key(),
         }
+    }
+
+    pub fn init(&mut self, depth: u8) -> Result<Id> {
+        if depth < 6 {
+            todo!()
+        };
+
+        let dead_leaf_id = self.make_id(Node::Leaf(Leaf::dead()));
+
+        let mut dead_branch = self.make_branch(Grid2([dead_leaf_id; 4]))?;
+        for _ in 4..depth {
+            let id = self.make_id(Node::Branch(dead_branch));
+            dead_branch = self.make_branch(Grid2([id; 4]))?;
+        }
+
+        Ok(self.make_id(Node::Branch(dead_branch)))
     }
 
     fn get_data(&self, id: Id) -> Result<&Data> {
@@ -47,6 +65,7 @@ impl Store {
             let data = Data {
                 node,
                 idle: None,
+                steps: [None; 4],
                 jump: None,
             };
             let new_id = self.node_data.insert(data);
@@ -123,7 +142,14 @@ impl Store {
             .classify()
     }
 
-    pub fn evolve(&mut self, branch: Branch, steps: u64) -> Result<Id> {
+    pub fn step(&mut self, id: Id, step: u64) -> Result<Id> {
+        match self.get_data(id)?.node {
+            Node::Leaf(_) => todo!(),
+            Node::Branch(branch) => self.evolve(branch, step),
+        }
+    }
+
+    fn evolve(&mut self, branch: Branch, steps: u64) -> Result<Id> {
         let rule = self.rule;
 
         let max_steps = branch.level.max_steps();
@@ -166,5 +192,22 @@ impl Store {
                 Ok(self.make_id(Node::Branch(new_branch)))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut store = Store::new(Rule::new(&[3], &[2, 3]));
+        let root_id = store.init(10).unwrap();
+
+        let result_id = store.step(root_id, 0).unwrap();
+        store.get_data(result_id).unwrap();
+
+        let result_id = store.step(root_id, 32).unwrap();
+        store.get_data(result_id).unwrap();
     }
 }

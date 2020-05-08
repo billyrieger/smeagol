@@ -8,54 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
 ## [0.1.2]
 
 ### Added
 
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
-### Security
-
-
 ## [0.1.1]
 
 ### Added
-
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
-### Security
-
-
-## [0.1.1]
-
-### Added
-
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
-### Security
 
 ## [0.1.0]
 
 ### Added
-- Minimum viable product.
 
 [0.1.2]: https://github.com/billyrieger/smeagol/tree/a16cf353ede16e3c7baab517f2b88a2e3074dc51
 [0.1.1]: https://github.com/billyrieger/smeagol/tree/833c62bb14305686ae1b0cda4a921481141d2dd2
