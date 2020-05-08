@@ -6,7 +6,7 @@ pub mod grid;
 pub mod node;
 pub mod store;
 
-use crate::node::{Id, Level};
+use node::{Id, Level};
 
 use std::ops::{BitAnd, BitOr, BitXor, Not};
 
@@ -16,10 +16,13 @@ use thiserror::Error;
 pub enum Error {
     #[error("step size {step:?} too large for node with level {level:?}")]
     StepOverflow { step: u64, level: Level },
+
     #[error("cannot increment past the maximum level")]
     Increment,
+
     #[error("id {0:?} not found")]
     IdNotFound(Id),
+
     #[error("unbalanced")]
     Unbalanced,
 }

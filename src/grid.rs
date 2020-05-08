@@ -109,6 +109,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Result;
 
     #[test]
     fn try_map() {
@@ -142,7 +143,7 @@ mod tests {
 
     #[test]
     fn shrink() {
-        let sum = |grid: Grid2<u32>| -> Option<u32> { Some(grid.0.iter().sum()) };
+        let sum = |grid: Grid2<u32>| -> Result<u32> { Ok(grid.0.iter().sum()) };
         let ones = Grid4([1; 16]);
 
         let fours = ones.shrink(sum).unwrap();
