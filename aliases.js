@@ -1,3 +1,10 @@
 var ALIASES = {};
+ALIASES["either"] = {};
+ALIASES["proc_macro2"] = {};
+ALIASES["quote"] = {};
 ALIASES["slotmap"] = {};
 ALIASES["smeagol"] = {};
+ALIASES["syn"] = {};
+ALIASES["thiserror"] = {};
+ALIASES["thiserror_impl"] = {};
+ALIASES["unicode_xid"] = {};
