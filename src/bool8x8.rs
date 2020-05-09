@@ -67,7 +67,7 @@ impl Bool8x8 {
 
     pub const fn fold_or(result: Self, list: &[Self]) -> Self {
         match list {
-            [] => result,
+            &[] => result,
             &[head, ref tail @ ..] => Self::fold_or(result.or(head), tail),
         }
     }
@@ -145,6 +145,7 @@ impl Bool8x8 {
     }
 
     const fn adder(sum: [Self; 4], addends: &[Self]) -> [Self; 4] {
+        // digits of sum in big-endian binary encoding
         let [a, b, c, d] = sum;
         match addends {
             [] => sum,

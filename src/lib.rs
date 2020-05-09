@@ -57,6 +57,10 @@ impl Rule {
     /// > neighbors that cause a live cell to remain alive (survive).
     ///
     /// [LifeWiki]: https://www.conwaylife.com/wiki/Rulestring#B.2FS_notation
+    ///
+    /// ```
+    /// let life: Rule = Rule::new(&[3], &[2, 3]);
+    /// ```
     pub const fn new(birth: &[usize], survival: &[usize]) -> Self {
         let empty = [Bool8x8::FALSE; 9];
         Self {
