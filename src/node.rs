@@ -118,7 +118,7 @@ pub struct Leaf {
 }
 
 impl Grid2<Leaf> {
-    const fn center(&self) -> Leaf {
+    pub const fn center(&self) -> Leaf {
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .
@@ -136,49 +136,34 @@ impl Grid2<Leaf> {
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .
-        let Self([nw, ne, sw, se]) = self;
-        let a = nw.alive.up(4).left(4).and(Bool8x8::NORTHWEST);
-        let b = ne.alive.up(4).right(4).and(Bool8x8::NORTHEAST);
-        let c = sw.alive.down(4).left(4).and(Bool8x8::SOUTHWEST);
-        let d = se.alive.down(4).right(4).and(Bool8x8::SOUTHEAST);
+        let [nw, ne, sw, se] = self.0;
+        let a = nw.alive.and(Bool8x8::SOUTHEAST).up(4).left(4);
+        let b = ne.alive.and(Bool8x8::SOUTHWEST).up(4).right(4);
+        let c = sw.alive.and(Bool8x8::NORTHEAST).down(4).left(4);
+        let d = se.alive.and(Bool8x8::NORTHWEST).down(4).right(4);
         Leaf::new(a.or(b).or(c).or(d))
     }
 
-    const fn partial_step(&self, rule: Rule) -> Self {
+    const fn cardinal(&self) -> [Leaf; 4] {
         let [nw, ne, sw, se] = self.0;
-
-        let a = nw.step(rule);
-        let b = Leaf::join_horiz(nw, ne).step(rule);
-        let c = ne.step(rule);
-        let d = Leaf::join_vert(nw, sw).step(rule);
-        let e = Leaf::center(nw, ne, sw, se).step(rule);
-        let f = Leaf::join_vert(ne, se).step(rule);
-        let g = sw.step(rule);
-        let h = Leaf::join_horiz(sw, se).step(rule);
-        let i = se.step(rule);
-
-        let w = Leaf::join_centers(a, b, d, e);
-        let x = Leaf::join_centers(b, c, e, f);
-        let y = Leaf::join_centers(d, e, g, h);
-        let z = Leaf::join_centers(e, f, h, i);
-
-        Self([w, x, y, z])
+        [Leaf::join_horiz(nw, ne); 4]
     }
 
-    pub const fn step0(&self) -> Leaf {
-        self.center()
-    }
+    pub const fn step(&self, rule: Rule) -> Leaf {
+        let [nw, ne, sw, se] = self.0;
+        let center = self.center();
 
-    pub const fn step1(&self, rule: Rule) -> Leaf {
-        self.center().step(rule)
-    }
+        // let a = first(nw);
+        // let b = first(Self::join_horiz(nw, ne));
+        // let c = first(ne);
+        // let d = first(Self::join_vert(nw, sw));
+        // let e = first(Self::center(nw, ne, sw, se));
+        // let f = first(Self::join_vert(ne, se));
+        // let g = first(sw);
+        // let h = first(Self::join_horiz(sw, se));
+        // let i = first(se);
 
-    pub const fn step2(&self, rule: Rule) -> Leaf {
-        self.center().step(rule).step(rule)
-    }
-
-    pub const fn step3(&self, rule: Rule) -> Leaf {
-        self.step0()
+        self.0[0]
     }
 }
 
@@ -301,39 +286,14 @@ impl Leaf {
     }
 
     const fn join_horiz(left: Self, right: Self) -> Self {
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
         let a = left.alive.left(4).and(Bool8x8::WEST);
         let b = right.alive.right(4).and(Bool8x8::EAST);
         Self::new(a.or(b))
     }
 
     const fn join_vert(top: Self, bottom: Self) -> Self {
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // a a a a a a a a
-        // a a a a a a a a
-        // a a a a a a a a
-        // a a a a a a a a
-        // ---------------
-        // b b b b b b b b
-        // b b b b b b b b
-        // b b b b b b b b
-        // b b b b b b b b
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        let a = top.alive.up(4).and(Bool8x8::NORTH);
-        let b = bottom.alive.down(4).and(Bool8x8::SOUTH);
+        let a = top.alive.and(Bool8x8::NORTH).up(4);
+        let b = bottom.alive.and(Bool8x8::NORTH).down(4);
         Self::new(a.or(b))
     }
 

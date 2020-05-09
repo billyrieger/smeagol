@@ -1,6 +1,6 @@
 [package]
 name = "smeagol"
-version = "1.0.0"
+version = "0.2.0"
 authors = ["Billy Rieger <wrieger@protonmail.com>"]
 description = "TODO"
 repository = "https://github.com/billyrieger/smeagol"
@@ -10,5 +10,5 @@ edition = "2018"
 publish = false
 
 [dependencies]
-thiserror = "1.0.16"
 either = "1.5.3"
+thiserror = "1.0.16"

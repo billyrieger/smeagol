@@ -12,21 +12,27 @@ use node::{Id, Level};
 
 use thiserror::Error;
 
+/// A runtime error.
 #[derive(Debug, Error)]
 pub enum Error {
+    /// The step sisze was too large.
     #[error("step size {step:?} too large for node with level {level:?}")]
     StepOverflow { step: u64, level: Level },
 
+    /// Increment error.
     #[error("cannot increment past the maximum level")]
     Increment,
 
+    /// Id not found.
     #[error("id {0:?} not found")]
     IdNotFound(Id),
 
+    /// Unbalanced.
     #[error("unbalanced")]
     Unbalanced,
 }
 
+/// A result.
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// A `u64` interpreted as a square grid of boolean values.
@@ -62,61 +68,17 @@ pub type Result<T> = std::result::Result<T, Error>;
 ///
 /// ```
 /// # use smeagol::Bool8x8;
-/// // 0x00 | . . . . . . . .
-/// // 0x3C | . . # # # # . .
-/// // 0x20 | . . # . . . . .
-/// // 0x38 | . . # # # . . .
-/// // 0x20 | . . # . . . . .
-/// // 0x20 | . . # . . . . .
-/// // 0x20 | . . # . . . . .
-/// // 0x00 | . . . . . . . .
-/// let uppercase_f = Bool8x8(0x003C_2038_2020_2000);
+/// // 0x00 | . . . . . . . . 0000 = 0, 0000 = 0
+/// // 0x3C | . . # # # # . . 0011 = 3, 1100 = C
+/// // 0x20 | . . # . . . . . 0010 = 2, 0000 = 0
+/// // 0x38 | . . # # # . . . 0011 = 3, 1000 = 8
+/// // 0x20 | . . # . . . . . 0010 = 2, 0000 = 0
+/// // 0x20 | . . # . . . . . 0010 = 2, 0000 = 0
+/// // 0x20 | . . # . . . . . 0010 = 2, 0000 = 0
+/// // 0x00 | . . . . . . . . 0000 = 0, 0000 = 0
+/// const UPPERCASE_F = Bool8x8(0x003C_2038_2020_2000);
 /// let also_f = Bool8x8(u64::from_be_bytes([0x00, 0x3C, 0x20, 0x38, 0x20, 0x20, 0x20, 0x00]));
-/// assert_eq!(uppercase_f, also_f);
-///
-/// // 0x3C | . . # # # # . .
-/// // 0x20 | . . # . . . . .
-/// // 0x38 | . . # # # . . .
-/// // 0x20 | . . # . . . . .
-/// // 0x20 | . . # . . . . .
-/// // 0x20 | . . # . . . . .
-/// // 0x00 | . . . . . . . .
-/// // 0x00 | . . . . . . . .
-/// let f_up = Bool8x8(0x3C20_3820_2020_0000);
-/// assert_eq!(uppercase_f.up(1), f_up);
-///
-/// // 0x00 | . . . . . . . .
-/// // 0x00 | . . . . . . . .
-/// // 0x3C | . . # # # # . .
-/// // 0x20 | . . # . . . . .
-/// // 0x38 | . . # # # . . .
-/// // 0x20 | . . # . . . . .
-/// // 0x20 | . . # . . . . .
-/// // 0x20 | . . # . . . . .
-/// let f_down = Bool8x8(0x0000_3C20_3820_2020);
-/// assert_eq!(uppercase_f.down(1), f_down);
-///
-/// // 0x00 | . . . . . . . .
-/// // 0x78 | . # # # # . . .
-/// // 0x40 | . # . . . . . .
-/// // 0x70 | . # # # . . . .
-/// // 0x40 | . # . . . . . .
-/// // 0x40 | . # . . . . . .
-/// // 0x40 | . # . . . . . .
-/// // 0x00 | . . . . . . . .
-/// let f_left = Bool8x8(0x0078_4070_4040_4000);
-/// assert_eq!(uppercase_f.left(1), f_left);
-///
-/// // 0x00 | . . . . . . . .
-/// // 0x1E | . . . # # # # .
-/// // 0x10 | . . . # . . . .
-/// // 0x1C | . . . # # # . .
-/// // 0x10 | . . . # . . . .
-/// // 0x10 | . . . # . . . .
-/// // 0x10 | . . . # . . . .
-/// // 0x00 | . . . . . . . .
-/// let f_right = Bool8x8(0x001E_101C_1010_1000);
-/// assert_eq!(uppercase_f.right(1), f_right);
+/// assert_eq!(UPPERCASE_F, also_f);
 /// ```
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub struct Bool8x8(pub u64);
@@ -160,19 +122,45 @@ impl Bool8x8 {
     /// The `Bool8x8` where the middle quarter is true.
     pub const CENTER: Self = Self(0x0000_3C3C_3C3C_0000);
 
-    /// Performs bitwise boolean AND.
     pub const fn and(&self, other: Self) -> Self {
         Self(self.0 & other.0)
     }
 
-    /// Performs bitwise boolean OR.
     pub const fn or(&self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
 
-    /// Performs bitwise boolean XOR.
     pub const fn xor(&self, other: Self) -> Self {
         Self(self.0 ^ other.0)
+    }
+
+    pub const fn fold_and(result: Self, list: &[Self]) -> Self {
+        match list {
+            [] => result,
+            &[head, ref tail @ ..] => Self::fold_and(result.and(head), tail),
+        }
+    }
+
+    pub const fn fold_or(result: Self, list: &[Self]) -> Self {
+        match list {
+            [] => result,
+            &[head, ref tail @ ..] => Self::fold_or(result.or(head), tail),
+        }
+    }
+
+    pub const fn fold_xor(result: Self, list: &[Self]) -> Self {
+        match list {
+            [] => result,
+            &[head, ref tail @ ..] => Self::fold_xor(result.xor(head), tail),
+        }
+    }
+
+    pub const fn all(list: &[Self]) -> Self {
+        Self::fold_and(Self::TRUE, list)
+    }
+
+    pub const fn any(list: &[Self]) -> Self {
+        Self::fold_or(Self::FALSE, list)
     }
 
     /// Performs bitwise boolean NOT.
@@ -181,21 +169,81 @@ impl Bool8x8 {
     }
 
     /// Shifts the `Bool8x8` to the left by the given number of steps.
+    ///
+    /// ```
+    /// # use smeagol::Bool8x8;
+    /// let uppercase_f = Bool8x8(0x003C_2038_2020_2000);
+    /// // 0x00 | . . . . . . . .
+    /// // 0x78 | . # # # # . . .
+    /// // 0x40 | . # . . . . . .
+    /// // 0x70 | . # # # . . . .
+    /// // 0x40 | . # . . . . . .
+    /// // 0x40 | . # . . . . . .
+    /// // 0x40 | . # . . . . . .
+    /// // 0x00 | . . . . . . . .
+    /// let f_left = Bool8x8(0x0078_4070_4040_4000);
+    /// assert_eq!(uppercase_f.left(1), f_left);
+    /// ```
     pub const fn left(&self, steps: u8) -> Self {
         Self(self.0 << steps)
     }
 
     /// Shifts the `Bool8x8` to the right by the given number of steps.
+    ///
+    /// ```
+    /// # use smeagol::Bool8x8;
+    /// let uppercase_f = Bool8x8(0x003C_2038_2020_2000);
+    /// // 0x00 | . . . . . . . .
+    /// // 0x1E | . . . # # # # .
+    /// // 0x10 | . . . # . . . .
+    /// // 0x1C | . . . # # # . .
+    /// // 0x10 | . . . # . . . .
+    /// // 0x10 | . . . # . . . .
+    /// // 0x10 | . . . # . . . .
+    /// // 0x00 | . . . . . . . .
+    /// let f_right = Bool8x8(0x001E_101C_1010_1000);
+    /// assert_eq!(uppercase_f.right(1), f_right);
+    /// ```
     pub const fn right(&self, steps: u8) -> Self {
         Self(self.0 >> steps)
     }
 
     /// Shifts the `Bool8x8` up by the given number of steps.
+    ///
+    /// ```
+    /// # use smeagol::Bool8x8;
+    /// let uppercase_f = Bool8x8(0x003C_2038_2020_2000);
+    /// // 0x3C | . . # # # # . .
+    /// // 0x20 | . . # . . . . .
+    /// // 0x38 | . . # # # . . .
+    /// // 0x20 | . . # . . . . .
+    /// // 0x20 | . . # . . . . .
+    /// // 0x20 | . . # . . . . .
+    /// // 0x00 | . . . . . . . .
+    /// // 0x00 | . . . . . . . .
+    /// let f_up = Bool8x8(0x3C20_3820_2020_0000);
+    /// assert_eq!(uppercase_f.up(1), f_up);
+    /// ```
     pub const fn up(&self, steps: u8) -> Self {
         self.left(steps * 8)
     }
 
     /// Shifts the `Bool8x8` down by the given number of steps.
+    ///
+    /// ```
+    /// # use smeagol::Bool8x8;
+    /// let uppercase_f = Bool8x8(0x003C_2038_2020_2000);
+    /// // 0x00 | . . . . . . . .
+    /// // 0x00 | . . . . . . . .
+    /// // 0x3C | . . # # # # . .
+    /// // 0x20 | . . # . . . . .
+    /// // 0x38 | . . # # # . . .
+    /// // 0x20 | . . # . . . . .
+    /// // 0x20 | . . # . . . . .
+    /// // 0x20 | . . # . . . . .
+    /// let f_down = Bool8x8(0x000_3C20_3820_2020);
+    /// assert_eq!(uppercase_f.down(1), f_down);
+    /// ```
     pub const fn down(&self, steps: u8) -> Self {
         self.right(steps * 8)
     }
@@ -207,15 +255,15 @@ impl Bool8x8 {
         let [a1, b1, c1, d1] = Self::adder([Self::FALSE; 4], addends);
         let [a0, b0, c0, d0] = [a1.not(), b1.not(), c1.not(), d1.not()];
         [
-            (a0).and(b0).and(c0).and(d0), // 0000 = 0
-            (a0).and(b0).and(c0).and(d1), // 0001 = 1
-            (a0).and(b0).and(c1).and(d0), // 0010 = 2
-            (a0).and(b0).and(c1).and(d1), // 0011 = 3
-            (a0).and(b1).and(c0).and(d0), // 0100 = 4
-            (a0).and(b1).and(c0).and(d1), // 0101 = 5
-            (a0).and(b1).and(c1).and(d0), // 0110 = 6
-            (a0).and(b1).and(c1).and(d1), // 0111 = 7
-            (a1).and(b0).and(c0).and(d0), // 1000 = 8
+            Self::all(&[a0, b0, c0, d0]), // 0000 = 0
+            Self::all(&[a0, b0, c0, d1]), // 0001 = 1
+            Self::all(&[a0, b0, c1, d0]), // 0010 = 2
+            Self::all(&[a0, b0, c1, d1]), // 0011 = 3
+            Self::all(&[a0, b1, c0, d0]), // 0100 = 4
+            Self::all(&[a0, b1, c0, d1]), // 0101 = 5
+            Self::all(&[a0, b1, c1, d0]), // 0110 = 6
+            Self::all(&[a0, b1, c1, d1]), // 0111 = 7
+            Self::all(&[a1, b0, c0, d0]), // 1000 = 8
         ]
     }
 
@@ -233,19 +281,39 @@ impl Bool8x8 {
         }
     }
 
+    const fn any_both(xs: &[Self], ys: &[Self]) -> Self {
+        match (xs, ys) {
+            (&[], &[]) => Self::TRUE,
+            (&[], &[..]) => Self::FALSE,
+            (&[..], &[]) => Self::FALSE,
+            (&[x, ref xs @ ..], &[y, ref ys @ ..]) => Self::FALSE,
+        }
+    }
+
     const fn any_are_both_true(x: SumResult, y: SumResult) -> Self {
         let [ax, bx, cx, dx, ex, fx, gx, hx, ix] = x;
         let [ay, by, cy, dy, ey, fy, gy, hy, iy] = y;
-        Self::FALSE
-            .or(ax.and(ay))
-            .or(bx.and(by))
-            .or(cx.and(cy))
-            .or(dx.and(dy))
-            .or(ex.and(ey))
-            .or(fx.and(fy))
-            .or(gx.and(gy))
-            .or(hx.and(hy))
-            .or(ix.and(iy))
+        Self::any(&[
+            ax.and(ay),
+            bx.and(by),
+            cx.and(cy),
+            dx.and(dy),
+            ex.and(ey),
+            fx.and(fy),
+            gx.and(gy),
+            hx.and(hy),
+            ix.and(iy),
+        ])
+        // Self::FALSE
+        //     .or(ax.and(ay))
+        //     .or(bx.and(by))
+        //     .or(cx.and(cy))
+        //     .or(dx.and(dy))
+        //     .or(ex.and(ey))
+        //     .or(fx.and(fy))
+        //     .or(gx.and(gy))
+        //     .or(hx.and(hy))
+        //     .or(ix.and(iy))
     }
 }
 
@@ -299,6 +367,20 @@ impl Rule {
             alive.down(1).right(1),
         ]);
 
+        //         let [ax, bx, cx, dx, ex, fx, gx, hx, ix] = x;
+        //         let [ay, by, cy, dy, ey, fy, gy, hy, iy] = y;
+        //         Self::FALSE
+        //             .or(ax.and(ay))
+        //             .or(bx.and(by))
+        //             .or(cx.and(cy))
+        //             .or(dx.and(dy))
+        //             .or(ex.and(ey))
+        //             .or(fx.and(fy))
+        //             .or(gx.and(gy))
+        //             .or(hx.and(hy))
+        //             .or(ix.and(iy))
+        //     }
+
         let born = Bool8x8::any_are_both_true(alive_neighbors, self.birth_neighbors);
         let survives = Bool8x8::any_are_both_true(alive_neighbors, self.survival_neighbors);
 
@@ -335,16 +417,22 @@ mod tests {
 
     #[test]
     fn mask_partitions() {
-        assert_eq!(Bool8x8::NORTH.xor(Bool8x8::SOUTH), Bool8x8::TRUE);
-        assert_eq!(Bool8x8::EAST.xor(Bool8x8::WEST), Bool8x8::TRUE);
-        assert_eq!(
-            Bool8x8::FALSE
-                .xor(Bool8x8::NORTHEAST)
-                .xor(Bool8x8::NORTHWEST)
-                .xor(Bool8x8::SOUTHEAST)
-                .xor(Bool8x8::SOUTHWEST),
-            Bool8x8::TRUE
-        );
+        type B = Bool8x8;
+
+        let check = |masks: &[B]| B::fold_xor(B::FALSE, masks) == B::TRUE;
+
+        let cases: &[&[_]] = &[
+            &[B::TRUE],
+            &[B::NORTH, B::SOUTH],
+            &[B::EAST, B::WEST],
+            &[B::NORTHWEST, B::NORTHEAST, B::SOUTHWEST, B::SOUTHEAST],
+            &[B::FALSE, B::FALSE, B::TRUE, B::FALSE],
+            &[B::SOUTHWEST, B::NORTH, B::FALSE, B::SOUTHEAST],
+        ];
+
+        for &case in cases {
+            assert!(check(case));
+        }
     }
 
     #[test]
@@ -403,6 +491,8 @@ mod tests {
         assert_eq!(center.down(1), south);
         assert_eq!(center.right(1), east);
         assert_eq!(center.left(1), west);
+
+        assert_eq!(center.up(2).left(3).down(1).right(3).down(2).up(1), center);
     }
 
     #[test]
