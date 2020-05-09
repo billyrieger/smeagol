@@ -137,10 +137,10 @@ impl Grid2<Leaf> {
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .
         let [nw, ne, sw, se] = self.0;
-        let a = nw.alive.and(Bool8x8::SOUTHEAST).up(4).left(4);
-        let b = ne.alive.and(Bool8x8::SOUTHWEST).up(4).right(4);
-        let c = sw.alive.and(Bool8x8::NORTHEAST).down(4).left(4);
-        let d = se.alive.and(Bool8x8::NORTHWEST).down(4).right(4);
+        let a = nw.alive.and(Bool8x8::SOUTHEAST).offset(-4, 4);
+        let b = ne.alive.and(Bool8x8::SOUTHWEST).offset(4, 4);
+        let c = sw.alive.and(Bool8x8::NORTHEAST).offset(-4, -4);
+        let d = se.alive.and(Bool8x8::NORTHWEST).offset(4, -4);
         Leaf::new(a.or(b).or(c).or(d))
     }
 
@@ -278,22 +278,22 @@ impl Leaf {
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .
-        let a = nw.alive.up(4).left(4).and(Bool8x8::NORTHWEST);
-        let b = ne.alive.up(4).right(4).and(Bool8x8::NORTHEAST);
-        let c = sw.alive.down(4).left(4).and(Bool8x8::SOUTHWEST);
-        let d = se.alive.down(4).right(4).and(Bool8x8::SOUTHEAST);
+        let a = nw.alive.offset(-4, 4).and(Bool8x8::NORTHWEST);
+        let b = ne.alive.offset(4, 4).and(Bool8x8::NORTHEAST);
+        let c = sw.alive.offset(-4, -4).and(Bool8x8::SOUTHWEST);
+        let d = se.alive.offset(4, -4).and(Bool8x8::SOUTHEAST);
         Self::new(a.or(b).or(c).or(d))
     }
 
     const fn join_horiz(left: Self, right: Self) -> Self {
-        let a = left.alive.left(4).and(Bool8x8::WEST);
-        let b = right.alive.right(4).and(Bool8x8::EAST);
+        let a = left.alive.offset(-4, 0).and(Bool8x8::WEST);
+        let b = right.alive.offset(4, 0).and(Bool8x8::EAST);
         Self::new(a.or(b))
     }
 
     const fn join_vert(top: Self, bottom: Self) -> Self {
-        let a = top.alive.and(Bool8x8::NORTH).up(4);
-        let b = bottom.alive.and(Bool8x8::NORTH).down(4);
+        let a = top.alive.and(Bool8x8::NORTH).offset(0, 4);
+        let b = bottom.alive.and(Bool8x8::NORTH).offset(0, -4);
         Self::new(a.or(b))
     }
 
@@ -316,10 +316,10 @@ impl Leaf {
         // . . . . . . . . | . . . . . . . .
         // . . . . . . . . | . . . . . . . .
         let combined = Bool8x8::FALSE
-            .or(nw.alive.up(2).left(2).and(Bool8x8::NORTHWEST))
-            .or(ne.alive.up(2).right(2).and(Bool8x8::NORTHEAST))
-            .or(sw.alive.down(2).left(2).and(Bool8x8::SOUTHWEST))
-            .or(se.alive.down(2).right(2).and(Bool8x8::SOUTHEAST));
+            .or(nw.alive.offset(-2, 2).and(Bool8x8::NORTHWEST))
+            .or(ne.alive.offset(2, 2).and(Bool8x8::NORTHEAST))
+            .or(sw.alive.offset(-2, -2).and(Bool8x8::SOUTHWEST))
+            .or(se.alive.offset(2, -2).and(Bool8x8::SOUTHEAST));
         Self::new(combined)
     }
 }
@@ -379,7 +379,7 @@ mod tests {
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
         let jump_leaf = Leaf::new(Bool8x8(0x0000_0008_041C_0000));
-        assert_eq!(idle_leaf.alive.down(1).right(1), jump_leaf.alive);
+        assert_eq!(idle_leaf.alive.offset(1, -1), jump_leaf.alive);
 
         let idled = Leaf::apply(start, life, Leaf::idle, Leaf::idle);
         let jumped = Leaf::apply(start, life, Leaf::jump, Leaf::jump);
