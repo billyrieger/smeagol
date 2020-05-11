@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Error",""]],"mod":[["grid",""],["node",""],["store",""]],"struct":[["Bool8x8","A `u64` interpreted as a square grid of boolean values."],["Rule","A description of how one state of a cellular automaton transitions into the next."]],"type":[["Result",""]]});
+initSidebarItems({"enum":[["Cell",""],["Error","A runtime error."]],"struct":[["Region",""],["Rule","A description of how one state of a cellular automaton transitions into the next."],["Universe",""]],"type":[["Result","A result."]]});

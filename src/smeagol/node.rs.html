@@ -363,31 +363,255 @@
 <span id="363">363</span>
 <span id="364">364</span>
 <span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This Source Code Form is subject to the terms of the Mozilla Public</span>
 <span class="comment">// License, v. 2.0. If a copy of the MPL was not distributed with this</span>
 <span class="comment">// file, You can obtain one at http://mozilla.org/MPL/2.0/.</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">grid</span>::<span class="ident">Grid2</span>, <span class="ident">Bool8x8</span>, <span class="ident">Error</span>, <span class="prelude-ty">Result</span>, <span class="ident">Rule</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">util</span>::{<span class="ident">Bool8x8</span>, <span class="ident">Grid2</span>, <span class="ident">Grid4</span>, <span class="ident">Offset</span>},
+    <span class="ident">Error</span>, <span class="prelude-ty">Result</span>, <span class="ident">Rule</span>,
+};
 
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">hash</span>::{<span class="ident">Hash</span>, <span class="ident">Hasher</span>};
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections</span>::<span class="ident">HashMap</span>, <span class="ident">hash</span>::<span class="ident">Hash</span>};
 
 <span class="kw">use</span> <span class="ident">either</span>::<span class="ident">Either</span>;
-<span class="kw">use</span> <span class="ident">slotmap</span>::<span class="ident">new_key_type</span>;
 
-<span class="doccomment">/// A measure of the size of a `Node`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// A node with level `Level(n)` represents a `2^n` by `2^n` square grid of dead or alive cells.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">Ord</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Level</span>(<span class="kw">pub</span> <span class="ident">u8</span>);
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Leaf</span> {
+    <span class="kw">pub</span> <span class="ident">alive</span>: <span class="ident">Bool8x8</span>,
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Branch</span> {
+    <span class="kw">pub</span> <span class="ident">children</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">level</span>: <span class="ident">Level</span>,
+    <span class="kw">pub</span> <span class="ident">population</span>: <span class="ident">u128</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">Leaf</span> {
+    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">alive</span>: <span class="ident">Bool8x8</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> { <span class="ident">alive</span> }
+    }
+
+    <span class="kw">fn</span> <span class="ident">dead</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>::<span class="ident">FALSE</span>)
+    }
+
+    <span class="kw">fn</span> <span class="ident">alive</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>::<span class="ident">TRUE</span>)
+    }
+
+    <span class="kw">fn</span> <span class="ident">step</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rule</span>: <span class="ident">Rule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span> {
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">rule</span>.<span class="ident">step</span>(<span class="self">self</span>.<span class="ident">alive</span>))
+    }
+
+    <span class="kw">fn</span> <span class="ident">jump</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rule</span>: <span class="ident">Rule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span> {
+        <span class="self">self</span>.<span class="ident">step</span>(<span class="ident">rule</span>).<span class="ident">step</span>(<span class="ident">rule</span>)
+    }
+
+    <span class="kw">fn</span> <span class="ident">join_horiz</span>(<span class="ident">west</span>: <span class="ident">Leaf</span>, <span class="ident">east</span>: <span class="ident">Leaf</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span> {
+        <span class="kw">let</span> <span class="ident">combined</span> <span class="op">=</span> <span class="ident">Bool8x8</span>::<span class="ident">FALSE</span>
+            <span class="op">|</span> <span class="ident">west</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">West</span>(<span class="number">4</span>)) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">WEST</span>
+            <span class="op">|</span> <span class="ident">east</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">East</span>(<span class="number">4</span>)) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">EAST</span>;
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">combined</span>)
+    }
+
+    <span class="kw">fn</span> <span class="ident">join_vert</span>(<span class="ident">north</span>: <span class="ident">Leaf</span>, <span class="ident">south</span>: <span class="ident">Leaf</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span> {
+        <span class="kw">let</span> <span class="ident">combined</span> <span class="op">=</span> <span class="ident">Bool8x8</span>::<span class="ident">FALSE</span>
+            <span class="op">|</span> <span class="ident">north</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">North</span>(<span class="number">4</span>)) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">NORTH</span>
+            <span class="op">|</span> <span class="ident">south</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">South</span>(<span class="number">4</span>)) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">SOUTH</span>;
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">combined</span>)
+    }
+
+    <span class="kw">fn</span> <span class="ident">join_centers</span>(<span class="ident">leaves</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span> {
+        <span class="kw">let</span> [<span class="ident">nw</span>, <span class="ident">ne</span>, <span class="ident">sw</span>, <span class="ident">se</span>] <span class="op">=</span> <span class="ident">leaves</span>.<span class="number">0</span>;
+        <span class="kw">let</span> <span class="ident">combined</span> <span class="op">=</span> <span class="ident">Bool8x8</span>::<span class="ident">FALSE</span>
+            <span class="op">|</span> <span class="ident">nw</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">Northwest</span>(<span class="number">2</span>)) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">NORTHWEST</span>
+            <span class="op">|</span> <span class="ident">ne</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">Northeast</span>(<span class="number">2</span>)) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">NORTHEAST</span>
+            <span class="op">|</span> <span class="ident">sw</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">Southwest</span>(<span class="number">2</span>)) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">SOUTHWEST</span>
+            <span class="op">|</span> <span class="ident">se</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">Southeast</span>(<span class="number">2</span>)) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">SOUTHEAST</span>;
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">combined</span>)
+    }
+
+    <span class="kw">fn</span> <span class="ident">join_corners</span>(<span class="ident">leaves</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span> {
+        <span class="kw">let</span> [<span class="ident">nw</span>, <span class="ident">ne</span>, <span class="ident">sw</span>, <span class="ident">se</span>] <span class="op">=</span> <span class="ident">leaves</span>.<span class="number">0</span>;
+        <span class="kw">let</span> <span class="ident">combined</span> <span class="op">=</span> <span class="ident">Bool8x8</span>::<span class="ident">FALSE</span>
+            <span class="op">|</span> <span class="ident">nw</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">Northwest</span>(<span class="number">4</span>)) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">NORTHWEST</span>
+            <span class="op">|</span> <span class="ident">ne</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">Northeast</span>(<span class="number">4</span>)) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">NORTHEAST</span>
+            <span class="op">|</span> <span class="ident">sw</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">Southwest</span>(<span class="number">4</span>)) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">SOUTHWEST</span>
+            <span class="op">|</span> <span class="ident">se</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">Southeast</span>(<span class="number">4</span>)) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">SOUTHEAST</span>;
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">combined</span>)
+    }
+
+    <span class="kw">fn</span> <span class="ident">evolve_leaves</span>(<span class="ident">leaves</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&gt;</span>, <span class="ident">steps</span>: <span class="ident">u64</span>, <span class="ident">rule</span>: <span class="ident">Rule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span> {
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">steps</span> <span class="op">&lt;</span><span class="op">=</span> <span class="number">4</span>);
+
+        <span class="kw">let</span> [<span class="ident">northwest</span>, <span class="ident">northeast</span>, <span class="ident">southwest</span>, <span class="ident">southeast</span>] <span class="op">=</span> <span class="ident">leaves</span>.<span class="number">0</span>;
+        <span class="kw">let</span> <span class="ident">north</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">join_horiz</span>(<span class="ident">northwest</span>, <span class="ident">northeast</span>);
+        <span class="kw">let</span> <span class="ident">south</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">join_horiz</span>(<span class="ident">southwest</span>, <span class="ident">southeast</span>);
+        <span class="kw">let</span> <span class="ident">west</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">join_vert</span>(<span class="ident">northwest</span>, <span class="ident">southwest</span>);
+        <span class="kw">let</span> <span class="ident">east</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">join_vert</span>(<span class="ident">northeast</span>, <span class="ident">southeast</span>);
+        <span class="kw">let</span> <span class="ident">center</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">join_corners</span>(<span class="ident">leaves</span>);
+
+        <span class="kw">let</span> <span class="ident">join_idle</span> <span class="op">=</span> <span class="op">|</span><span class="ident">leaves</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&gt;</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span> { <span class="ident">Leaf</span>::<span class="ident">join_corners</span>(<span class="ident">leaves</span>) };
+
+        <span class="kw">let</span> <span class="ident">join_step</span> <span class="op">=</span> <span class="op">|</span><span class="ident">leaves</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&gt;</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span> {
+            <span class="kw">let</span> [<span class="ident">nw</span>, <span class="ident">ne</span>, <span class="ident">sw</span>, <span class="ident">se</span>] <span class="op">=</span> <span class="ident">leaves</span>.<span class="number">0</span>;
+            <span class="kw">let</span> <span class="ident">new_leaves</span> <span class="op">=</span> <span class="ident">Grid2</span>([<span class="ident">nw</span>.<span class="ident">step</span>(<span class="ident">rule</span>), <span class="ident">ne</span>.<span class="ident">step</span>(<span class="ident">rule</span>), <span class="ident">sw</span>.<span class="ident">step</span>(<span class="ident">rule</span>), <span class="ident">se</span>.<span class="ident">step</span>(<span class="ident">rule</span>)]);
+            <span class="ident">Leaf</span>::<span class="ident">join_centers</span>(<span class="ident">new_leaves</span>)
+        };
+
+        <span class="kw">let</span> <span class="ident">join_jump</span> <span class="op">=</span> <span class="op">|</span><span class="ident">leaves</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&gt;</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span> {
+            <span class="kw">let</span> [<span class="ident">nw</span>, <span class="ident">ne</span>, <span class="ident">sw</span>, <span class="ident">se</span>] <span class="op">=</span> <span class="ident">leaves</span>.<span class="number">0</span>;
+            <span class="kw">let</span> <span class="ident">new_leaves</span> <span class="op">=</span> <span class="ident">Grid2</span>([<span class="ident">nw</span>.<span class="ident">jump</span>(<span class="ident">rule</span>), <span class="ident">ne</span>.<span class="ident">jump</span>(<span class="ident">rule</span>), <span class="ident">sw</span>.<span class="ident">jump</span>(<span class="ident">rule</span>), <span class="ident">se</span>.<span class="ident">jump</span>(<span class="ident">rule</span>)]);
+            <span class="ident">Leaf</span>::<span class="ident">join_centers</span>(<span class="ident">new_leaves</span>)
+        };
+
+        <span class="kw">let</span> <span class="ident">make_partial</span> <span class="op">=</span> <span class="op">|</span><span class="ident">leaves</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&gt;</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span> {
+            <span class="kw">match</span> <span class="ident">steps</span> {
+                <span class="number">0</span> <span class="op">|</span> <span class="number">1</span> <span class="op">|</span> <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">join_idle</span>(<span class="ident">leaves</span>),
+                <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">join_step</span>(<span class="ident">leaves</span>),
+                <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">join_jump</span>(<span class="ident">leaves</span>),
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
+            }
+        };
+
+        <span class="kw">let</span> <span class="ident">partial_nw</span> <span class="op">=</span> <span class="ident">make_partial</span>(<span class="ident">Grid2</span>([<span class="ident">northwest</span>, <span class="ident">north</span>, <span class="ident">west</span>, <span class="ident">center</span>]));
+        <span class="kw">let</span> <span class="ident">partial_ne</span> <span class="op">=</span> <span class="ident">make_partial</span>(<span class="ident">Grid2</span>([<span class="ident">north</span>, <span class="ident">northeast</span>, <span class="ident">center</span>, <span class="ident">east</span>]));
+        <span class="kw">let</span> <span class="ident">partial_sw</span> <span class="op">=</span> <span class="ident">make_partial</span>(<span class="ident">Grid2</span>([<span class="ident">west</span>, <span class="ident">center</span>, <span class="ident">southwest</span>, <span class="ident">south</span>]));
+        <span class="kw">let</span> <span class="ident">partial_se</span> <span class="op">=</span> <span class="ident">make_partial</span>(<span class="ident">Grid2</span>([<span class="ident">center</span>, <span class="ident">east</span>, <span class="ident">south</span>, <span class="ident">southeast</span>]));
+
+        <span class="kw">let</span> <span class="ident">partial_leaves</span> <span class="op">=</span> <span class="ident">Grid2</span>([<span class="ident">partial_nw</span>, <span class="ident">partial_ne</span>, <span class="ident">partial_sw</span>, <span class="ident">partial_se</span>]);
+
+        <span class="kw">match</span> <span class="ident">steps</span> {
+            <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">join_idle</span>(<span class="ident">partial_leaves</span>),
+            <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">join_step</span>(<span class="ident">partial_leaves</span>),
+            <span class="number">2</span> <span class="op">|</span> <span class="number">3</span> <span class="op">|</span> <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">join_jump</span>(<span class="ident">partial_leaves</span>),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
+        }
+    }
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">struct</span> <span class="ident">Data</span> {
+    <span class="ident">node</span>: <span class="ident">Node</span>,
+    <span class="ident">idle</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span>,
+    <span class="ident">jump</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span>,
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Store</span> {
+    <span class="ident">rule</span>: <span class="ident">Rule</span>,
+    <span class="ident">id_lookup</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">Id</span><span class="op">&gt;</span>,
+    <span class="ident">node_data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Data</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">Store</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">rule</span>: <span class="ident">Rule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">rule</span>,
+            <span class="ident">id_lookup</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
+            <span class="ident">node_data</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
+        }
+    }
+
+    <span class="kw">fn</span> <span class="ident">get_data</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">id</span>: <span class="ident">Id</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Data</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">node_data</span>.<span class="ident">get</span>(<span class="ident">id</span>.<span class="ident">index</span>()).<span class="ident">ok_or</span>(<span class="ident">Error</span>::<span class="ident">IdNotFound</span>(<span class="ident">id</span>))
+    }
+
+    <span class="kw">fn</span> <span class="ident">get_data_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">Id</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">node_data</span>
+            .<span class="ident">get_mut</span>(<span class="ident">id</span>.<span class="ident">index</span>())
+            .<span class="ident">ok_or</span>(<span class="ident">Error</span>::<span class="ident">IdNotFound</span>(<span class="ident">id</span>))
+    }
+
+    <span class="kw">fn</span> <span class="ident">make_id</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Id</span> {
+        <span class="self">self</span>.<span class="ident">id_lookup</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>).<span class="ident">copied</span>().<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">Data</span> {
+                <span class="ident">node</span>,
+                <span class="ident">idle</span>: <span class="prelude-val">None</span>,
+                <span class="ident">jump</span>: <span class="prelude-val">None</span>,
+            };
+            <span class="kw">let</span> <span class="ident">new_id</span> <span class="op">=</span> <span class="ident">Id</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">node_data</span>.<span class="ident">len</span>());
+            <span class="self">self</span>.<span class="ident">node_data</span>.<span class="ident">push</span>(<span class="ident">data</span>);
+            <span class="self">self</span>.<span class="ident">id_lookup</span>.<span class="ident">insert</span>(<span class="ident">node</span>, <span class="ident">new_id</span>);
+            <span class="ident">new_id</span>
+        })
+    }
+
+    <span class="kw">fn</span> <span class="ident">make_branch</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">children</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Branch</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">children</span>.<span class="ident">try_map</span>(<span class="op">|</span><span class="ident">id</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">get_data</span>(<span class="ident">id</span>))<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">level</span> <span class="op">=</span> <span class="ident">data</span>.<span class="number">0</span>[<span class="number">0</span>].<span class="ident">node</span>.<span class="ident">level</span>().<span class="ident">increment</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">population</span> <span class="op">=</span> <span class="ident">data</span>.<span class="number">0</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">data</span><span class="op">|</span> <span class="ident">data</span>.<span class="ident">node</span>.<span class="ident">population</span>()).<span class="ident">sum</span>();
+        <span class="prelude-val">Ok</span>(<span class="ident">Branch</span> {
+            <span class="ident">children</span>,
+            <span class="ident">level</span>,
+            <span class="ident">population</span>,
+        })
+    }
+
+    <span class="kw">fn</span> <span class="ident">step</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">Id</span>, <span class="ident">step</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">get_data</span>(<span class="ident">id</span>)<span class="question-mark">?</span>.<span class="ident">node</span> {
+            <span class="ident">Node</span>::<span class="ident">Leaf</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">todo</span><span class="macro">!</span>(),
+            <span class="ident">Node</span>::<span class="ident">Branch</span>(<span class="ident">branch</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">evolve</span>(<span class="ident">branch</span>, <span class="ident">step</span>),
+        }
+    }
+
+    <span class="kw">fn</span> <span class="ident">evolve</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">branch</span>: <span class="ident">Branch</span>, <span class="ident">steps</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">rule</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">rule</span>;
+
+        <span class="kw">let</span> <span class="ident">max_steps</span> <span class="op">=</span> <span class="ident">branch</span>.<span class="ident">level</span>.<span class="ident">max_steps</span>();
+        <span class="kw">let</span> <span class="ident">half_max</span> <span class="op">=</span> <span class="ident">max_steps</span> <span class="op">/</span> <span class="number">2</span>;
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">steps</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">max_steps</span>, <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;step too large&quot;</span>));
+
+        <span class="kw">let</span> <span class="ident">children</span>: <span class="ident">Either</span><span class="op">&lt;</span><span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&gt;</span>, <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Branch</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">branch</span>
+            .<span class="ident">children</span>
+            .<span class="ident">try_map</span>(<span class="op">|</span><span class="ident">id</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">get_data</span>(<span class="ident">id</span>))<span class="question-mark">?</span>
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">data</span><span class="op">|</span> <span class="ident">data</span>.<span class="ident">node</span>)
+            .<span class="ident">classify</span>()<span class="question-mark">?</span>;
+
+        <span class="kw">let</span> <span class="ident">result</span>: <span class="ident">Node</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">children</span> {
+            <span class="ident">Either</span>::<span class="ident">Left</span>(<span class="ident">leaf_grid</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Node</span>::<span class="ident">Leaf</span>(<span class="ident">Leaf</span>::<span class="ident">evolve_leaves</span>(<span class="ident">leaf_grid</span>, <span class="ident">steps</span>, <span class="ident">rule</span>)),
+
+            <span class="ident">Either</span>::<span class="ident">Right</span>(<span class="ident">branch_grid</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">grandchildren</span>: <span class="ident">Grid4</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">branch_grid</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">branch</span><span class="op">|</span> <span class="ident">branch</span>.<span class="ident">children</span>).<span class="ident">flatten</span>();
+
+                <span class="kw">let</span> (<span class="ident">first_step</span>, <span class="ident">second_step</span>) <span class="op">=</span> <span class="kw">if</span> <span class="ident">steps</span> <span class="op">&lt;</span> <span class="ident">half_max</span> {
+                    (<span class="number">0</span>, <span class="ident">steps</span>)
+                } <span class="kw">else</span> {
+                    (<span class="ident">steps</span> <span class="op">-</span> <span class="ident">half_max</span>, <span class="ident">half_max</span>)
+                };
+
+                <span class="kw">let</span> <span class="ident">new_children</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">grandchildren</span>
+                    .<span class="ident">shrink</span>(<span class="op">|</span><span class="ident">ids</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span> {
+                        <span class="kw">let</span> <span class="ident">branch</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">make_branch</span>(<span class="ident">ids</span>)<span class="question-mark">?</span>;
+                        <span class="self">self</span>.<span class="ident">evolve</span>(<span class="ident">branch</span>, <span class="ident">first_step</span>)
+                    })<span class="question-mark">?</span>
+                    .<span class="ident">shrink</span>(<span class="op">|</span><span class="ident">ids</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span> {
+                        <span class="kw">let</span> <span class="ident">branch</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">make_branch</span>(<span class="ident">ids</span>)<span class="question-mark">?</span>;
+                        <span class="self">self</span>.<span class="ident">evolve</span>(<span class="ident">branch</span>, <span class="ident">second_step</span>)
+                    })<span class="question-mark">?</span>;
+
+                <span class="ident">Node</span>::<span class="ident">Branch</span>(<span class="self">self</span>.<span class="ident">make_branch</span>(<span class="ident">new_children</span>)<span class="question-mark">?</span>)
+            }
+        };
+
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">make_id</span>(<span class="ident">result</span>))
+    }
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">Ord</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Level</span>(<span class="ident">u8</span>);
 
 <span class="kw">impl</span> <span class="ident">Level</span> {
-    <span class="doccomment">/// The maximum possible level, `Level(63)`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This ensures that the population of a node can be stored in a `u128`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_LEVEL</span>: <span class="self">Self</span> <span class="op">=</span> <span class="self">Self</span>(<span class="number">63</span>);
+    <span class="kw">const</span> <span class="ident">MAX_LEVEL</span>: <span class="self">Self</span> <span class="op">=</span> <span class="self">Self</span>(<span class="number">63</span>);
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">increment</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">increment</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span> <span class="op">&lt;</span> <span class="self">Self</span>::<span class="ident">MAX_LEVEL</span> {
             <span class="prelude-val">Ok</span>(<span class="self">Self</span>(<span class="self">self</span>.<span class="number">0</span> <span class="op">+</span> <span class="number">1</span>))
         } <span class="kw">else</span> {
@@ -400,25 +624,28 @@
     }
 }
 
-<span class="macro">new_key_type</span><span class="macro">!</span> {
-    <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Id</span>;
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Id</span> {
+    <span class="ident">index</span>: <span class="ident">usize</span>,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="kw">impl</span> <span class="ident">Id</span> {
+    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">index</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> { <span class="ident">index</span> }
+    }
+
+    <span class="kw">fn</span> <span class="ident">index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+        <span class="self">self</span>.<span class="ident">index</span>
+    }
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Node</span> {
     <span class="ident">Leaf</span>(<span class="ident">Leaf</span>),
     <span class="ident">Branch</span>(<span class="ident">Branch</span>),
 }
 
 <span class="kw">impl</span> <span class="ident">Node</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">children</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span>::<span class="ident">Leaf</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
-            <span class="self">Self</span>::<span class="ident">Branch</span>(<span class="ident">branch</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">branch</span>.<span class="ident">children</span>),
-        }
-    }
-
-    <span class="doccomment">/// Returns the level of the `Node`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">level</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Level</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="self">Self</span>::<span class="ident">Leaf</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Level</span>(<span class="number">3</span>),
@@ -426,32 +653,10 @@
         }
     }
 
-    <span class="doccomment">/// Returns the number of alive cells in the `Node`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">population</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u128</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="self">Self</span>::<span class="ident">Leaf</span>(<span class="ident">leaf</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">u128</span>::<span class="ident">from</span>(<span class="ident">leaf</span>.<span class="ident">alive</span>.<span class="number">0</span>.<span class="ident">count_ones</span>()),
             <span class="self">Self</span>::<span class="ident">Branch</span>(<span class="ident">branch</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">branch</span>.<span class="ident">population</span>,
-        }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">Eq</span> <span class="kw">for</span> <span class="ident">Node</span> {}
-
-<span class="kw">impl</span> <span class="ident">Hash</span> <span class="kw">for</span> <span class="ident">Node</span> {
-    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">H</span>) {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span>::<span class="ident">Leaf</span>(<span class="ident">leaf</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">leaf</span>.<span class="ident">hash</span>(<span class="ident">state</span>),
-            <span class="self">Self</span>::<span class="ident">Branch</span>(<span class="ident">branch</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">branch</span>.<span class="ident">children</span>.<span class="ident">hash</span>(<span class="ident">state</span>),
-        }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">Node</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-        <span class="kw">match</span> (<span class="self">self</span>, <span class="ident">other</span>) {
-            (<span class="self">Self</span>::<span class="ident">Leaf</span>(<span class="ident">x</span>), <span class="self">Self</span>::<span class="ident">Leaf</span>(<span class="ident">y</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">x</span> <span class="op">=</span><span class="op">=</span> <span class="ident">y</span>,
-            (<span class="self">Self</span>::<span class="ident">Branch</span>(<span class="ident">x</span>), <span class="self">Self</span>::<span class="ident">Branch</span>(<span class="ident">y</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">x</span> <span class="op">=</span><span class="op">=</span> <span class="ident">y</span>,
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
         }
     }
 }
@@ -472,199 +677,7 @@
     }
 }
 
-<span class="doccomment">/// An 8 by 8 grid of dead or alive cells in a cellular automaton.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">Ord</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Leaf</span> {
-    <span class="kw">pub</span> <span class="ident">alive</span>: <span class="ident">Bool8x8</span>,
-}
-
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Branch</span> {
-    <span class="kw">pub</span> <span class="ident">children</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">level</span>: <span class="ident">Level</span>,
-    <span class="kw">pub</span> <span class="ident">population</span>: <span class="ident">u128</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">Leaf</span> {
-    <span class="doccomment">/// Creates a new `Leaf` with the given alive cells.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">alive</span>: <span class="ident">Bool8x8</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">alive</span> }
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dead</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>::<span class="ident">FALSE</span>)
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">alive</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>::<span class="ident">TRUE</span>)
-    }
-
-    <span class="doccomment">/// Advances the leaf by 0 generations.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">idle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_rule</span>: <span class="ident">Rule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="kw-2">*</span><span class="self">self</span>
-    }
-
-    <span class="doccomment">/// Advances the leaf by 1 generation.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">step</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rule</span>: <span class="ident">Rule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">alive</span> <span class="op">=</span> <span class="ident">rule</span>.<span class="ident">step</span>(<span class="self">self</span>.<span class="ident">alive</span>);
-        <span class="self">Self</span> { <span class="ident">alive</span> }
-    }
-
-    <span class="doccomment">/// Advances the leaf by 2 generations.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">jump</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rule</span>: <span class="ident">Rule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">step</span>(<span class="ident">rule</span>).<span class="ident">step</span>(<span class="ident">rule</span>)
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">apply</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">G</span><span class="op">&gt;</span>(<span class="ident">grid</span>: <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&gt;</span>, <span class="ident">rule</span>: <span class="ident">Rule</span>, <span class="ident">first</span>: <span class="ident">F</span>, <span class="ident">second</span>: <span class="ident">G</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span>
-    <span class="kw">where</span>
-        <span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Leaf</span>, <span class="ident">Rule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span>,
-        <span class="ident">G</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Leaf</span>, <span class="ident">Rule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Leaf</span>,
-    {
-        <span class="kw">let</span> <span class="ident">first</span> <span class="op">=</span> <span class="op">|</span><span class="ident">leaf</span><span class="op">|</span> <span class="ident">first</span>(<span class="kw-2">&amp;</span><span class="ident">leaf</span>, <span class="ident">rule</span>);
-        <span class="kw">let</span> <span class="ident">second</span> <span class="op">=</span> <span class="op">|</span><span class="ident">leaf</span><span class="op">|</span> <span class="ident">second</span>(<span class="kw-2">&amp;</span><span class="ident">leaf</span>, <span class="ident">rule</span>);
-
-        <span class="kw">let</span> <span class="ident">Grid2</span>([<span class="ident">nw</span>, <span class="ident">ne</span>, <span class="ident">sw</span>, <span class="ident">se</span>]) <span class="op">=</span> <span class="ident">grid</span>;
-
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . a a a a b b | b b c c c c . .</span>
-        <span class="comment">// . . a a a a b b | b b c c c c . .</span>
-        <span class="comment">// . . a a a a b b | b b c c c c . .</span>
-        <span class="comment">// . . a a a a b b | b b c c c c . .</span>
-        <span class="comment">// . . d d d d e e | e e f f f f . .</span>
-        <span class="comment">// . . d d d d e e | e e f f f f . .</span>
-        <span class="comment">// ----------------+----------------</span>
-        <span class="comment">// . . d d d d e e | e e f f f f . .</span>
-        <span class="comment">// . . d d d d e e | e e f f f f . .</span>
-        <span class="comment">// . . g g g g h h | h h i i i i . .</span>
-        <span class="comment">// . . g g g g h h | h h i i i i . .</span>
-        <span class="comment">// . . g g g g h h | h h i i i i . .</span>
-        <span class="comment">// . . g g g g h h | h h i i i i . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">first</span>(<span class="ident">nw</span>);
-        <span class="kw">let</span> <span class="ident">b</span> <span class="op">=</span> <span class="ident">first</span>(<span class="self">Self</span>::<span class="ident">join_horiz</span>(<span class="ident">nw</span>, <span class="ident">ne</span>));
-        <span class="kw">let</span> <span class="ident">c</span> <span class="op">=</span> <span class="ident">first</span>(<span class="ident">ne</span>);
-        <span class="kw">let</span> <span class="ident">d</span> <span class="op">=</span> <span class="ident">first</span>(<span class="self">Self</span>::<span class="ident">join_vert</span>(<span class="ident">nw</span>, <span class="ident">sw</span>));
-        <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">first</span>(<span class="self">Self</span>::<span class="ident">center</span>(<span class="ident">nw</span>, <span class="ident">ne</span>, <span class="ident">sw</span>, <span class="ident">se</span>));
-        <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">first</span>(<span class="self">Self</span>::<span class="ident">join_vert</span>(<span class="ident">ne</span>, <span class="ident">se</span>));
-        <span class="kw">let</span> <span class="ident">g</span> <span class="op">=</span> <span class="ident">first</span>(<span class="ident">sw</span>);
-        <span class="kw">let</span> <span class="ident">h</span> <span class="op">=</span> <span class="ident">first</span>(<span class="self">Self</span>::<span class="ident">join_horiz</span>(<span class="ident">sw</span>, <span class="ident">se</span>));
-        <span class="kw">let</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">first</span>(<span class="ident">se</span>);
-
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . w w w w | x x x x . . . .</span>
-        <span class="comment">// . . . . w w w w | x x x x . . . .</span>
-        <span class="comment">// . . . . w w w w | x x x x . . . .</span>
-        <span class="comment">// . . . . w w w w | x x x x . . . .</span>
-        <span class="comment">// ----------------+----------------</span>
-        <span class="comment">// . . . . y y y y | z z z z . . . .</span>
-        <span class="comment">// . . . . y y y y | z z z z . . . .</span>
-        <span class="comment">// . . . . y y y y | z z z z . . . .</span>
-        <span class="comment">// . . . . y y y y | z z z z . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="kw">let</span> <span class="ident">w</span> <span class="op">=</span> <span class="ident">second</span>(<span class="self">Self</span>::<span class="ident">join_centers</span>(<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">d</span>, <span class="ident">e</span>));
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">second</span>(<span class="self">Self</span>::<span class="ident">join_centers</span>(<span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">e</span>, <span class="ident">f</span>));
-        <span class="kw">let</span> <span class="ident">y</span> <span class="op">=</span> <span class="ident">second</span>(<span class="self">Self</span>::<span class="ident">join_centers</span>(<span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">g</span>, <span class="ident">h</span>));
-        <span class="kw">let</span> <span class="ident">z</span> <span class="op">=</span> <span class="ident">second</span>(<span class="self">Self</span>::<span class="ident">join_centers</span>(<span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">h</span>, <span class="ident">i</span>));
-
-        <span class="self">Self</span>::<span class="ident">join_centers</span>(<span class="ident">w</span>, <span class="ident">x</span>, <span class="ident">y</span>, <span class="ident">z</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">center</span>(<span class="ident">nw</span>: <span class="self">Self</span>, <span class="ident">ne</span>: <span class="self">Self</span>, <span class="ident">sw</span>: <span class="self">Self</span>, <span class="ident">se</span>: <span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . a a a a | b b b b . . . .</span>
-        <span class="comment">// . . . . a a a a | b b b b . . . .</span>
-        <span class="comment">// . . . . a a a a | b b b b . . . .</span>
-        <span class="comment">// . . . . a a a a | b b b b . . . .</span>
-        <span class="comment">// ----------------+----------------</span>
-        <span class="comment">// . . . . c c c c | d d d d . . . .</span>
-        <span class="comment">// . . . . c c c c | d d d d . . . .</span>
-        <span class="comment">// . . . . c c c c | d d d d . . . .</span>
-        <span class="comment">// . . . . c c c c | d d d d . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">nw</span>.<span class="ident">alive</span>.<span class="ident">up</span>(<span class="number">4</span>).<span class="ident">left</span>(<span class="number">4</span>) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">NORTHWEST</span>;
-        <span class="kw">let</span> <span class="ident">b</span> <span class="op">=</span> <span class="ident">ne</span>.<span class="ident">alive</span>.<span class="ident">up</span>(<span class="number">4</span>).<span class="ident">right</span>(<span class="number">4</span>) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">NORTHEAST</span>;
-        <span class="kw">let</span> <span class="ident">c</span> <span class="op">=</span> <span class="ident">sw</span>.<span class="ident">alive</span>.<span class="ident">down</span>(<span class="number">4</span>).<span class="ident">left</span>(<span class="number">4</span>) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">SOUTHWEST</span>;
-        <span class="kw">let</span> <span class="ident">d</span> <span class="op">=</span> <span class="ident">se</span>.<span class="ident">alive</span>.<span class="ident">down</span>(<span class="number">4</span>).<span class="ident">right</span>(<span class="number">4</span>) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">SOUTHEAST</span>;
-        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">a</span> <span class="op">|</span> <span class="ident">b</span> <span class="op">|</span> <span class="ident">c</span> <span class="op">|</span> <span class="ident">d</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">join_horiz</span>(<span class="ident">left</span>: <span class="self">Self</span>, <span class="ident">right</span>: <span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="comment">// . . . . a a a a | b b b b . . . .</span>
-        <span class="comment">// . . . . a a a a | b b b b . . . .</span>
-        <span class="comment">// . . . . a a a a | b b b b . . . .</span>
-        <span class="comment">// . . . . a a a a | b b b b . . . .</span>
-        <span class="comment">// . . . . a a a a | b b b b . . . .</span>
-        <span class="comment">// . . . . a a a a | b b b b . . . .</span>
-        <span class="comment">// . . . . a a a a | b b b b . . . .</span>
-        <span class="comment">// . . . . a a a a | b b b b . . . .</span>
-        <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">left</span>.<span class="ident">alive</span>.<span class="ident">left</span>(<span class="number">4</span>) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">WEST</span>;
-        <span class="kw">let</span> <span class="ident">b</span> <span class="op">=</span> <span class="ident">right</span>.<span class="ident">alive</span>.<span class="ident">right</span>(<span class="number">4</span>) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">EAST</span>;
-        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">a</span> <span class="op">|</span> <span class="ident">b</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">join_vert</span>(<span class="ident">top</span>: <span class="self">Self</span>, <span class="ident">bottom</span>: <span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="comment">// . . . . . . . .</span>
-        <span class="comment">// . . . . . . . .</span>
-        <span class="comment">// . . . . . . . .</span>
-        <span class="comment">// . . . . . . . .</span>
-        <span class="comment">// a a a a a a a a</span>
-        <span class="comment">// a a a a a a a a</span>
-        <span class="comment">// a a a a a a a a</span>
-        <span class="comment">// a a a a a a a a</span>
-        <span class="comment">// ---------------</span>
-        <span class="comment">// b b b b b b b b</span>
-        <span class="comment">// b b b b b b b b</span>
-        <span class="comment">// b b b b b b b b</span>
-        <span class="comment">// b b b b b b b b</span>
-        <span class="comment">// . . . . . . . .</span>
-        <span class="comment">// . . . . . . . .</span>
-        <span class="comment">// . . . . . . . .</span>
-        <span class="comment">// . . . . . . . .</span>
-        <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">top</span>.<span class="ident">alive</span>.<span class="ident">up</span>(<span class="number">4</span>) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">NORTH</span>;
-        <span class="kw">let</span> <span class="ident">b</span> <span class="op">=</span> <span class="ident">bottom</span>.<span class="ident">alive</span>.<span class="ident">down</span>(<span class="number">4</span>) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">SOUTH</span>;
-        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">a</span> <span class="op">|</span> <span class="ident">b</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">join_centers</span>(<span class="ident">nw</span>: <span class="self">Self</span>, <span class="ident">ne</span>: <span class="self">Self</span>, <span class="ident">sw</span>: <span class="self">Self</span>, <span class="ident">se</span>: <span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . a a a a . . | . . b b b b . .</span>
-        <span class="comment">// . . a a a a . . | . . b b b b . .</span>
-        <span class="comment">// . . a a a a . . | . . b b b b . .</span>
-        <span class="comment">// . . a a a a . . | . . b b b b . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// ----------------+----------------</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . c c c c . . | . . d d d d . .</span>
-        <span class="comment">// . . c c c c . . | . . d d d d . .</span>
-        <span class="comment">// . . c c c c . . | . . d d d d . .</span>
-        <span class="comment">// . . c c c c . . | . . d d d d . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="comment">// . . . . . . . . | . . . . . . . .</span>
-        <span class="kw">let</span> <span class="ident">combined</span> <span class="op">=</span> <span class="ident">Bool8x8</span>::<span class="ident">FALSE</span>
-            <span class="op">|</span> <span class="ident">nw</span>.<span class="ident">alive</span>.<span class="ident">up</span>(<span class="number">2</span>).<span class="ident">left</span>(<span class="number">2</span>) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">NORTHWEST</span>
-            <span class="op">|</span> <span class="ident">ne</span>.<span class="ident">alive</span>.<span class="ident">up</span>(<span class="number">2</span>).<span class="ident">right</span>(<span class="number">2</span>) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">NORTHEAST</span>
-            <span class="op">|</span> <span class="ident">sw</span>.<span class="ident">alive</span>.<span class="ident">down</span>(<span class="number">2</span>).<span class="ident">left</span>(<span class="number">2</span>) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">SOUTHWEST</span>
-            <span class="op">|</span> <span class="ident">se</span>.<span class="ident">alive</span>.<span class="ident">down</span>(<span class="number">2</span>).<span class="ident">right</span>(<span class="number">2</span>) <span class="op">&amp;</span> <span class="ident">Bool8x8</span>::<span class="ident">SOUTHEAST</span>;
-        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">combined</span>)
-    }
-}
+<span class="kw">impl</span> <span class="ident">Grid2</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&gt;</span> {}
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
@@ -692,10 +705,10 @@
         <span class="comment">// 0x00 | . . . . . . . . | . . . . . . . . | 0x00</span>
         <span class="comment">// 0x00 | . . . . . . . . | . . . . . . . . | 0x00</span>
         <span class="comment">//      +-----------------+-----------------+</span>
-        <span class="kw">let</span> <span class="ident">nw_start</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x0000_0000_0000_0100</span>));
-        <span class="kw">let</span> <span class="ident">ne_start</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x0000_0000_0000_0080</span>));
-        <span class="kw">let</span> <span class="ident">sw_start</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x0300_0000_0000_0000</span>));
-        <span class="kw">let</span> <span class="ident">se_start</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x8000_0000_0000_0000</span>));
+        <span class="kw">let</span> <span class="ident">nw_start</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x_00_00_00_00_00_00_01_00</span>));
+        <span class="kw">let</span> <span class="ident">ne_start</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x_00_00_00_00_00_00_00_80</span>));
+        <span class="kw">let</span> <span class="ident">sw_start</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x_03_00_00_00_00_00_00_00</span>));
+        <span class="kw">let</span> <span class="ident">se_start</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x_80_00_00_00_00_00_00_00</span>));
         <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">Grid2</span>([<span class="ident">nw_start</span>, <span class="ident">ne_start</span>, <span class="ident">sw_start</span>, <span class="ident">se_start</span>]);
 
         <span class="comment">// 0x00 | . . . . . . . .</span>
@@ -706,11 +719,8 @@
         <span class="comment">// 0x00 | . . . . . . . .</span>
         <span class="comment">// 0x00 | . . . . . . . .</span>
         <span class="comment">// 0x00 | . . . . . . . .</span>
-        <span class="kw">let</span> <span class="ident">idle_leaf</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x0000_1008_3800_0000</span>));
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
-            <span class="ident">idle_leaf</span>,
-            <span class="ident">Leaf</span>::<span class="ident">center</span>(<span class="ident">nw_start</span>, <span class="ident">ne_start</span>, <span class="ident">sw_start</span>, <span class="ident">se_start</span>)
-        );
+        <span class="kw">let</span> <span class="ident">idle_leaf</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x_00_00_10_08_38_00_00_00</span>));
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">idle_leaf</span>, <span class="ident">Leaf</span>::<span class="ident">join_corners</span>(<span class="ident">start</span>));
 
         <span class="comment">// 0x00 | . . . . . . . .</span>
         <span class="comment">// 0x00 | . . . . . . . .</span>
@@ -720,13 +730,11 @@
         <span class="comment">// 0x1C | . . . # # # . .</span>
         <span class="comment">// 0x00 | . . . . . . . .</span>
         <span class="comment">// 0x00 | . . . . . . . .</span>
-        <span class="kw">let</span> <span class="ident">jump_leaf</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x0000_0008_041C_0000</span>));
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">idle_leaf</span>.<span class="ident">alive</span>.<span class="ident">down</span>(<span class="number">1</span>).<span class="ident">right</span>(<span class="number">1</span>), <span class="ident">jump_leaf</span>.<span class="ident">alive</span>);
-
-        <span class="kw">let</span> <span class="ident">idled</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">apply</span>(<span class="ident">start</span>, <span class="ident">life</span>, <span class="ident">Leaf</span>::<span class="ident">idle</span>, <span class="ident">Leaf</span>::<span class="ident">idle</span>);
-        <span class="kw">let</span> <span class="ident">jumped</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">apply</span>(<span class="ident">start</span>, <span class="ident">life</span>, <span class="ident">Leaf</span>::<span class="ident">jump</span>, <span class="ident">Leaf</span>::<span class="ident">jump</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">idled</span>, <span class="ident">idle_leaf</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">jumped</span>, <span class="ident">jump_leaf</span>);
+        <span class="kw">let</span> <span class="ident">jump_leaf</span> <span class="op">=</span> <span class="ident">Leaf</span>::<span class="ident">new</span>(<span class="ident">Bool8x8</span>(<span class="number">0x_00_00_00_08_04_1C_00_00</span>));
+        <span class="macro">assert_eq</span><span class="macro">!</span>(
+            <span class="ident">idle_leaf</span>.<span class="ident">alive</span>.<span class="ident">offset</span>(<span class="ident">Offset</span>::<span class="ident">Southeast</span>(<span class="number">1</span>)),
+            <span class="ident">jump_leaf</span>.<span class="ident">alive</span>
+        );
     }
 }
 </pre></div>

@@ -2,7 +2,6 @@ var ALIASES = {};
 ALIASES["either"] = {};
 ALIASES["proc_macro2"] = {};
 ALIASES["quote"] = {};
-ALIASES["slotmap"] = {};
 ALIASES["smeagol"] = {};
 ALIASES["syn"] = {};
 ALIASES["thiserror"] = {};
