@@ -2,25 +2,246 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::{grid::Grid2, Bool8x8, Error, Result, Rule};
+use crate::{
+    util::{Bool8x8, Grid2, Grid4, Offset},
+    Error, Result, Rule,
+};
 
-use std::hash::{Hash, Hasher};
+use std::{collections::HashMap, hash::Hash};
 
 use either::Either;
 
-/// A measure of the size of a `Node`.
-///
-/// A node with level `Level(n)` represents a `2^n` by `2^n` square grid of dead or alive cells.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Level(pub u8);
+pub struct Leaf {
+    pub alive: Bool8x8,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct Branch {
+    pub children: Grid2<Id>,
+    pub level: Level,
+    pub population: u128,
+}
+
+impl Leaf {
+    fn new(alive: Bool8x8) -> Self {
+        Self { alive }
+    }
+
+    fn dead() -> Self {
+        Self::new(Bool8x8::FALSE)
+    }
+
+    fn alive() -> Self {
+        Self::new(Bool8x8::TRUE)
+    }
+
+    fn step(&self, rule: Rule) -> Leaf {
+        Self::new(rule.step(self.alive))
+    }
+
+    fn jump(&self, rule: Rule) -> Leaf {
+        self.step(rule).step(rule)
+    }
+
+    fn join_horiz(west: Leaf, east: Leaf) -> Leaf {
+        let combined = Bool8x8::FALSE
+            | west.alive.offset(Offset::West(4)) & Bool8x8::WEST
+            | east.alive.offset(Offset::East(4)) & Bool8x8::EAST;
+        Self::new(combined)
+    }
+
+    fn join_vert(north: Leaf, south: Leaf) -> Leaf {
+        let combined = Bool8x8::FALSE
+            | north.alive.offset(Offset::North(4)) & Bool8x8::NORTH
+            | south.alive.offset(Offset::South(4)) & Bool8x8::SOUTH;
+        Self::new(combined)
+    }
+
+    fn join_centers(leaves: Grid2<Leaf>) -> Leaf {
+        let [nw, ne, sw, se] = leaves.0;
+        let combined = Bool8x8::FALSE
+            | nw.alive.offset(Offset::Northwest(2)) & Bool8x8::NORTHWEST
+            | ne.alive.offset(Offset::Northeast(2)) & Bool8x8::NORTHEAST
+            | sw.alive.offset(Offset::Southwest(2)) & Bool8x8::SOUTHWEST
+            | se.alive.offset(Offset::Southeast(2)) & Bool8x8::SOUTHEAST;
+        Self::new(combined)
+    }
+
+    fn join_corners(leaves: Grid2<Leaf>) -> Leaf {
+        let [nw, ne, sw, se] = leaves.0;
+        let combined = Bool8x8::FALSE
+            | nw.alive.offset(Offset::Northwest(4)) & Bool8x8::NORTHWEST
+            | ne.alive.offset(Offset::Northeast(4)) & Bool8x8::NORTHEAST
+            | sw.alive.offset(Offset::Southwest(4)) & Bool8x8::SOUTHWEST
+            | se.alive.offset(Offset::Southeast(4)) & Bool8x8::SOUTHEAST;
+        Self::new(combined)
+    }
+
+    fn evolve_leaves(leaves: Grid2<Leaf>, steps: u64, rule: Rule) -> Leaf {
+        assert!(steps <= 4);
+
+        let [northwest, northeast, southwest, southeast] = leaves.0;
+        let north = Self::join_horiz(northwest, northeast);
+        let south = Self::join_horiz(southwest, southeast);
+        let west = Self::join_vert(northwest, southwest);
+        let east = Self::join_vert(northeast, southeast);
+        let center = Self::join_corners(leaves);
+
+        let join_idle = |leaves: Grid2<Leaf>| -> Leaf { Leaf::join_corners(leaves) };
+
+        let join_step = |leaves: Grid2<Leaf>| -> Leaf {
+            let [nw, ne, sw, se] = leaves.0;
+            let new_leaves = Grid2([nw.step(rule), ne.step(rule), sw.step(rule), se.step(rule)]);
+            Leaf::join_centers(new_leaves)
+        };
+
+        let join_jump = |leaves: Grid2<Leaf>| -> Leaf {
+            let [nw, ne, sw, se] = leaves.0;
+            let new_leaves = Grid2([nw.jump(rule), ne.jump(rule), sw.jump(rule), se.jump(rule)]);
+            Leaf::join_centers(new_leaves)
+        };
+
+        let make_partial = |leaves: Grid2<Leaf>| -> Leaf {
+            match steps {
+                0 | 1 | 2 => join_idle(leaves),
+                3 => join_step(leaves),
+                4 => join_jump(leaves),
+                _ => unreachable!(),
+            }
+        };
+
+        let partial_nw = make_partial(Grid2([northwest, north, west, center]));
+        let partial_ne = make_partial(Grid2([north, northeast, center, east]));
+        let partial_sw = make_partial(Grid2([west, center, southwest, south]));
+        let partial_se = make_partial(Grid2([center, east, south, southeast]));
+
+        let partial_leaves = Grid2([partial_nw, partial_ne, partial_sw, partial_se]);
+
+        match steps {
+            0 => join_idle(partial_leaves),
+            1 => join_step(partial_leaves),
+            2 | 3 | 4 => join_jump(partial_leaves),
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+struct Data {
+    node: Node,
+    idle: Option<Id>,
+    jump: Option<Id>,
+}
+
+#[derive(Clone, Default)]
+pub struct Store {
+    rule: Rule,
+    id_lookup: HashMap<Node, Id>,
+    node_data: Vec<Data>,
+}
+
+impl Store {
+    pub fn new(rule: Rule) -> Self {
+        Self {
+            rule,
+            id_lookup: HashMap::new(),
+            node_data: Vec::new(),
+        }
+    }
+
+    fn get_data(&self, id: Id) -> Result<&Data> {
+        self.node_data.get(id.index()).ok_or(Error::IdNotFound(id))
+    }
+
+    fn get_data_mut(&mut self, id: Id) -> Result<&mut Data> {
+        self.node_data
+            .get_mut(id.index())
+            .ok_or(Error::IdNotFound(id))
+    }
+
+    fn make_id(&mut self, node: Node) -> Id {
+        self.id_lookup.get(&node).copied().unwrap_or_else(|| {
+            let data = Data {
+                node,
+                idle: None,
+                jump: None,
+            };
+            let new_id = Id::new(self.node_data.len());
+            self.node_data.push(data);
+            self.id_lookup.insert(node, new_id);
+            new_id
+        })
+    }
+
+    fn make_branch(&mut self, children: Grid2<Id>) -> Result<Branch> {
+        let data = children.try_map(|id| self.get_data(id))?;
+        let level = data.0[0].node.level().increment()?;
+        let population = data.0.iter().map(|data| data.node.population()).sum();
+        Ok(Branch {
+            children,
+            level,
+            population,
+        })
+    }
+
+    fn step(&mut self, id: Id, step: u64) -> Result<Id> {
+        match self.get_data(id)?.node {
+            Node::Leaf(_) => todo!(),
+            Node::Branch(branch) => self.evolve(branch, step),
+        }
+    }
+
+    fn evolve(&mut self, branch: Branch, steps: u64) -> Result<Id> {
+        let rule = self.rule;
+
+        let max_steps = branch.level.max_steps();
+        let half_max = max_steps / 2;
+        assert!(steps <= max_steps, format!("step too large"));
+
+        let children: Either<Grid2<Leaf>, Grid2<Branch>> = branch
+            .children
+            .try_map(|id| self.get_data(id))?
+            .map(|data| data.node)
+            .classify()?;
+
+        let result: Node = match children {
+            Either::Left(leaf_grid) => Node::Leaf(Leaf::evolve_leaves(leaf_grid, steps, rule)),
+
+            Either::Right(branch_grid) => {
+                let grandchildren: Grid4<Id> = branch_grid.map(|branch| branch.children).flatten();
+
+                let (first_step, second_step) = if steps < half_max {
+                    (0, steps)
+                } else {
+                    (steps - half_max, half_max)
+                };
+
+                let new_children: Grid2<Id> = grandchildren
+                    .shrink(|ids: Grid2<Id>| -> Result<Id> {
+                        let branch = self.make_branch(ids)?;
+                        self.evolve(branch, first_step)
+                    })?
+                    .shrink(|ids: Grid2<Id>| -> Result<Id> {
+                        let branch = self.make_branch(ids)?;
+                        self.evolve(branch, second_step)
+                    })?;
+
+                Node::Branch(self.make_branch(new_children)?)
+            }
+        };
+
+        Ok(self.make_id(result))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Level(u8);
 
 impl Level {
-    /// The maximum possible level, `Level(63)`.
-    ///
-    /// This ensures that the population of a node can be stored in a `u128`.
-    pub const MAX_LEVEL: Self = Self(63);
+    const MAX_LEVEL: Self = Self(63);
 
-    pub fn increment(self) -> Result<Self> {
+    fn increment(self) -> Result<Self> {
         if self < Self::MAX_LEVEL {
             Ok(Self(self.0 + 1))
         } else {
@@ -39,25 +260,22 @@ pub struct Id {
 }
 
 impl Id {
-    pub(crate) fn new(index: usize) -> Self {
+    fn new(index: usize) -> Self {
         Self { index }
     }
 
-    pub(crate) fn index(&self) -> usize {
+    fn index(&self) -> usize {
         self.index
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub enum Node {
-    /// A terminal node.
     Leaf(Leaf),
-    /// An interior node.
     Branch(Branch),
 }
 
 impl Node {
-    /// Returns the level of the `Node`.
     pub fn level(&self) -> Level {
         match self {
             Self::Leaf(_) => Level(3),
@@ -65,32 +283,10 @@ impl Node {
         }
     }
 
-    /// Returns the number of alive cells in the `Node`.
     pub fn population(&self) -> u128 {
         match self {
             Self::Leaf(leaf) => u128::from(leaf.alive.0.count_ones()),
             Self::Branch(branch) => branch.population,
-        }
-    }
-}
-
-impl Eq for Node {}
-
-impl Hash for Node {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            Self::Leaf(leaf) => leaf.hash(state),
-            Self::Branch(branch) => branch.children.hash(state),
-        }
-    }
-}
-
-impl PartialEq for Node {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Leaf(x), Self::Leaf(y)) => x == y,
-            (Self::Branch(x), Self::Branch(y)) => x == y,
-            _ => false,
         }
     }
 }
@@ -111,218 +307,7 @@ impl Grid2<Node> {
     }
 }
 
-/// An 8 by 8 grid of dead or alive cells in a cellular automaton.
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Leaf {
-    pub alive: Bool8x8,
-}
-
-impl Grid2<Leaf> {
-    pub const fn center(&self) -> Leaf {
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
-        // ----------------+----------------
-        // . . . . c c c c | d d d d . . . .
-        // . . . . c c c c | d d d d . . . .
-        // . . . . c c c c | d d d d . . . .
-        // . . . . c c c c | d d d d . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        let [nw, ne, sw, se] = self.0;
-        let a = nw.alive.and(Bool8x8::SOUTHEAST).offset(-4, 4);
-        let b = ne.alive.and(Bool8x8::SOUTHWEST).offset(4, 4);
-        let c = sw.alive.and(Bool8x8::NORTHEAST).offset(-4, -4);
-        let d = se.alive.and(Bool8x8::NORTHWEST).offset(4, -4);
-        Leaf::new(a.or(b).or(c).or(d))
-    }
-
-    const fn cardinal(&self) -> [Leaf; 4] {
-        let [nw, ne, sw, se] = self.0;
-        [Leaf::join_horiz(nw, ne); 4]
-    }
-
-    pub const fn step(&self, rule: Rule) -> Leaf {
-        let [nw, ne, sw, se] = self.0;
-        let center = self.center();
-
-        // let a = first(nw);
-        // let b = first(Self::join_horiz(nw, ne));
-        // let c = first(ne);
-        // let d = first(Self::join_vert(nw, sw));
-        // let e = first(Self::center(nw, ne, sw, se));
-        // let f = first(Self::join_vert(ne, se));
-        // let g = first(sw);
-        // let h = first(Self::join_horiz(sw, se));
-        // let i = first(se);
-
-        self.0[0]
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Branch {
-    pub children: Grid2<Id>,
-    pub level: Level,
-    pub population: u128,
-}
-
-impl Leaf {
-    pub const DEAD: Self = Self::new(Bool8x8::FALSE);
-    pub const ALIVE: Self = Self::new(Bool8x8::TRUE);
-
-    /// Creates a new `Leaf` with the given alive cells.
-    pub const fn new(alive: Bool8x8) -> Self {
-        Self { alive }
-    }
-
-    /// Advances the leaf by 0 generations.
-    pub const fn idle(&self, _rule: Rule) -> Self {
-        *self
-    }
-
-    /// Advances the leaf by 1 generation.
-    pub const fn step(&self, rule: Rule) -> Self {
-        Self::new(rule.step(self.alive))
-    }
-
-    /// Advances the leaf by 2 generations.
-    pub const fn jump(&self, rule: Rule) -> Self {
-        Self::new(rule.step(rule.step(self.alive)))
-    }
-
-    pub fn apply<F, G>(grid: Grid2<Leaf>, rule: Rule, first: F, second: G) -> Leaf
-    where
-        F: Fn(&Leaf, Rule) -> Leaf,
-        G: Fn(&Leaf, Rule) -> Leaf,
-    {
-        let first = |leaf| first(&leaf, rule);
-        let second = |leaf| second(&leaf, rule);
-
-        let Grid2([nw, ne, sw, se]) = grid;
-
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . a a a a b b | b b c c c c . .
-        // . . a a a a b b | b b c c c c . .
-        // . . a a a a b b | b b c c c c . .
-        // . . a a a a b b | b b c c c c . .
-        // . . d d d d e e | e e f f f f . .
-        // . . d d d d e e | e e f f f f . .
-        // ----------------+----------------
-        // . . d d d d e e | e e f f f f . .
-        // . . d d d d e e | e e f f f f . .
-        // . . g g g g h h | h h i i i i . .
-        // . . g g g g h h | h h i i i i . .
-        // . . g g g g h h | h h i i i i . .
-        // . . g g g g h h | h h i i i i . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        let a = first(nw);
-        let b = first(Self::join_horiz(nw, ne));
-        let c = first(ne);
-        let d = first(Self::join_vert(nw, sw));
-        let e = first(Self::center(nw, ne, sw, se));
-        let f = first(Self::join_vert(ne, se));
-        let g = first(sw);
-        let h = first(Self::join_horiz(sw, se));
-        let i = first(se);
-
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . w w w w | x x x x . . . .
-        // . . . . w w w w | x x x x . . . .
-        // . . . . w w w w | x x x x . . . .
-        // . . . . w w w w | x x x x . . . .
-        // ----------------+----------------
-        // . . . . y y y y | z z z z . . . .
-        // . . . . y y y y | z z z z . . . .
-        // . . . . y y y y | z z z z . . . .
-        // . . . . y y y y | z z z z . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        let w = second(Self::join_centers(a, b, d, e));
-        let x = second(Self::join_centers(b, c, e, f));
-        let y = second(Self::join_centers(d, e, g, h));
-        let z = second(Self::join_centers(e, f, h, i));
-
-        Self::join_centers(w, x, y, z)
-    }
-
-    const fn center(nw: Self, ne: Self, sw: Self, se: Self) -> Self {
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
-        // . . . . a a a a | b b b b . . . .
-        // ----------------+----------------
-        // . . . . c c c c | d d d d . . . .
-        // . . . . c c c c | d d d d . . . .
-        // . . . . c c c c | d d d d . . . .
-        // . . . . c c c c | d d d d . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        let a = nw.alive.offset(-4, 4).and(Bool8x8::NORTHWEST);
-        let b = ne.alive.offset(4, 4).and(Bool8x8::NORTHEAST);
-        let c = sw.alive.offset(-4, -4).and(Bool8x8::SOUTHWEST);
-        let d = se.alive.offset(4, -4).and(Bool8x8::SOUTHEAST);
-        Self::new(a.or(b).or(c).or(d))
-    }
-
-    const fn join_horiz(left: Self, right: Self) -> Self {
-        let a = left.alive.offset(-4, 0).and(Bool8x8::WEST);
-        let b = right.alive.offset(4, 0).and(Bool8x8::EAST);
-        Self::new(a.or(b))
-    }
-
-    const fn join_vert(top: Self, bottom: Self) -> Self {
-        let a = top.alive.and(Bool8x8::NORTH).offset(0, 4);
-        let b = bottom.alive.and(Bool8x8::NORTH).offset(0, -4);
-        Self::new(a.or(b))
-    }
-
-    const fn join_centers(nw: Self, ne: Self, sw: Self, se: Self) -> Self {
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . a a a a . . | . . b b b b . .
-        // . . a a a a . . | . . b b b b . .
-        // . . a a a a . . | . . b b b b . .
-        // . . a a a a . . | . . b b b b . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // ----------------+----------------
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        // . . c c c c . . | . . d d d d . .
-        // . . c c c c . . | . . d d d d . .
-        // . . c c c c . . | . . d d d d . .
-        // . . c c c c . . | . . d d d d . .
-        // . . . . . . . . | . . . . . . . .
-        // . . . . . . . . | . . . . . . . .
-        let combined = Bool8x8::FALSE
-            .or(nw.alive.offset(-2, 2).and(Bool8x8::NORTHWEST))
-            .or(ne.alive.offset(2, 2).and(Bool8x8::NORTHEAST))
-            .or(sw.alive.offset(-2, -2).and(Bool8x8::SOUTHWEST))
-            .or(se.alive.offset(2, -2).and(Bool8x8::SOUTHEAST));
-        Self::new(combined)
-    }
-}
+impl Grid2<Leaf> {}
 
 #[cfg(test)]
 mod tests {
@@ -350,10 +335,10 @@ mod tests {
         // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
         // 0x00 | . . . . . . . . | . . . . . . . . | 0x00
         //      +-----------------+-----------------+
-        let nw_start = Leaf::new(Bool8x8(0x0000_0000_0000_0100));
-        let ne_start = Leaf::new(Bool8x8(0x0000_0000_0000_0080));
-        let sw_start = Leaf::new(Bool8x8(0x0300_0000_0000_0000));
-        let se_start = Leaf::new(Bool8x8(0x8000_0000_0000_0000));
+        let nw_start = Leaf::new(Bool8x8(0x_00_00_00_00_00_00_01_00));
+        let ne_start = Leaf::new(Bool8x8(0x_00_00_00_00_00_00_00_80));
+        let sw_start = Leaf::new(Bool8x8(0x_03_00_00_00_00_00_00_00));
+        let se_start = Leaf::new(Bool8x8(0x_80_00_00_00_00_00_00_00));
         let start = Grid2([nw_start, ne_start, sw_start, se_start]);
 
         // 0x00 | . . . . . . . .
@@ -364,11 +349,8 @@ mod tests {
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
-        let idle_leaf = Leaf::new(Bool8x8(0x0000_1008_3800_0000));
-        assert_eq!(
-            idle_leaf,
-            Leaf::center(nw_start, ne_start, sw_start, se_start)
-        );
+        let idle_leaf = Leaf::new(Bool8x8(0x_00_00_10_08_38_00_00_00));
+        assert_eq!(idle_leaf, Leaf::join_corners(start));
 
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
@@ -378,12 +360,10 @@ mod tests {
         // 0x1C | . . . # # # . .
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
-        let jump_leaf = Leaf::new(Bool8x8(0x0000_0008_041C_0000));
-        assert_eq!(idle_leaf.alive.offset(1, -1), jump_leaf.alive);
-
-        let idled = Leaf::apply(start, life, Leaf::idle, Leaf::idle);
-        let jumped = Leaf::apply(start, life, Leaf::jump, Leaf::jump);
-        assert_eq!(idled, idle_leaf);
-        assert_eq!(jumped, jump_leaf);
+        let jump_leaf = Leaf::new(Bool8x8(0x_00_00_00_08_04_1C_00_00));
+        assert_eq!(
+            idle_leaf.alive.offset(Offset::Southeast(1)),
+            jump_leaf.alive
+        );
     }
 }

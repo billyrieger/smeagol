@@ -2,42 +2,30 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#![feature(const_fn, const_if_match)]
+#![allow(dead_code, unused_variables)]
 
-mod bool8x8;
+mod node;
+mod util;
 
-pub mod grid;
-pub mod node;
-pub mod store;
-
-use node::{Id, Level};
+use node::{Branch, Id, Node, Store};
+use util::{Bool8x8, Offset, SumResult};
 
 use thiserror::Error;
-
-pub use bool8x8::*;
 
 /// A runtime error.
 #[derive(Debug, Error)]
 pub enum Error {
-    /// The step sisze was too large.
-    #[error("step size {step:?} too large for node with level {level:?}")]
-    StepOverflow { step: u64, level: Level },
-
-    /// Increment error.
-    #[error("cannot increment past the maximum level")]
+    #[error("increment")]
     Increment,
-
-    /// Id not found.
-    #[error("id {0:?} not found")]
-    IdNotFound(Id),
-
-    /// Unbalanced.
     #[error("unbalanced")]
     Unbalanced,
+    #[error("unbalanced")]
+    IdNotFound(crate::node::Id),
 }
 
 /// A result.
 pub type Result<T> = std::result::Result<T, Error>;
+
 /// A description of how one state of a cellular automaton transitions into the next.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Rule {
@@ -57,46 +45,84 @@ impl Rule {
     /// > neighbors that cause a live cell to remain alive (survive).
     ///
     /// [LifeWiki]: https://www.conwaylife.com/wiki/Rulestring#B.2FS_notation
-    ///
-    /// ```
-    /// let life: Rule = Rule::new(&[3], &[2, 3]);
-    /// ```
-    pub const fn new(birth: &[usize], survival: &[usize]) -> Self {
-        let empty = [Bool8x8::FALSE; 9];
+    pub fn new(birth: &[usize], survival: &[usize]) -> Self {
+        let make_rule = |neighbor_count: &[usize]| -> SumResult {
+            let mut result = [Bool8x8::FALSE; 9];
+            for &i in neighbor_count.iter().filter(|&&count| count < 9) {
+                result[i] = Bool8x8::TRUE;
+            }
+            result
+        };
+
         Self {
-            birth_neighbors: Self::make_rule(empty, birth),
-            survival_neighbors: Self::make_rule(empty, survival),
+            birth_neighbors: make_rule(birth),
+            survival_neighbors: make_rule(survival),
         }
     }
 
     /// Evolves a `Bool8x8` to its next state, treating `true` as alive and `false` as dead.
-    pub const fn step(&self, cells: Bool8x8) -> Bool8x8 {
-        let (alive, dead) = (cells, cells.not());
+    fn step(&self, cells: Bool8x8) -> Bool8x8 {
+        let (alive, dead) = (cells, !cells);
 
-        let (n, s) = (alive.offset(0, 1), alive.offset(0, -1));
-        let (e, w) = (alive.offset(1, 0), alive.offset(-1, 0));
-        let (ne, nw) = (alive.offset(1, 1), alive.offset(-1, 1));
-        let (se, sw) = (alive.offset(1, -1), alive.offset(-1, -1));
-        let alive_neighbors = Bool8x8::sum(&[nw, n, ne, w, e, sw, s, se]);
+        let alive_neighbors: SumResult = Bool8x8::sum(&[
+            alive.offset(Offset::West(1)),
+            alive.offset(Offset::East(1)),
+            alive.offset(Offset::North(1)),
+            alive.offset(Offset::South(1)),
+            alive.offset(Offset::Northwest(1)),
+            alive.offset(Offset::Northeast(1)),
+            alive.offset(Offset::Southwest(1)),
+            alive.offset(Offset::Southeast(1)),
+        ]);
 
-        let born = Bool8x8::any_both(&alive_neighbors, &self.birth_neighbors);
-        let survives = Bool8x8::any_both(&alive_neighbors, &self.survival_neighbors);
+        let any_both = |xs: &SumResult, ys: &SumResult| -> Bool8x8 {
+            xs.iter()
+                .zip(ys.iter())
+                .map(|(&x, &y)| x & y)
+                .fold(Bool8x8::FALSE, std::ops::BitOr::bitor)
+        };
 
-        dead.and(born).or(alive.and(survives))
+        let born = any_both(&alive_neighbors, &self.birth_neighbors);
+        let survives = any_both(&alive_neighbors, &self.survival_neighbors);
+
+        (dead & born) | (alive & survives)
+    }
+}
+
+pub struct Universe {
+    rule: Rule,
+    store: Store,
+    root: Id,
+}
+
+pub enum Cell {
+    Dead,
+    Alive,
+}
+
+impl Universe {
+    pub fn get_cell(&self, x: i64, y: i64) -> Cell {
+        todo!()
     }
 
-    const fn make_rule(result: SumResult, neighbors: &[usize]) -> SumResult {
-        match neighbors {
-            [] => result,
-            &[head, ref tail @ ..] => {
-                let mut result = result;
-                if head < result.len() {
-                    result[head] = Bool8x8::TRUE;
-                }
-                Self::make_rule(result, tail)
-            }
-        }
+    pub fn set_cell(&mut self, x: i64, y: i64) {
+        todo!()
     }
+
+    pub fn unset_cell(&mut self, x: i64, y: i64) {
+        todo!()
+    }
+
+    pub fn toggle_cell(&mut self, x: i64, y: i64) {
+        todo!()
+    }
+
+    pub fn step(&mut self, steps: u64) {
+        todo!()
+    }
+}
+
+pub struct Region {
 }
 
 #[cfg(test)]
