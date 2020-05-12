@@ -157,6 +157,14 @@
 <span id="157">157</span>
 <span id="158">158</span>
 <span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This Source Code Form is subject to the terms of the Mozilla Public</span>
 <span class="comment">// License, v. 2.0. If a copy of the MPL was not distributed with this</span>
@@ -164,7 +172,12 @@
 
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">unused_variables</span>)]</span>
 
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">pest</span>;
+<span class="attribute">#[<span class="ident">macro_use</span>]</span>
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">pest_derive</span>;
+
 <span class="kw">mod</span> <span class="ident">node</span>;
+<span class="kw">mod</span> <span class="ident">rle</span>;
 <span class="kw">mod</span> <span class="ident">util</span>;
 
 <span class="kw">use</span> <span class="ident">node</span>::{<span class="ident">Branch</span>, <span class="ident">Id</span>, <span class="ident">Node</span>, <span class="ident">Store</span>};
@@ -175,6 +188,8 @@
 <span class="doccomment">/// A runtime error.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Error</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Error</span> {
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;parse&quot;</span>)]</span>
+    <span class="ident">RleParse</span>,
     <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;increment&quot;</span>)]</span>
     <span class="ident">Increment</span>,
     <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;unbalanced&quot;</span>)]</span>
@@ -255,6 +270,7 @@
     <span class="ident">root</span>: <span class="ident">Id</span>,
 }
 
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">Eq</span>, <span class="ident">Ord</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Cell</span> {
     <span class="ident">Dead</span>,
     <span class="ident">Alive</span>,

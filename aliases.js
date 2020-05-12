@@ -1,9 +1,15 @@
 var ALIASES = {};
 ALIASES["either"] = {};
+ALIASES["maplit"] = {};
+ALIASES["pest"] = {};
+ALIASES["pest_derive"] = {};
+ALIASES["pest_generator"] = {};
+ALIASES["pest_meta"] = {};
 ALIASES["proc_macro2"] = {};
 ALIASES["quote"] = {};
 ALIASES["smeagol"] = {};
 ALIASES["syn"] = {};
 ALIASES["thiserror"] = {};
 ALIASES["thiserror_impl"] = {};
+ALIASES["ucd_trie"] = {};
 ALIASES["unicode_xid"] = {};
