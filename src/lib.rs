@@ -4,7 +4,12 @@
 
 #![allow(dead_code, unused_variables)]
 
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
+
 mod node;
+mod rle;
 mod util;
 
 use node::{Branch, Id, Node, Store};
@@ -15,6 +20,8 @@ use thiserror::Error;
 /// A runtime error.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("parse")]
+    RleParse,
     #[error("increment")]
     Increment,
     #[error("unbalanced")]
@@ -95,6 +102,7 @@ pub struct Universe {
     root: Id,
 }
 
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Cell {
     Dead,
     Alive,

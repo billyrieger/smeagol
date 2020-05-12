@@ -2,7 +2,7 @@
 name = "smeagol"
 version = "0.2.0"
 authors = ["Billy Rieger <wrieger@protonmail.com>"]
-description = "TODO"
+description = "Efficient simulation of Life-like cellular automata"
 repository = "https://github.com/billyrieger/smeagol"
 readme = "README.md"
 license = "MPL-2.0"
@@ -10,5 +10,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-either = "1.5.3"
-thiserror = "1.0.16"
+either = "1.5"
+pest = "2.1"
+pest_derive = "2.1"
+thiserror = "1.0"

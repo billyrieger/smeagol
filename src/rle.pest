@@ -1,0 +1,11 @@
+WHITESPACE = _{ (" " | NEWLINE) }
+
+Dead = @{ "b" }
+Alive = @{ "o" }
+Number = @{ ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+
+Run = ${ Number? ~ (Dead | Alive) }
+LineEnd = ${ "$" }
+PatternEnd = ${ "!" }
+
+Pattern = { (Run | LineEnd)* ~ PatternEnd }
