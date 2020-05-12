@@ -9,10 +9,10 @@ extern crate pest;
 extern crate pest_derive;
 
 mod node;
-mod rle;
+pub mod rle;
 mod util;
 
-use node::{Branch, Id, Node, Store};
+use node::{Id, Store};
 use util::{Bool8x8, Offset, SumResult};
 
 use thiserror::Error;
