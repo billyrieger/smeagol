@@ -1,0 +1,302 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+use crate::{
+    node::{Branch, Leaf, Level, Node},
+    util::{Grid2, Grid4},
+    Cell, Error, Result, Rule,
+};
+
+use std::{collections::HashMap, convert::TryFrom};
+use std::fmt::Write;
+
+use either::Either;
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct Id {
+    index: usize,
+}
+
+impl Id {
+    fn new(index: usize) -> Self {
+        Self { index }
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
+}
+
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+struct Data {
+    node: Node,
+    idle: Option<Id>,
+    jump: Option<Id>,
+}
+
+#[derive(Clone, Default)]
+pub struct Store {
+    rule: Rule,
+    id_lookup: HashMap<Node, Id>,
+    empties: Vec<Id>,
+    node_data: Vec<Data>,
+}
+
+impl Store {
+    pub fn new(rule: Rule) -> Self {
+        Self {
+            rule,
+            id_lookup: HashMap::new(),
+            node_data: vec![],
+            empties: vec![],
+        }
+    }
+
+    pub fn initialize(&mut self) -> Result<Id> {
+        let empty = Node::Leaf(Leaf::dead());
+
+        let mut current_id = self.get_id(empty);
+        let mut current_level = empty.level();
+
+        self.empties = vec![current_id; 4];
+
+        while let Ok(next_level) = current_level.increment() {
+            let next_branch = self.make_branch(Grid2([current_id; 4]))?;
+            let next_id = self.get_id(Node::Branch(next_branch));
+
+            current_id = next_id;
+            current_level = next_level;
+
+            self.empties.push(current_id);
+            if self.empties.len() > 6 {
+                break;
+            }
+        }
+
+        Ok(current_id)
+    }
+
+    pub fn debug(&self, id: Id) -> String {
+        let mut buffer = String::new();
+        write!(&mut buffer, "{}", 1);
+        buffer
+    }
+
+    pub fn get_cell(&self, id: Id, x: i64, y: i64) -> Result<Cell> {
+        let data = self.get_data(id)?;
+
+        let level = data.node.level();
+        let offset = i64::try_from(level.side_len() / 4).unwrap();
+        let (dx, dy) = (offset, offset);
+
+        match data.node {
+            Node::Leaf(leaf) => Ok(leaf.get_cell(x, y)),
+            Node::Branch(branch) => {
+                let [northwest, northeast, southwest, southeast] = branch.children.0;
+                match (x < 0, y < 0) {
+                    (true, true) => self.get_cell(northwest, x + dx, y + dy),
+                    (false, true) => self.get_cell(northeast, x - dx, y + dy),
+                    (true, false) => self.get_cell(southwest, x + dx, y - dy),
+                    (false, false) => self.get_cell(southeast, x - dx, y - dy),
+                }
+            }
+        }
+    }
+
+    pub fn set_cell(&mut self, id: Id, x: i64, y: i64, cell: Cell) -> Result<Id> {
+        let data = self.get_data(id)?;
+
+        let level = data.node.level();
+        let offset = i64::try_from(level.side_len() / 4).unwrap();
+        let (dx, dy) = (offset, offset);
+
+        match data.node {
+            Node::Leaf(leaf) => Ok(self.get_id(Node::Leaf(leaf.set_cell(x, y, cell)))),
+            Node::Branch(branch) => {
+                let offset = i64::try_from(level.side_len() / 4).unwrap();
+                let [mut nw, mut ne, mut sw, mut se] = branch.children.0;
+                match (x < 0, y < 0) {
+                    (true, true) => {
+                        nw = self.set_cell(nw, x + dx, y + dy, cell)?;
+                    }
+                    (false, true) => {
+                        ne = self.set_cell(ne, x - dx, y + dy, cell)?;
+                    }
+                    (true, false) => {
+                        sw = self.set_cell(sw, x + dx, y - dy, cell)?;
+                    }
+                    (false, false) => {
+                        se = self.set_cell(se, x - dx, y - dy, cell)?;
+                    }
+                };
+                let new_branch = self.make_branch(Grid2([nw, ne, sw, se]))?;
+                Ok(self.get_id(Node::Branch(new_branch)))
+            }
+        }
+    }
+
+    fn get_data(&self, id: Id) -> Result<&Data> {
+        self.node_data.get(id.index()).ok_or(Error::IdNotFound(id))
+    }
+
+    fn get_data_mut(&mut self, id: Id) -> Result<&mut Data> {
+        self.node_data
+            .get_mut(id.index())
+            .ok_or(Error::IdNotFound(id))
+    }
+
+    fn get_id(&mut self, node: Node) -> Id {
+        self.id_lookup.get(&node).copied().unwrap_or_else(|| {
+            let data = Data {
+                node,
+                idle: None,
+                jump: None,
+            };
+            let new_id = Id::new(self.node_data.len());
+            self.node_data.push(data);
+            self.id_lookup.insert(node, new_id);
+            new_id
+        })
+    }
+
+    fn make_branch(&mut self, children: Grid2<Id>) -> Result<Branch> {
+        let data = children.try_map(|id| self.get_data(id))?;
+        let level = data.0[0].node.level().increment()?;
+        let population = data.0.iter().map(|data| data.node.population()).sum();
+        Ok(Branch {
+            children,
+            level,
+            population,
+        })
+    }
+
+    fn empty(&self, level: Level) -> Id {
+        self.empties[level.0 as usize]
+    }
+
+    fn step(&mut self, id: Id, step: u64) -> Result<Id> {
+        match self.get_data(id)?.node {
+            Node::Leaf(_) => todo!(),
+            Node::Branch(branch) => self.evolve(branch.children, step),
+        }
+    }
+
+    fn evolve(&mut self, grid: Grid2<Id>, steps: u64) -> Result<Id> {
+        let rule = self.rule;
+
+        let branch = self.make_branch(grid)?;
+        let branch_id = self.get_id(Node::Branch(branch));
+        let branch_data = self.get_data(branch_id).unwrap();
+
+        if branch.population == 0 {
+            let empty_id = self.empty(Level(branch.level.0 - 1));
+            self.get_data_mut(branch_id)?.idle = Some(empty_id);
+            return Ok(empty_id);
+        }
+
+        let max_steps = branch.level.max_steps();
+        let half_max = max_steps / 2;
+        assert!(steps <= max_steps, format!("step too large"));
+
+        if steps == 0 {
+            if let Some(idle) = branch_data.idle {
+                return Ok(idle);
+            }
+        }
+
+        if steps == max_steps {
+            if let Some(jump) = branch_data.jump {
+                return Ok(jump);
+            }
+        }
+
+        dbg!(branch.level);
+
+        let children: Either<Grid2<Leaf>, Grid2<Branch>> = branch
+            .children
+            .try_map(|id| self.get_data(id))?
+            .map(|data| data.node)
+            .classify()?;
+
+        let result: Node = match children {
+            Either::Left(leaf_grid) => Node::Leaf(Leaf::evolve_leaves(leaf_grid, steps, rule)),
+
+            Either::Right(branch_grid) => {
+                let grandchildren: Grid4<Id> = branch_grid.map(|branch| branch.children).flatten();
+
+                let (first_step, second_step) = if steps < half_max {
+                    (0, steps)
+                } else {
+                    (steps - half_max, half_max)
+                };
+
+                let new_children: Grid2<Id> = grandchildren
+                    .shrink(|ids| self.evolve(ids, first_step))?
+                    .shrink(|ids| self.evolve(ids, second_step))?;
+
+                Node::Branch(self.make_branch(new_children)?)
+            }
+        };
+
+        let id = self.get_id(result);
+
+        if steps == 0 {
+            self.get_data_mut(branch_id)?.idle = Some(id);
+        } else if steps == max_steps {
+            self.get_data_mut(branch_id)?.jump = Some(id);
+        }
+
+        Ok(self.get_id(result))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn store() {
+        let mut store = Store::new(Rule::new(&[3], &[2, 3]));
+
+        let root = store.initialize().unwrap();
+
+        println!("{:?}", store.get_data(root).unwrap().node.level());
+
+        let root = store.set_cell(root, 0, 1, Cell::Alive).unwrap();
+        let root = store.set_cell(root, 1, 2, Cell::Alive).unwrap();
+        let root = store.set_cell(root, 2, 0, Cell::Alive).unwrap();
+        let root = store.set_cell(root, 2, 1, Cell::Alive).unwrap();
+        let root = store.set_cell(root, 2, 2, Cell::Alive).unwrap();
+
+        println!("{:?}", store.get_data(root).unwrap().node.population());
+
+        let max = 8;
+
+        for r in -max..max {
+            for c in -max..max {
+                let to_print = match store.get_cell(root, r, c).unwrap() {
+                    Cell::Alive => '#',
+                    Cell::Dead => '.',
+                };
+                print!("{}", to_print);
+            }
+            println!();
+        }
+
+        println!("-----------------------------------");
+
+        let root = store.step(root, 1).unwrap();
+
+        for r in -max..max {
+            for c in -max..max {
+                let to_print = match store.get_cell(root, r, c).unwrap() {
+                    Cell::Alive => '#',
+                    Cell::Dead => '.',
+                };
+                print!("{}", to_print);
+            }
+            println!();
+        }
+    }
+}

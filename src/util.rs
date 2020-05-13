@@ -65,6 +65,18 @@ impl Bool8x8 {
     pub const SOUTHEAST: Self = Self(0x0000_0000_0F0F_0F0F);
     pub const CENTER: Self = Self(0x0000_3C3C_3C3C_0000);
 
+    pub fn get_bit(&self, index: usize) -> bool {
+        self.0 & (1 << index) > 0
+    }
+
+    pub fn set_bit(&self, index: usize, value: bool) -> Self {
+        if value {
+            Self(self.0 | (1 << index))
+        } else {
+            Self(self.0 & !(1 << index))
+        }
+    }
+
     pub fn offset(&self, offset: Offset) -> Self {
         match offset {
             Offset::West(dx) => Self(self.0 << dx),
@@ -331,60 +343,12 @@ mod tests {
 
     #[test]
     fn shift() {
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x18 | . . . # # . . .
-        // 0x18 | . . . # # . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        let center = Bool8x8(0x0000_0018_1800_0000);
+        type B = Bool8x8;
 
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x18 | . . . # # . . .
-        // 0x18 | . . . # # . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        let north = Bool8x8(0x0000_1818_0000_0000);
-
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x18 | . . . # # . . .
-        // 0x18 | . . . # # . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        let south = Bool8x8(0x0000_0000_1818_0000);
-
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x0C | . . . . # # . .
-        // 0x0C | . . . . # # . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        let east = Bool8x8(0x0000_000C_0C00_0000);
-
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x30 | . . # # . . . .
-        // 0x30 | . . # # . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        let west = Bool8x8(0x0000_0030_3000_0000);
-
-        assert_eq!(center.offset(Offset::East(1)), east);
-        assert_eq!(center.offset(Offset::West(1)), west);
-        assert_eq!(center.offset(Offset::North(1)), north);
-        assert_eq!(center.offset(Offset::South(1)), south);
+        assert_eq!(B::CENTER.offset(Offset::Northwest(2)), B::NORTHWEST);
+        assert_eq!(B::CENTER.offset(Offset::Northeast(2)), B::NORTHEAST);
+        assert_eq!(B::CENTER.offset(Offset::Southwest(2)), B::SOUTHWEST);
+        assert_eq!(B::CENTER.offset(Offset::Southeast(2)), B::SOUTHEAST);
     }
 
     #[test]

@@ -10,7 +10,9 @@ edition = "2018"
 publish = false
 
 [dependencies]
+braille = "1.0"
 either = "1.5"
 pest = "2.1"
 pest_derive = "2.1"
 thiserror = "1.0"
+typed-generational-arena = "0.2"

@@ -9,10 +9,13 @@ extern crate pest;
 extern crate pest_derive;
 
 mod node;
-pub mod rle;
+mod rle;
+mod store;
 mod util;
 
-use node::{Id, Store};
+pub use rle::Rle;
+
+use store::{Id, Store};
 use util::{Bool8x8, Offset, SumResult};
 
 use thiserror::Error;
@@ -27,7 +30,9 @@ pub enum Error {
     #[error("unbalanced")]
     Unbalanced,
     #[error("unbalanced")]
-    IdNotFound(crate::node::Id),
+    IdNotFound(Id),
+    #[error("out of bounds")]
+    OutOfBounds,
 }
 
 /// A result.
@@ -130,8 +135,7 @@ impl Universe {
     }
 }
 
-pub struct Region {
-}
+pub struct Region {}
 
 #[cfg(test)]
 mod tests {
