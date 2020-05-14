@@ -43,9 +43,23 @@ impl Level {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Leaf {
     pub alive: Bool8x8,
+}
+
+use std::fmt;
+
+impl fmt::Debug for Leaf {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for index in (0..64).rev() {
+            write!(f, "{}", if self.alive.get_bit(index) { '#' } else { '.' })?;
+            if index % 8 == 0 {
+                writeln!(f)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -171,12 +185,14 @@ impl Leaf {
 
         let partial_leaves = Grid2([partial_nw, partial_ne, partial_sw, partial_se]);
 
-        match steps {
+        let result = match steps {
             0 => join_idle(partial_leaves),
             1 => join_step(partial_leaves),
             2 | 3 | 4 => join_jump(partial_leaves),
             _ => unreachable!(),
-        }
+        };
+
+        result
     }
 }
 

@@ -69,7 +69,7 @@ impl Store {
             current_level = next_level;
 
             self.empties.push(current_id);
-            if self.empties.len() > 6 {
+            if self.empties.len() > 5 {
                 break;
             }
         }
@@ -77,10 +77,21 @@ impl Store {
         Ok(current_id)
     }
 
-    pub fn debug(&self, id: Id) -> String {
+    pub fn debug(&self, id: Id) -> Result<String> {
         let mut buffer = String::new();
-        write!(&mut buffer, "{}", 1);
-        buffer
+        let level = self.get_data(id)?.node.level();
+        let side_len = i64::try_from(level.side_len()).unwrap();
+        let index_range = (-side_len / 2)..(side_len / 2);
+        for y in index_range.clone() {
+            for x in index_range.clone() {
+                write!(buffer, "{}", match self.get_cell(id, x, y)? {
+                    Cell::Dead => '.',
+                    Cell::Alive => '#',
+                })?;
+            }
+            writeln!(buffer)?;
+        }
+        Ok(buffer)
     }
 
     pub fn get_cell(&self, id: Id, x: i64, y: i64) -> Result<Cell> {
@@ -102,6 +113,10 @@ impl Store {
                 }
             }
         }
+    }
+
+    pub fn alive_cells(&self) -> impl Iterator<Item = (i64, i64)> + '_ {
+        vec![].into_iter()
     }
 
     pub fn set_cell(&mut self, id: Id, x: i64, y: i64, cell: Cell) -> Result<Id> {
@@ -211,8 +226,6 @@ impl Store {
             }
         }
 
-        dbg!(branch.level);
-
         let children: Either<Grid2<Leaf>, Grid2<Branch>> = branch
             .children
             .try_map(|id| self.get_data(id))?
@@ -263,40 +276,10 @@ mod tests {
 
         println!("{:?}", store.get_data(root).unwrap().node.level());
 
-        let root = store.set_cell(root, 0, 1, Cell::Alive).unwrap();
-        let root = store.set_cell(root, 1, 2, Cell::Alive).unwrap();
-        let root = store.set_cell(root, 2, 0, Cell::Alive).unwrap();
+        let root = store.set_cell(root, 1, 0, Cell::Alive).unwrap();
         let root = store.set_cell(root, 2, 1, Cell::Alive).unwrap();
+        let root = store.set_cell(root, 0, 2, Cell::Alive).unwrap();
+        let root = store.set_cell(root, 1, 2, Cell::Alive).unwrap();
         let root = store.set_cell(root, 2, 2, Cell::Alive).unwrap();
-
-        println!("{:?}", store.get_data(root).unwrap().node.population());
-
-        let max = 8;
-
-        for r in -max..max {
-            for c in -max..max {
-                let to_print = match store.get_cell(root, r, c).unwrap() {
-                    Cell::Alive => '#',
-                    Cell::Dead => '.',
-                };
-                print!("{}", to_print);
-            }
-            println!();
-        }
-
-        println!("-----------------------------------");
-
-        let root = store.step(root, 1).unwrap();
-
-        for r in -max..max {
-            for c in -max..max {
-                let to_print = match store.get_cell(root, r, c).unwrap() {
-                    Cell::Alive => '#',
-                    Cell::Dead => '.',
-                };
-                print!("{}", to_print);
-            }
-            println!();
-        }
     }
 }

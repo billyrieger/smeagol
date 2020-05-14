@@ -17,6 +17,7 @@ pub use rle::Rle;
 
 use store::{Id, Store};
 use util::{Bool8x8, Offset, SumResult};
+use std::fmt;
 
 use thiserror::Error;
 
@@ -33,6 +34,8 @@ pub enum Error {
     IdNotFound(Id),
     #[error("out of bounds")]
     OutOfBounds,
+    #[error("fmt {0}")]
+    Fmt(#[from] fmt::Error),
 }
 
 /// A result.
@@ -111,6 +114,15 @@ pub struct Universe {
 pub enum Cell {
     Dead,
     Alive,
+}
+
+impl Cell {
+    pub fn is_alive(&self) -> bool {
+        match self {
+            Cell::Dead => false,
+            Cell::Alive => true,
+        }
+    }
 }
 
 impl Universe {

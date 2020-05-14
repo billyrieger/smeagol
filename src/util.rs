@@ -55,8 +55,8 @@ pub enum Offset {
 impl Bool8x8 {
     pub const FALSE: Self = Self(0);
     pub const TRUE: Self = Self(u64::MAX);
-    pub const WEST: Self = Self(0xFF00_FF00_FF00_FF00);
-    pub const EAST: Self = Self(0x00FF_00FF_00FF_00FF);
+    pub const WEST: Self = Self(0xF0F0_F0F0_F0F0_F0F0);
+    pub const EAST: Self = Self(0x0F0F_0F0F_0F0F_0F0F);
     pub const NORTH: Self = Self(0xFFFF_FFFF_0000_0000);
     pub const SOUTH: Self = Self(0x0000_0000_FFFF_FFFF);
     pub const NORTHWEST: Self = Self(0xF0F0_F0F0_0000_0000);
