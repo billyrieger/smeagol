@@ -41,19 +41,35 @@ impl Rle {
                     let mut run_pairs = pair.into_inner();
 
                     let first_elem = run_pairs.next().unwrap();
-                    let maybe_second_rule = run_pairs.next().as_ref().map(|x| x.as_rule());
+                    let maybe_second_elem = run_pairs.next();
 
-                    let run = match (first_elem.as_rule(), maybe_second_rule) {
-                        (Rule::Dead, None) => Run(1, Cell::Dead),
-
-                        (Rule::Alive, None) => Run(1, Cell::Alive),
-
-                        (Rule::Number, Some(Rule::Dead)) => {
-                            Run(first_elem.as_str().parse().unwrap(), Cell::Dead)
+                    let run = match (
+                        first_elem.as_rule(),
+                        maybe_second_elem.as_ref().map(|x| x.as_rule()),
+                    ) {
+                        (Rule::Cell, None) => {
+                            let cell = match first_elem.into_inner().next().unwrap().as_rule() {
+                                Rule::Dead => Cell::Dead,
+                                Rule::Alive => Cell::Alive,
+                                _ => unreachable!(),
+                            };
+                            Run(1, cell)
                         }
 
-                        (Rule::Number, Some(Rule::Alive)) => {
-                            Run(first_elem.as_str().parse().unwrap(), Cell::Alive)
+                        (Rule::Number, Some(Rule::Cell)) => {
+                            let cell = match maybe_second_elem
+                                .unwrap()
+                                .into_inner()
+                                .next()
+                                .unwrap()
+                                .as_rule()
+                            {
+                                Rule::Dead => Cell::Dead,
+                                Rule::Alive => Cell::Alive,
+                                _ => unreachable!(),
+                            };
+                            let number = first_elem.as_str().parse().unwrap();
+                            Run(number, cell)
                         }
 
                         _ => unreachable!(),
@@ -96,8 +112,8 @@ mod tests {
     fn parse() {
         let glider = "bob$2bo$3o!";
         let rle = Rle::from_pattern(glider).unwrap();
-        for (r, c) in rle.alive_cells() {
-            println!("{}, {}", r, c);
-        }
+        let mut coords: Vec<_> = rle.alive_cells().collect();
+        coords.sort();
+        assert_eq!(coords, &[(0, 1), (1, 2), (2, 0), (2, 1), (2, 2)]);
     }
 }

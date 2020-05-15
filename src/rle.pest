@@ -4,7 +4,8 @@ Dead = @{ "b" }
 Alive = @{ "o" }
 Number = @{ ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
 
-Run = ${ Number? ~ (Dead | Alive) }
+Cell = ${ Dead | Alive }
+Run = ${ Number? ~ Cell }
 LineEnd = ${ "$" }
 PatternEnd = ${ "!" }
 

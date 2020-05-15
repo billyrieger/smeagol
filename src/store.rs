@@ -384,19 +384,12 @@ mod tests {
 
         let root = store.initialize().unwrap();
 
-        println!("{:?}", store.get_data(root).unwrap().node.level());
-
         let coords = vec![(1, 0), (2, 1), (0, 2), (1, 2), (2, 2)]
             .into_iter()
             .map(|(x, y)| Position { x, y });
         let root = store.set_cells(root, coords, Cell::Alive).unwrap();
 
-        println!("{}", store.debug(root).unwrap());
-
         let four = store.step(root, 4).unwrap();
-        println!("{}", store.debug(four).unwrap());
-
         let eight = store.step(root, 8).unwrap();
-        println!("{}", store.debug(eight).unwrap());
     }
 }
