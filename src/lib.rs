@@ -15,9 +15,9 @@ mod util;
 
 pub use rle::Rle;
 
+use std::fmt;
 use store::{Id, Store};
 use util::{Bool8x8, Offset, SumResult};
-use std::fmt;
 
 use thiserror::Error;
 

@@ -8,8 +8,7 @@ use crate::{
     Cell, Error, Result, Rule,
 };
 
-use std::fmt::Write;
-use std::{collections::HashMap, convert::TryFrom};
+use std::{collections::HashMap, convert::TryFrom, fmt::Write};
 
 use either::Either;
 
