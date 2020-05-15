@@ -31,7 +31,7 @@ impl Level {
     }
 
     pub fn max_steps(&self) -> u64 {
-        1u64 << (self.0 - 1)
+        1u64 << (self.0 - 2)
     }
 
     pub fn min_coord(&self) -> i64 {
@@ -69,6 +69,22 @@ pub struct Branch {
     pub population: u128,
 }
 
+pub struct AliveCells {
+    inner: std::vec::IntoIter<(i64, i64)>,
+}
+
+impl Iterator for AliveCells {
+    type Item = (i64, i64);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
 impl Leaf {
     pub fn new(alive: Bool8x8) -> Self {
         Self { alive }
@@ -80,6 +96,21 @@ impl Leaf {
 
     pub fn alive() -> Self {
         Self::new(Bool8x8::TRUE)
+    }
+
+    pub fn alive_cells(&self) -> AliveCells {
+        let mut buffer = Vec::with_capacity(64);
+        buffer.extend((0..64).rev().filter_map(|i| {
+            if self.alive.get_bit(i) {
+                let i = i64::try_from(i).unwrap();
+                Some((3 - (i % 8), 3 - (i / 8)))
+            } else {
+                None
+            }
+        }));
+        AliveCells {
+            inner: buffer.into_iter(),
+        }
     }
 
     pub fn get_cell(&self, x: i64, y: i64) -> Cell {
@@ -155,7 +186,7 @@ impl Leaf {
         let east = Self::join_vert(northeast, southeast);
         let center = Self::join_corners(leaves);
 
-        let join_idle = |leaves: Grid2<Leaf>| -> Leaf { Leaf::join_corners(leaves) };
+        let join_idle = |leaves: Grid2<Leaf>| -> Leaf { Leaf::join_centers(leaves) };
 
         let join_step = |leaves: Grid2<Leaf>| -> Leaf {
             let [nw, ne, sw, se] = leaves.0;
@@ -295,5 +326,21 @@ mod tests {
 
         assert_eq!(Leaf::evolve_leaves(start, 0, life), idle_leaf);
         assert_eq!(Leaf::evolve_leaves(start, 4, life), jump_leaf);
+    }
+
+    #[test]
+    fn alive_cells() {
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        // 0x10 | . . . # . . . .
+        // 0x08 | . . . . # . . .
+        // 0x38 | . . # # # . . .
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        let leaf = Leaf::new(Bool8x8(0x_00_00_10_08_38_00_00_00));
+        let mut coords = leaf.alive_cells().collect::<Vec<_>>();
+        coords.sort();
+        assert_eq!(coords, &[(-2, 0), (-1, -2), (-1, 0), (0, -1), (0, 0)]);
     }
 }

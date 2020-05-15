@@ -3,13 +3,13 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use crate::{
-    node::{Branch, Leaf, Level, Node},
+    node::{AliveCells as LeafAliveCells, Branch, Leaf, Level, Node},
     util::{Grid2, Grid4},
     Cell, Error, Result, Rule,
 };
 
-use std::{collections::HashMap, convert::TryFrom};
 use std::fmt::Write;
+use std::{collections::HashMap, convert::TryFrom};
 
 use either::Either;
 
@@ -28,6 +28,12 @@ impl Id {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct Position {
+    pub x: i64,
+    pub y: i64,
+}
+
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 struct Data {
     node: Node,
@@ -41,6 +47,24 @@ pub struct Store {
     id_lookup: HashMap<Node, Id>,
     empties: Vec<Id>,
     node_data: Vec<Data>,
+}
+
+use std::iter::Chain;
+
+pub struct AliveCells<'a> {
+    store: &'a Store,
+    inner: Either<LeafAliveCells, Box<Chain<Chain<Chain<Self, Self>, Self>, Self>>>,
+}
+
+impl<'a> Iterator for AliveCells<'a> {
+    type Item = (i64, i64);
+
+    fn next(&mut self) -> Option<(i64, i64)> {
+        match &mut self.inner {
+            Either::Left(x) => x.next(),
+            Either::Right(x) => x.next(),
+        }
+    }
 }
 
 impl Store {
@@ -84,10 +108,14 @@ impl Store {
         let index_range = (-side_len / 2)..(side_len / 2);
         for y in index_range.clone() {
             for x in index_range.clone() {
-                write!(buffer, "{}", match self.get_cell(id, x, y)? {
-                    Cell::Dead => '.',
-                    Cell::Alive => '#',
-                })?;
+                write!(
+                    buffer,
+                    "{}",
+                    match self.get_cell(id, x, y)? {
+                        Cell::Dead => '.',
+                        Cell::Alive => '#',
+                    }
+                )?;
             }
             writeln!(buffer)?;
         }
@@ -115,8 +143,26 @@ impl Store {
         }
     }
 
-    pub fn alive_cells(&self) -> impl Iterator<Item = (i64, i64)> + '_ {
-        vec![].into_iter()
+    pub fn alive_cells(&self, id: Id) -> Result<AliveCells<'_>> {
+        let data = self.get_data(id)?;
+        match data.node {
+            Node::Leaf(leaf) => Ok(AliveCells {
+                store: self,
+                inner: Either::Left(leaf.alive_cells()),
+            }),
+            Node::Branch(branch) => {
+                let [nw, ne, sw, se] = branch.children.0;
+                let iter = self
+                    .alive_cells(nw)?
+                    .chain(self.alive_cells(ne)?)
+                    .chain(self.alive_cells(sw)?)
+                    .chain(self.alive_cells(se)?);
+                Ok(AliveCells {
+                    store: self,
+                    inner: Either::Right(Box::new(iter)),
+                })
+            }
+        }
     }
 
     pub fn set_cell(&mut self, id: Id, x: i64, y: i64, cell: Cell) -> Result<Id> {
@@ -147,6 +193,71 @@ impl Store {
                 };
                 let new_branch = self.make_branch(Grid2([nw, ne, sw, se]))?;
                 Ok(self.get_id(Node::Branch(new_branch)))
+            }
+        }
+    }
+
+    pub fn set_cells<I>(&mut self, id: Id, coords: I, cell: Cell) -> Result<Id>
+    where
+        I: IntoIterator<Item = Position>,
+    {
+        // Itertools::collect_vec
+        let mut coords: Vec<_> = coords.into_iter().collect();
+        self.set_helper(id, &mut coords, cell)
+    }
+
+    fn set_helper(&mut self, id: Id, coords: &mut [Position], cell: Cell) -> Result<Id> {
+        let data = self.get_data(id)?;
+        match data.node {
+            Node::Leaf(mut leaf) => {
+                for point in coords {
+                    leaf = leaf.set_cell(point.x, point.y, cell);
+                }
+                Ok(self.get_id(Node::Leaf(leaf)))
+            }
+            Node::Branch(branch) => {
+                let offset = i64::try_from(data.node.level().side_len() / 4).unwrap();
+                // a note in itertools::partition
+                // elements that satisfy the predicate are placed before the elements that don't
+                let split_index = itertools::partition(coords.iter_mut(), |p| p.x >= 0);
+                let (east_coords, west_coords) = coords.split_at_mut(split_index);
+
+                let split_index = itertools::partition(east_coords.iter_mut(), |p| p.y >= 0);
+                let (se_coords, ne_coords) = east_coords.split_at_mut(split_index);
+
+                let split_index = itertools::partition(west_coords.iter_mut(), |p| p.y >= 0);
+                let (sw_coords, nw_coords) = west_coords.split_at_mut(split_index);
+
+                for p in nw_coords.iter_mut() {
+                    p.x += offset;
+                    p.y += offset;
+                }
+
+                for p in ne_coords.iter_mut() {
+                    p.x -= offset;
+                    p.y += offset;
+                }
+
+                for p in sw_coords.iter_mut() {
+                    p.x += offset;
+                    p.y -= offset;
+                }
+
+                for p in se_coords.iter_mut() {
+                    p.x -= offset;
+                    p.y -= offset;
+                }
+
+                let [nw_id, ne_id, sw_id, se_id] = branch.children.0;
+
+                let new_nw_id = self.set_helper(nw_id, nw_coords, cell)?;
+                let new_ne_id = self.set_helper(ne_id, ne_coords, cell)?;
+                let new_sw_id = self.set_helper(sw_id, sw_coords, cell)?;
+                let new_se_id = self.set_helper(se_id, se_coords, cell)?;
+
+                let branch =
+                    self.make_branch(Grid2([new_nw_id, new_ne_id, new_sw_id, new_se_id]))?;
+                Ok(self.get_id(Node::Branch(branch)))
             }
         }
     }
@@ -276,10 +387,17 @@ mod tests {
 
         println!("{:?}", store.get_data(root).unwrap().node.level());
 
-        let root = store.set_cell(root, 1, 0, Cell::Alive).unwrap();
-        let root = store.set_cell(root, 2, 1, Cell::Alive).unwrap();
-        let root = store.set_cell(root, 0, 2, Cell::Alive).unwrap();
-        let root = store.set_cell(root, 1, 2, Cell::Alive).unwrap();
-        let root = store.set_cell(root, 2, 2, Cell::Alive).unwrap();
+        let coords = vec![(1, 0), (2, 1), (0, 2), (1, 2), (2, 2)]
+            .into_iter()
+            .map(|(x, y)| Position { x, y });
+        let root = store.set_cells(root, coords, Cell::Alive).unwrap();
+
+        println!("{}", store.debug(root).unwrap());
+
+        let four = store.step(root, 4).unwrap();
+        println!("{}", store.debug(four).unwrap());
+
+        let eight = store.step(root, 8).unwrap();
+        println!("{}", store.debug(eight).unwrap());
     }
 }
