@@ -12,6 +12,5 @@ publish = false
 [dependencies]
 either = "1.5"
 itertools = "0.9"
-pest = "2.1"
-pest_derive = "2.1"
+nom = "5.1"
 thiserror = "1.0"

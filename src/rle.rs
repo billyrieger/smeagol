@@ -4,116 +4,78 @@
 
 use crate::{Cell, Error, Result};
 
-use pest::{iterators::Pair, Parser};
+use nom::{
+    branch::alt,
+    bytes::complete::{is_a, tag},
+    character::complete::digit1,
+    combinator::{map, map_opt, opt},
+    multi::many0,
+    sequence::terminated,
+    IResult,
+};
 
-#[derive(Parser)]
-#[grammar = "rle.pest"]
-struct RleParser;
-
-#[derive(Clone, Copy, Debug)]
-struct Run(usize, Cell);
-
-#[derive(Clone, Debug)]
-pub struct Rle {
-    runs: Vec<Vec<Run>>,
+struct Rle {
+    runs: Vec<Run>,
 }
 
-impl Rle {
-    pub fn from_pattern(pattern: &str) -> Result<Self> {
-        let pattern: Pair<Rule> = RleParser::parse(Rule::Pattern, pattern)
-            .map_err(|_| Error::RleParse)?
-            .next()
-            .unwrap();
+struct Run {
+    value: RunValue,
+    len: u32,
+}
 
-        let mut runs: Vec<Vec<Run>> = vec![vec![]];
-        let mut row = 0;
+enum RunValue {
+    DeadCell,
+    AliveCell,
+    LineEnd,
+}
 
-        for pair in pattern.into_inner() {
-            match pair.as_rule() {
-                Rule::PatternEnd => break,
-
-                Rule::LineEnd => {
-                    runs.push(vec![]);
-                    row += 1;
-                }
-
-                Rule::Run => {
-                    let mut run_pairs = pair.into_inner();
-
-                    let first_elem = run_pairs.next().unwrap();
-                    let maybe_second_elem = run_pairs.next();
-
-                    let run = match (
-                        first_elem.as_rule(),
-                        maybe_second_elem.as_ref().map(|x| x.as_rule()),
-                    ) {
-                        (Rule::Cell, None) => {
-                            let cell = match first_elem.into_inner().next().unwrap().as_rule() {
-                                Rule::Dead => Cell::Dead,
-                                Rule::Alive => Cell::Alive,
-                                _ => unreachable!(),
-                            };
-                            Run(1, cell)
-                        }
-
-                        (Rule::Number, Some(Rule::Cell)) => {
-                            let cell = match maybe_second_elem
-                                .unwrap()
-                                .into_inner()
-                                .next()
-                                .unwrap()
-                                .as_rule()
-                            {
-                                Rule::Dead => Cell::Dead,
-                                Rule::Alive => Cell::Alive,
-                                _ => unreachable!(),
-                            };
-                            let number = first_elem.as_str().parse().unwrap();
-                            Run(number, cell)
-                        }
-
-                        _ => unreachable!(),
-                    };
-
-                    runs[row].push(run);
-                }
-
-                _ => unreachable!(),
-            }
+fn parse_num(input: &[u8]) -> IResult<&[u8], u32> {
+    map_opt(digit1, |digits: &[u8]| {
+        if digits[0] == b'0' {
+            None
+        } else {
+            String::from_utf8_lossy(digits).parse().ok()
         }
-
-        Ok(Self { runs })
-    }
-
-    pub fn alive_cells(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
-        self.runs.iter().enumerate().flat_map(|(row, row_vec)| {
-            let mut col = 0;
-            row_vec
-                .iter()
-                .filter_map(move |run| {
-                    let Run(len, cell) = run;
-                    let indices = (col..(col + len)).map(move |c| (row, c));
-                    col += len;
-                    match cell {
-                        Cell::Dead => None,
-                        Cell::Alive => Some(indices),
-                    }
-                })
-                .flatten()
-        })
-    }
+    })(input)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse() {
-        let glider = "bob$2bo$3o!";
-        let rle = Rle::from_pattern(glider).unwrap();
-        let mut coords: Vec<_> = rle.alive_cells().collect();
-        coords.sort();
-        assert_eq!(coords, &[(0, 1), (1, 2), (2, 0), (2, 1), (2, 2)]);
-    }
+fn dead_cell(input: &[u8]) -> IResult<&[u8], RunValue> {
+    map(tag("b"), |_| RunValue::DeadCell)(input)
 }
+
+fn alive_cell(input: &[u8]) -> IResult<&[u8], RunValue> {
+    map(tag("o"), |_| RunValue::AliveCell)(input)
+}
+
+fn line_end(input: &[u8]) -> IResult<&[u8], RunValue> {
+    map(tag("$"), |_| RunValue::LineEnd)(input)
+}
+
+fn run(input: &[u8]) -> IResult<&[u8], Run> {
+    let (input, len) = map(opt(parse_num), |x| x.unwrap_or(1))(input)?;
+    let (input, value) = alt((dead_cell, alive_cell, line_end))(input)?;
+    Ok((input, Run { value, len }))
+}
+
+fn whitespace(input: &[u8]) -> IResult<&[u8], &[u8]> {
+    is_a(" \t\r\n")(input)
+}
+
+fn parse_rle(input: &[u8]) -> IResult<&[u8], Rle> {
+    let (input, runs) = many0(terminated(run, opt(whitespace)))(input)?;
+    Ok((input, Rle { runs }))
+}
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+
+//     #[test]
+//     fn parse() {
+//         let glider = "bob$2bo$3o!";
+//         let rle = Rle::from_pattern(glider).unwrap();
+//         let mut coords: Vec<_> = rle.alive_cells().collect();
+//         coords.sort();
+//         assert_eq!(coords, &[(0, 1), (1, 2), (2, 0), (2, 1), (2, 2)]);
+//     }
+// }

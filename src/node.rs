@@ -3,8 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use crate::{
-    store::Id,
-    store::Position,
+    store::{Id, Position},
     util::{Bool8x8, Grid2, Offset},
     Cell, Error, Result, Rule,
 };

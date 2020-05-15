@@ -4,16 +4,10 @@
 
 #![allow(dead_code, unused_variables)]
 
-extern crate pest;
-#[macro_use]
-extern crate pest_derive;
-
 mod node;
 mod rle;
 mod store;
 mod util;
-
-pub use rle::Rle;
 
 use std::fmt;
 use store::{Id, Store};

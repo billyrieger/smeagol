@@ -102,7 +102,7 @@ impl<'a> Iterator for AliveCells<'a> {
                             self.unexplored.push((sw, center.offset(-dx, dy)));
                             self.unexplored.push((ne, center.offset(dx, -dy)));
                             self.unexplored.push((nw, center.offset(-dx, -dy)));
-                        },
+                        }
                     }
                 }
                 self.current.pop()
