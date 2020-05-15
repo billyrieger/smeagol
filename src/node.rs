@@ -4,6 +4,7 @@
 
 use crate::{
     store::Id,
+    store::Position,
     util::{Bool8x8, Grid2, Offset},
     Cell, Error, Result, Rule,
 };
@@ -69,22 +70,6 @@ pub struct Branch {
     pub population: u128,
 }
 
-pub struct AliveCells {
-    inner: std::vec::IntoIter<(i64, i64)>,
-}
-
-impl Iterator for AliveCells {
-    type Item = (i64, i64);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
-    }
-}
-
 impl Leaf {
     pub fn new(alive: Bool8x8) -> Self {
         Self { alive }
@@ -98,19 +83,18 @@ impl Leaf {
         Self::new(Bool8x8::TRUE)
     }
 
-    pub fn alive_cells(&self) -> AliveCells {
-        let mut buffer = Vec::with_capacity(64);
-        buffer.extend((0..64).rev().filter_map(|i| {
-            if self.alive.get_bit(i) {
-                let i = i64::try_from(i).unwrap();
-                Some((3 - (i % 8), 3 - (i / 8)))
-            } else {
-                None
-            }
-        }));
-        AliveCells {
-            inner: buffer.into_iter(),
-        }
+    pub fn alive_cells(&self) -> Vec<Position> {
+        (0..64)
+            .rev()
+            .filter_map(|i| {
+                if self.alive.get_bit(i) {
+                    let i = i64::try_from(i).unwrap();
+                    Some(Position::new(3 - (i % 8), 3 - (i / 8)))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     pub fn get_cell(&self, x: i64, y: i64) -> Cell {
@@ -339,8 +323,14 @@ mod tests {
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
         let leaf = Leaf::new(Bool8x8(0x_00_00_10_08_38_00_00_00));
-        let mut coords = leaf.alive_cells().collect::<Vec<_>>();
+        let mut coords = leaf.alive_cells();
         coords.sort();
-        assert_eq!(coords, &[(-2, 0), (-1, -2), (-1, 0), (0, -1), (0, 0)]);
+        assert_eq!(
+            coords,
+            [(-2, 0), (-1, -2), (-1, 0), (0, -1), (0, 0)]
+                .iter()
+                .map(|&(x, y)| Position::new(x, y))
+                .collect::<Vec<_>>()
+        );
     }
 }

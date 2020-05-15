@@ -3,7 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use crate::{
-    node::{AliveCells as LeafAliveCells, Branch, Leaf, Level, Node},
+    node::{Branch, Leaf, Level, Node},
     util::{Grid2, Grid4},
     Cell, Error, Result, Rule,
 };
@@ -27,10 +27,20 @@ impl Id {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Position {
     pub x: i64,
     pub y: i64,
+}
+
+impl Position {
+    pub fn new(x: i64, y: i64) -> Self {
+        Self { x, y }
+    }
+
+    pub fn offset(&self, dx: i64, dy: i64) -> Position {
+        Self::new(self.x + dx, self.y + dy)
+    }
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
@@ -48,21 +58,56 @@ pub struct Store {
     node_data: Vec<Data>,
 }
 
-use std::iter::Chain;
-
 pub struct AliveCells<'a> {
     store: &'a Store,
-    inner: Either<LeafAliveCells, Box<Chain<Chain<Chain<Self, Self>, Self>, Self>>>,
+    unexplored: Vec<(Id, Position)>,
+    current: Vec<Position>,
+    center: Position,
+}
+
+impl<'a> AliveCells<'a> {
+    pub fn new(store: &'a Store, root: Id) -> Self {
+        Self {
+            store,
+            unexplored: vec![(root, Position::new(0, 0))],
+            current: vec![],
+            center: Position::new(0, 0),
+        }
+    }
 }
 
 impl<'a> Iterator for AliveCells<'a> {
-    type Item = (i64, i64);
+    type Item = Position;
 
-    fn next(&mut self) -> Option<(i64, i64)> {
-        match &mut self.inner {
-            Either::Left(x) => x.next(),
-            Either::Right(x) => x.next(),
-        }
+    fn next(&mut self) -> Option<Position> {
+        self.current
+            .pop()
+            .or_else(|| {
+                while self.current.is_empty() {
+                    let (next_id, center) = self.unexplored.pop()?;
+                    self.center = center;
+
+                    let data = self.store.get_data(next_id).ok()?;
+                    if data.node.population() == 0 {
+                        continue;
+                    }
+
+                    match data.node {
+                        Node::Leaf(leaf) => self.current.extend(leaf.alive_cells()),
+                        Node::Branch(branch) => {
+                            let [nw, ne, sw, se] = branch.children.0;
+                            let offset = i64::try_from(data.node.level().side_len() / 4).unwrap();
+                            let (dx, dy) = (offset, offset);
+                            self.unexplored.push((se, center.offset(dx, dy)));
+                            self.unexplored.push((sw, center.offset(-dx, dy)));
+                            self.unexplored.push((ne, center.offset(dx, -dy)));
+                            self.unexplored.push((nw, center.offset(-dx, -dy)));
+                        },
+                    }
+                }
+                self.current.pop()
+            })
+            .map(|pos| pos.offset(self.center.x, self.center.y))
     }
 }
 
@@ -142,26 +187,8 @@ impl Store {
         }
     }
 
-    pub fn alive_cells(&self, id: Id) -> Result<AliveCells<'_>> {
-        let data = self.get_data(id)?;
-        match data.node {
-            Node::Leaf(leaf) => Ok(AliveCells {
-                store: self,
-                inner: Either::Left(leaf.alive_cells()),
-            }),
-            Node::Branch(branch) => {
-                let [nw, ne, sw, se] = branch.children.0;
-                let iter = self
-                    .alive_cells(nw)?
-                    .chain(self.alive_cells(ne)?)
-                    .chain(self.alive_cells(sw)?)
-                    .chain(self.alive_cells(se)?);
-                Ok(AliveCells {
-                    store: self,
-                    inner: Either::Right(Box::new(iter)),
-                })
-            }
-        }
+    pub fn alive_cells(&self, id: Id) -> AliveCells<'_> {
+        AliveCells::new(self, id)
     }
 
     pub fn set_cell(&mut self, id: Id, x: i64, y: i64, cell: Cell) -> Result<Id> {
@@ -384,12 +411,24 @@ mod tests {
 
         let root = store.initialize().unwrap();
 
-        let coords = vec![(1, 0), (2, 1), (0, 2), (1, 2), (2, 2)]
+        // let coords = vec![(1, 0), (2, 1), (0, 2), (1, 2), (2, 2)]
+
+        let coords = vec![(-1, -2), (0, -1), (-2, 0), (-1, 0), (0, 0)]
             .into_iter()
             .map(|(x, y)| Position { x, y });
         let root = store.set_cells(root, coords, Cell::Alive).unwrap();
 
+        let alive: Vec<Position> = store.alive_cells(root).collect();
+        dbg!(alive);
+
         let four = store.step(root, 4).unwrap();
+
+        let alive: Vec<Position> = store.alive_cells(four).collect();
+        dbg!(alive);
+
         let eight = store.step(root, 8).unwrap();
+
+        let alive: Vec<Position> = store.alive_cells(eight).collect();
+        dbg!(alive);
     }
 }
