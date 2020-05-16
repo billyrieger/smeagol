@@ -184,6 +184,22 @@ impl<T> Grid2<T>
 where
     T: Copy,
 {
+    pub fn nw(&self) -> T {
+        self.0[0]
+    }
+
+    pub fn ne(&self) -> T {
+        self.0[1]
+    }
+
+    pub fn sw(&self) -> T {
+        self.0[2]
+    }
+
+    pub fn se(&self) -> T {
+        self.0[3]
+    }
+
     pub fn map<F, U>(&self, mut f: F) -> Grid2<U>
     where
         F: FnMut(T) -> U,

@@ -30,6 +30,15 @@ impl Level {
         1 << self.0
     }
 
+    pub fn quadrant_centers(&self) -> Grid2<Position> {
+        let delta = i64::try_from(self.side_len() / 4).unwrap();
+        let nw_center = Position::new(-delta, -delta);
+        let ne_center = Position::new(delta, -delta);
+        let sw_center = Position::new(-delta, delta);
+        let se_center = Position::new(delta, delta);
+        Grid2([nw_center, ne_center, sw_center, se_center])
+    }
+
     pub fn max_steps(&self) -> u64 {
         1u64 << (self.0 - 2)
     }

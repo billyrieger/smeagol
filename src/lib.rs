@@ -21,6 +21,14 @@ pub struct Position {
     pub y: i64,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+enum Quadrant {
+    Northwest,
+    Northeast,
+    Southwest,
+    Southeast,
+}
+
 enum Offset {
     West(i64),
     East(i64),
@@ -30,10 +38,7 @@ enum Offset {
     Northeast(i64),
     Southwest(i64),
     Southeast(i64),
-    Arbitrary {
-        dx: i64,
-        dy: i64,
-    }
+    Arbitrary { dx: i64, dy: i64 },
 }
 
 impl Position {
@@ -44,7 +49,23 @@ impl Position {
         Self { x, y }
     }
 
-    fn offset(&self, offset: Offset) -> Self {
+    fn quadrant(&self) -> Quadrant {
+        match (self.x < 0, self.y < 0) {
+            (true, true) => Quadrant::Northwest,
+            (false, true) => Quadrant::Northeast,
+            (true, false) => Quadrant::Southwest,
+            (false, false) => Quadrant::Southeast,
+        }
+    }
+
+    fn relative_to(&self, other: Position) -> Position {
+        self.offset(Offset::Arbitrary {
+            dx: -other.x,
+            dy: -other.y,
+        })
+    }
+
+    fn offset(&self, offset: Offset) -> Position {
         match offset {
             Offset::West(dx) => Self::new(self.x - dx, self.y),
             Offset::East(dx) => Self::new(self.x + dx, self.y),
@@ -165,7 +186,7 @@ impl Universe {
     /// let universe = Universe::empty(life);
     /// ```
     pub fn get_cell(&self, x: i64, y: i64) -> Result<Cell> {
-        self.store.get_cell(self.root, x, y)
+        self.store.get_cell(self.root, Position::new(x, y))
     }
 
     pub fn set_cell(&mut self, x: i64, y: i64, cell: Cell) -> Result<()> {

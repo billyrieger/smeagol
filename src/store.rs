@@ -5,7 +5,7 @@
 use crate::{
     node::{Branch, Leaf, Level, Node},
     util::{Grid2, Grid4},
-    Cell, Error, Offset, Position, Result, Rule,
+    Cell, Error, Offset, Position, Quadrant, Result, Rule,
 };
 
 use std::{collections::HashMap, convert::TryFrom};
@@ -134,22 +134,18 @@ impl Store {
         Ok(current_id)
     }
 
-    pub fn get_cell(&self, id: Id, x: i64, y: i64) -> Result<Cell> {
-        let data = self.get_data(id)?;
-
-        let level = data.node.level();
-        let offset = i64::try_from(level.side_len() / 4).unwrap();
-        let (dx, dy) = (offset, offset);
-
-        match data.node {
-            Node::Leaf(leaf) => Ok(leaf.get_cell(x, y)),
+    pub fn get_cell(&self, id: Id, pos: Position) -> Result<Cell> {
+        let node = self.get_data(id)?.node;
+        match node {
+            Node::Leaf(leaf) => Ok(leaf.get_cell(pos.x, pos.y)),
             Node::Branch(branch) => {
-                let [northwest, northeast, southwest, southeast] = branch.children.0;
-                match (x < 0, y < 0) {
-                    (true, true) => self.get_cell(northwest, x + dx, y + dy),
-                    (false, true) => self.get_cell(northeast, x - dx, y + dy),
-                    (true, false) => self.get_cell(southwest, x + dx, y - dy),
-                    (false, false) => self.get_cell(southeast, x - dx, y - dy),
+                let [nw, ne, sw, se]: [Id; 4] = branch.children.0;
+                let centers = node.level().quadrant_centers();
+                match pos.quadrant() {
+                    Quadrant::Northwest => self.get_cell(nw, pos.relative_to(centers.nw())),
+                    Quadrant::Northeast => self.get_cell(ne, pos.relative_to(centers.ne())),
+                    Quadrant::Southwest => self.get_cell(sw, pos.relative_to(centers.sw())),
+                    Quadrant::Southeast => self.get_cell(se, pos.relative_to(centers.se())),
                 }
             }
         }
@@ -381,7 +377,14 @@ mod tests {
         let coords = vec![(-1, -2), (0, -1), (-2, 0), (-1, 0), (0, 0)]
             .into_iter()
             .map(|(x, y)| Position { x, y });
-        let root = store.set_cells(root, coords, Cell::Alive).unwrap();
+        let root = store.set_cells(root, coords.clone(), Cell::Alive).unwrap();
+        for pos in coords {
+            assert!(store.get_cell(root, pos).unwrap().is_alive());
+        }
+        assert!(!store
+            .get_cell(root, Position::new(10, 20))
+            .unwrap()
+            .is_alive());
 
         let mut alive0: Vec<Position> = store.alive_cells(root).collect();
         alive0.sort();
