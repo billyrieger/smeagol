@@ -15,7 +15,7 @@ use nom::{
 };
 
 pub struct Rle {
-    runs: Vec<Run>,
+    runs: Vec<(u32, RunValue)>,
 }
 
 impl Rle {
@@ -29,16 +29,16 @@ impl Rle {
         let (mut x, mut y): (i64, i64) = (0, 0);
         self.runs
             .iter()
-            .flat_map(move |run| {
-                let len = i64::from(run.len);
-                match run.value {
-                    RunValue::DeadCell => {
-                        x += len;
-                        None
-                    }
+            .filter_map(move |&(len, value)| {
+                let len = i64::from(len);
+                match value {
                     RunValue::AliveCell => {
                         x += len;
                         Some(((x - len)..x).map(move |i| Position::new(i, y)))
+                    }
+                    RunValue::DeadCell => {
+                        x += len;
+                        None
                     }
                     RunValue::LineEnd => {
                         x = 0;
@@ -48,18 +48,6 @@ impl Rle {
                 }
             })
             .flat_map(|x| x)
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-struct Run {
-    len: u32,
-    value: RunValue,
-}
-
-impl Run {
-    fn new(len: u32, value: RunValue) -> Self {
-        Self { len, value }
     }
 }
 
@@ -92,10 +80,10 @@ fn line_end(input: &[u8]) -> IResult<&[u8], RunValue> {
     map(tag("$"), |_| RunValue::LineEnd)(input)
 }
 
-fn run(input: &[u8]) -> IResult<&[u8], Run> {
+fn run(input: &[u8]) -> IResult<&[u8], (u32, RunValue)> {
     let (input, len) = map(opt(parse_num), |x| x.unwrap_or(1))(input)?;
     let (input, value) = alt((dead_cell, alive_cell, line_end))(input)?;
-    Ok((input, Run::new(len, value)))
+    Ok((input, (len, value)))
 }
 
 fn whitespace(input: &[u8]) -> IResult<&[u8], &[u8]> {

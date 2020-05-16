@@ -53,17 +53,21 @@ pub enum Offset {
 }
 
 impl Bool8x8 {
-    pub const FALSE: Self = Self(0);
+    pub const FALSE: Self = Self(u64::MIN);
     pub const TRUE: Self = Self(u64::MAX);
-    pub const WEST: Self = Self(0xF0F0_F0F0_F0F0_F0F0);
-    pub const EAST: Self = Self(0x0F0F_0F0F_0F0F_0F0F);
-    pub const NORTH: Self = Self(0xFFFF_FFFF_0000_0000);
-    pub const SOUTH: Self = Self(0x0000_0000_FFFF_FFFF);
-    pub const NORTHWEST: Self = Self(0xF0F0_F0F0_0000_0000);
-    pub const NORTHEAST: Self = Self(0x0F0F_0F0F_0000_0000);
-    pub const SOUTHWEST: Self = Self(0x0000_0000_F0F0_F0F0);
-    pub const SOUTHEAST: Self = Self(0x0000_0000_0F0F_0F0F);
-    pub const CENTER: Self = Self(0x0000_3C3C_3C3C_0000);
+
+    pub const WEST: Self = Self(0x_F0_F0_F0_F0_F0_F0_F0_F0);
+    pub const EAST: Self = Self(0x_0F_0F_0F_0F_0F_0F_0F_0F);
+
+    pub const NORTH: Self = Self(0x_FF_FF_FF_FF_00_00_00_00);
+    pub const SOUTH: Self = Self(0x_00_00_00_00_FF_FF_FF_FF);
+
+    pub const NORTHWEST: Self = Self(0x_F0_F0_F0_F0_00_00_00_00);
+    pub const NORTHEAST: Self = Self(0x_0F_0F_0F_0F_00_00_00_00);
+    pub const SOUTHWEST: Self = Self(0x_00_00_00_00_F0_F0_F0_F0);
+    pub const SOUTHEAST: Self = Self(0x_00_00_00_00_0F_0F_0F_0F);
+
+    pub const CENTER: Self = Self(0x_00_00_3C_3C_3C_3C_00_00);
 
     pub fn get_bit(&self, index: usize) -> bool {
         self.0 & (1 << index) > 0

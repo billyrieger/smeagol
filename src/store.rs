@@ -5,7 +5,7 @@
 use crate::{
     node::{Branch, Leaf, Level, Node},
     util::{Grid2, Grid4},
-    Cell, Error, Position, Result, Rule,
+    Cell, Error, Offset, Position, Result, Rule,
 };
 
 use std::{collections::HashMap, convert::TryFrom};
@@ -32,10 +32,6 @@ struct Data {
     node: Node,
     idle: Option<Id>,
     jump: Option<Id>,
-}
-
-pub struct LevelData<T> {
-    data: [T; 64],
 }
 
 #[derive(Clone, Default)]
@@ -84,18 +80,26 @@ impl<'a> Iterator for AliveCells<'a> {
                         Node::Leaf(leaf) => self.current.extend(leaf.alive_cells()),
                         Node::Branch(branch) => {
                             let [nw, ne, sw, se] = branch.children.0;
-                            let offset = i64::try_from(data.node.level().side_len() / 4).unwrap();
-                            let (dx, dy) = (offset, offset);
-                            self.unexplored.push((se, center.offset(dx, dy)));
-                            self.unexplored.push((sw, center.offset(-dx, dy)));
-                            self.unexplored.push((ne, center.offset(dx, -dy)));
-                            self.unexplored.push((nw, center.offset(-dx, -dy)));
+                            let delta = i64::try_from(data.node.level().side_len() / 4).unwrap();
+                            self.unexplored
+                                .push((se, center.offset(Offset::Southeast(delta))));
+                            self.unexplored
+                                .push((sw, center.offset(Offset::Southwest(delta))));
+                            self.unexplored
+                                .push((ne, center.offset(Offset::Northeast(delta))));
+                            self.unexplored
+                                .push((nw, center.offset(Offset::Northwest(delta))));
                         }
                     }
                 }
                 self.current.pop()
             })
-            .map(|pos| pos.offset(self.center.x, self.center.y))
+            .map(|pos| {
+                pos.offset(Offset::Arbitrary {
+                    dx: self.center.x,
+                    dy: self.center.y,
+                })
+            })
     }
 }
 
@@ -155,7 +159,7 @@ impl Store {
         AliveCells::new(self, id)
     }
 
-    pub fn set_cell(&mut self, id: Id, x: i64, y: i64, cell: Cell) -> Result<Id> {
+    pub fn set_cell(&mut self, id: Id, pos: Position, cell: Cell) -> Result<Id> {
         let data = self.get_data(id)?;
 
         let level = data.node.level();
@@ -163,22 +167,22 @@ impl Store {
         let (dx, dy) = (offset, offset);
 
         match data.node {
-            Node::Leaf(leaf) => Ok(self.get_id(Node::Leaf(leaf.set_cell(x, y, cell)))),
+            Node::Leaf(leaf) => Ok(self.get_id(Node::Leaf(leaf.set_cell(pos.x, pos.y, cell)))),
             Node::Branch(branch) => {
-                let offset = i64::try_from(level.side_len() / 4).unwrap();
+                let delta = i64::try_from(level.side_len() / 4).unwrap();
                 let [mut nw, mut ne, mut sw, mut se] = branch.children.0;
-                match (x < 0, y < 0) {
+                match (pos.x < 0, pos.y < 0) {
                     (true, true) => {
-                        nw = self.set_cell(nw, x + dx, y + dy, cell)?;
+                        nw = self.set_cell(nw, pos.offset(Offset::Southeast(delta)), cell)?;
                     }
                     (false, true) => {
-                        ne = self.set_cell(ne, x - dx, y + dy, cell)?;
+                        ne = self.set_cell(ne, pos.offset(Offset::Southwest(delta)), cell)?;
                     }
                     (true, false) => {
-                        sw = self.set_cell(sw, x + dx, y - dy, cell)?;
+                        sw = self.set_cell(sw, pos.offset(Offset::Northeast(delta)), cell)?;
                     }
                     (false, false) => {
-                        se = self.set_cell(se, x - dx, y - dy, cell)?;
+                        se = self.set_cell(se, pos.offset(Offset::Northwest(delta)), cell)?;
                     }
                 };
                 let new_branch = self.make_branch(Grid2([nw, ne, sw, se]))?;
@@ -208,8 +212,8 @@ impl Store {
                 Ok(self.get_id(Node::Leaf(leaf)))
             }
             Node::Branch(branch) => {
-                let offset = i64::try_from(data.node.level().side_len() / 4).unwrap();
-                let (dx, dy) = (offset, offset);
+                let delta = i64::try_from(data.node.level().side_len() / 4).unwrap();
+
                 // a note on itertools::partition
                 // elements that satisfy the predicate are placed before the elements that don't
                 let split_index = itertools::partition(coords.iter_mut(), |p| p.x >= 0);
@@ -224,22 +228,22 @@ impl Store {
                 let [nw_id, ne_id, sw_id, se_id] = branch.children.0;
 
                 for pos in nw_coords.iter_mut() {
-                    *pos = pos.offset(dx, dy);
+                    *pos = pos.offset(Offset::Southeast(delta));
                 }
                 let new_nw_id = self.set_helper(nw_id, nw_coords, cell)?;
 
                 for pos in ne_coords.iter_mut() {
-                    *pos = pos.offset(-dx, dy);
+                    *pos = pos.offset(Offset::Southwest(delta));
                 }
                 let new_ne_id = self.set_helper(ne_id, ne_coords, cell)?;
 
                 for pos in sw_coords.iter_mut() {
-                    *pos = pos.offset(dx, -dy);
+                    *pos = pos.offset(Offset::Northeast(delta));
                 }
                 let new_sw_id = self.set_helper(sw_id, sw_coords, cell)?;
 
                 for pos in se_coords.iter_mut() {
-                    *pos = pos.offset(-dx, -dy);
+                    *pos = pos.offset(Offset::Northwest(delta));
                 }
                 let new_se_id = self.set_helper(se_id, se_coords, cell)?;
 
@@ -393,10 +397,10 @@ mod tests {
         assert!(alive0
             .iter()
             .zip(alive4.iter())
-            .all(|(&a, &b)| a.offset(1, 1) == b));
+            .all(|(&a, &b)| a.offset(Offset::Southeast(1)) == b));
         assert!(alive0
             .iter()
             .zip(alive8.iter())
-            .all(|(&a, &b)| a.offset(2, 2) == b));
+            .all(|(&a, &b)| a.offset(Offset::Southeast(2)) == b));
     }
 }

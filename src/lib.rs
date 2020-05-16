@@ -11,9 +11,53 @@ mod util;
 
 use std::fmt;
 use store::{Id, Store};
-use util::{Bool8x8, Offset, SumResult};
+use util::{Bool8x8, SumResult};
 
 use thiserror::Error;
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct Position {
+    pub x: i64,
+    pub y: i64,
+}
+
+enum Offset {
+    West(i64),
+    East(i64),
+    North(i64),
+    South(i64),
+    Northwest(i64),
+    Northeast(i64),
+    Southwest(i64),
+    Southeast(i64),
+    Arbitrary {
+        dx: i64,
+        dy: i64,
+    }
+}
+
+impl Position {
+    pub const ORIGIN: Self = Self::new(0, 0);
+
+    /// Creates a new `Position` from the given `x` and `y` coordinates.
+    pub const fn new(x: i64, y: i64) -> Self {
+        Self { x, y }
+    }
+
+    fn offset(&self, offset: Offset) -> Self {
+        match offset {
+            Offset::West(dx) => Self::new(self.x - dx, self.y),
+            Offset::East(dx) => Self::new(self.x + dx, self.y),
+            Offset::North(dy) => Self::new(self.x, self.y - dy),
+            Offset::South(dy) => Self::new(self.x, self.y + dy),
+            Offset::Northwest(delta) => Self::new(self.x - delta, self.y - delta),
+            Offset::Northeast(delta) => Self::new(self.x + delta, self.y - delta),
+            Offset::Southwest(delta) => Self::new(self.x - delta, self.y + delta),
+            Offset::Southeast(delta) => Self::new(self.x + delta, self.y + delta),
+            Offset::Arbitrary { dx, dy } => Self::new(self.x + dx, self.y + dy),
+        }
+    }
+}
 
 /// A result.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -55,23 +99,6 @@ impl Cell {
             Cell::Dead => false,
             Cell::Alive => true,
         }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Position {
-    pub x: i64,
-    pub y: i64,
-}
-
-impl Position {
-    /// Creates a new `Position` from the given `x` and `y` coordinates.
-    pub fn new(x: i64, y: i64) -> Self {
-        Self { x, y }
-    }
-
-    pub fn offset(&self, dx: i64, dy: i64) -> Position {
-        Self::new(self.x + dx, self.y + dy)
     }
 }
 
@@ -134,14 +161,15 @@ impl Universe {
     ///
     /// ```
     /// # use smeagol::{Rule, Universe};
-    /// let universe = Universe::empty(Rule::new(&[3], &[2, 3]));
+    /// let life = Rule::new(&[3], &[2, 3]);
+    /// let universe = Universe::empty(life);
     /// ```
     pub fn get_cell(&self, x: i64, y: i64) -> Result<Cell> {
         self.store.get_cell(self.root, x, y)
     }
 
     pub fn set_cell(&mut self, x: i64, y: i64, cell: Cell) -> Result<()> {
-        self.root = self.store.set_cell(self.root, x, y, cell)?;
+        self.root = self.store.set_cell(self.root, Position::new(x, y), cell)?;
         Ok(())
     }
 
