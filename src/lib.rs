@@ -15,6 +15,9 @@ use util::{Bool8x8, Offset, SumResult};
 
 use thiserror::Error;
 
+/// A result.
+pub type Result<T> = std::result::Result<T, Error>;
+
 /// A runtime error.
 #[derive(Debug, Error)]
 pub enum Error {
@@ -32,8 +35,45 @@ pub enum Error {
     Fmt(#[from] fmt::Error),
 }
 
-/// A result.
-pub type Result<T> = std::result::Result<T, Error>;
+/// The smallest and fundamental element of a cellular automaton.
+///
+/// A cell can have one of two states: `Cell::Dead` and `Cell::Alive`.
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+pub enum Cell {
+    Dead,
+    Alive,
+}
+
+impl Cell {
+    /// ```
+    /// # use smeagol::Cell;
+    /// assert!(Cell::Alive.is_alive());
+    /// assert!(!Cell::Dead.is_alive());
+    /// ```
+    pub fn is_alive(&self) -> bool {
+        match self {
+            Cell::Dead => false,
+            Cell::Alive => true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct Position {
+    pub x: i64,
+    pub y: i64,
+}
+
+impl Position {
+    /// Creates a new `Position` from the given `x` and `y` coordinates.
+    pub fn new(x: i64, y: i64) -> Self {
+        Self { x, y }
+    }
+
+    pub fn offset(&self, dx: i64, dy: i64) -> Position {
+        Self::new(self.x + dx, self.y + dy)
+    }
+}
 
 /// A description of how one state of a cellular automaton transitions into the next.
 #[derive(Clone, Copy, Debug, Default)]
@@ -54,6 +94,14 @@ impl Rule {
     /// > neighbors that cause a live cell to remain alive (survive).
     ///
     /// [LifeWiki]: https://www.conwaylife.com/wiki/Rulestring#B.2FS_notation
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use smeagol::Rule;
+    /// // Conway's Game of Life: B3/S23
+    /// let life = Rule::new(&[3], &[2, 3]);
+    /// ```
     pub fn new(birth: &[usize], survival: &[usize]) -> Self {
         let make_rule = |neighbor_count: &[usize]| -> SumResult {
             let mut result = [Bool8x8::FALSE; 9];
@@ -68,110 +116,36 @@ impl Rule {
             survival_neighbors: make_rule(survival),
         }
     }
-
-    /// Evolves a `Bool8x8` to its next state, treating `true` as alive and `false` as dead.
-    fn step(&self, cells: Bool8x8) -> Bool8x8 {
-        let (alive, dead) = (cells, !cells);
-
-        let alive_neighbors: SumResult = Bool8x8::sum(&[
-            alive.offset(Offset::West(1)),
-            alive.offset(Offset::East(1)),
-            alive.offset(Offset::North(1)),
-            alive.offset(Offset::South(1)),
-            alive.offset(Offset::Northwest(1)),
-            alive.offset(Offset::Northeast(1)),
-            alive.offset(Offset::Southwest(1)),
-            alive.offset(Offset::Southeast(1)),
-        ]);
-
-        let any_both = |xs: &SumResult, ys: &SumResult| -> Bool8x8 {
-            xs.iter()
-                .zip(ys.iter())
-                .map(|(&x, &y)| x & y)
-                .fold(Bool8x8::FALSE, std::ops::BitOr::bitor)
-        };
-
-        let born = any_both(&alive_neighbors, &self.birth_neighbors);
-        let survives = any_both(&alive_neighbors, &self.survival_neighbors);
-
-        (dead & born) | (alive & survives)
-    }
 }
 
 pub struct Universe {
-    rule: Rule,
     store: Store,
     root: Id,
 }
 
-#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
-pub enum Cell {
-    Dead,
-    Alive,
-}
-
-impl Cell {
-    pub fn is_alive(&self) -> bool {
-        match self {
-            Cell::Dead => false,
-            Cell::Alive => true,
-        }
-    }
-}
-
 impl Universe {
-    pub fn get_cell(&self, x: i64, y: i64) -> Cell {
-        todo!()
+    pub fn empty(rule: Rule) -> Result<Self> {
+        let mut store = Store::new(rule);
+        let root = store.initialize()?;
+        Ok(Self { store, root })
     }
 
-    pub fn set_cell(&mut self, x: i64, y: i64) {
-        todo!()
+    /// # Examples
+    ///
+    /// ```
+    /// # use smeagol::{Rule, Universe};
+    /// let universe = Universe::empty(Rule::new(&[3], &[2, 3]));
+    /// ```
+    pub fn get_cell(&self, x: i64, y: i64) -> Result<Cell> {
+        self.store.get_cell(self.root, x, y)
     }
 
-    pub fn unset_cell(&mut self, x: i64, y: i64) {
-        todo!()
-    }
-
-    pub fn toggle_cell(&mut self, x: i64, y: i64) {
-        todo!()
+    pub fn set_cell(&mut self, x: i64, y: i64, cell: Cell) -> Result<()> {
+        self.root = self.store.set_cell(self.root, x, y, cell)?;
+        Ok(())
     }
 
     pub fn step(&mut self, steps: u64) {
         todo!()
-    }
-}
-
-pub struct Region {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn blinker() {
-        let life = Rule::new(&[3], &[2, 3]);
-
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x38 | . . # # # . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        let blinker_horiz = Bool8x8(0x0000_0038_0000_0000);
-
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x10 | . . . # . . . .
-        // 0x10 | . . . # . . . .
-        // 0x10 | . . . # . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        // 0x00 | . . . . . . . .
-        let blinker_vert = Bool8x8(0x0000_1010_1000_0000);
-
-        assert_eq!(life.step(blinker_horiz), blinker_vert);
-        assert_eq!(life.step(blinker_vert), blinker_horiz);
     }
 }

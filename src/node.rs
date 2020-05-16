@@ -3,9 +3,9 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use crate::{
-    store::{Id, Position},
-    util::{Bool8x8, Grid2, Offset},
-    Cell, Error, Result, Rule,
+    store::Id,
+    util::{Bool8x8, Grid2, Offset, SumResult},
+    Cell, Error, Position, Result, Rule,
 };
 
 use std::{convert::TryFrom, hash::Hash};
@@ -118,7 +118,30 @@ impl Leaf {
     }
 
     fn step(&self, rule: Rule) -> Leaf {
-        Self::new(rule.step(self.alive))
+        let (alive, dead) = (self.alive, !self.alive);
+
+        let alive_neighbors: SumResult = Bool8x8::sum(&[
+            alive.offset(Offset::West(1)),
+            alive.offset(Offset::East(1)),
+            alive.offset(Offset::North(1)),
+            alive.offset(Offset::South(1)),
+            alive.offset(Offset::Northwest(1)),
+            alive.offset(Offset::Northeast(1)),
+            alive.offset(Offset::Southwest(1)),
+            alive.offset(Offset::Southeast(1)),
+        ]);
+
+        let any_both = |xs: &SumResult, ys: &SumResult| -> Bool8x8 {
+            xs.iter()
+                .zip(ys.iter())
+                .map(|(&x, &y)| x & y)
+                .fold(Bool8x8::FALSE, std::ops::BitOr::bitor)
+        };
+
+        let born = any_both(&alive_neighbors, &rule.birth_neighbors);
+        let survives = any_both(&alive_neighbors, &rule.survival_neighbors);
+
+        Leaf::new((dead & born) | (alive & survives))
     }
 
     fn jump(&self, rule: Rule) -> Leaf {
@@ -253,6 +276,34 @@ impl Grid2<Leaf> {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn blinker() {
+        let life = Rule::new(&[3], &[2, 3]);
+
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        // 0x38 | . . # # # . . .
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        let blinker_horiz = Leaf::new(Bool8x8(0x0000_0038_0000_0000));
+
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        // 0x10 | . . . # . . . .
+        // 0x10 | . . . # . . . .
+        // 0x10 | . . . # . . . .
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        // 0x00 | . . . . . . . .
+        let blinker_vert = Leaf::new(Bool8x8(0x0000_1010_1000_0000));
+
+        assert_eq!(blinker_horiz.step(life), blinker_vert);
+        assert_eq!(blinker_vert.step(life), blinker_horiz);
+    }
 
     #[test]
     fn glider() {
