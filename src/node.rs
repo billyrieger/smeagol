@@ -30,7 +30,7 @@ impl Level {
         1 << self.0
     }
 
-    pub fn quadrant_centers(&self) -> Grid2<Position> {
+    pub(crate) fn quadrant_centers(&self) -> Grid2<Position> {
         let delta = i64::try_from(self.side_len() / 4).unwrap();
         let nw_center = Position::new(-delta, -delta);
         let ne_center = Position::new(delta, -delta);
@@ -91,7 +91,7 @@ impl Leaf {
         Self::new(Bool8x8::TRUE)
     }
 
-    pub fn alive_cells(&self) -> Vec<Position> {
+    pub(crate) fn alive_cells(&self) -> Vec<Position> {
         (0..64)
             .rev()
             .filter_map(|i| {

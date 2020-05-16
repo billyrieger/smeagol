@@ -14,18 +14,18 @@ use nom::{
     IResult,
 };
 
-pub struct Rle {
+pub struct Pattern {
     runs: Vec<(u32, RunValue)>,
 }
 
-impl Rle {
+impl Pattern {
     pub fn from_pattern(pattern: &str) -> Result<Self> {
         parse_rle(pattern.as_bytes())
             .map(|(_, rle)| rle)
             .map_err(|_| Error::RleParse)
     }
 
-    pub fn alive_cells(&self) -> impl Iterator<Item = Position> + '_ {
+    pub(crate) fn alive_cells(&self) -> impl Iterator<Item = Position> + '_ {
         let (mut x, mut y): (i64, i64) = (0, 0);
         self.runs
             .iter()
@@ -90,11 +90,11 @@ fn whitespace(input: &[u8]) -> IResult<&[u8], &[u8]> {
     is_a(" \t\r\n")(input)
 }
 
-fn parse_rle(input: &[u8]) -> IResult<&[u8], Rle> {
+fn parse_rle(input: &[u8]) -> IResult<&[u8], Pattern> {
     let (input, _) = opt(whitespace)(input)?;
     let (input, runs) = many0(terminated(run, opt(whitespace)))(input)?;
     let (input, _) = tag("!")(input)?;
-    Ok((input, Rle { runs }))
+    Ok((input, Pattern { runs }))
 }
 
 #[cfg(test)]
@@ -104,7 +104,7 @@ mod tests {
     #[test]
     fn parse() {
         let glider = " b  ob  $ 2b\n\no\n$3o$$ $ $$$$ 5$ bbb $b$bb$bbb !  foobar";
-        let rle = Rle::from_pattern(glider).unwrap();
+        let rle = Pattern::from_pattern(glider).unwrap();
         let mut coords: Vec<_> = rle.alive_cells().collect();
         coords.sort();
         assert_eq!(

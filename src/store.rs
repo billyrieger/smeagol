@@ -28,7 +28,7 @@ impl Id {
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-struct Data {
+pub struct Data {
     node: Node,
     idle: Option<Id>,
     jump: Option<Id>,
@@ -42,7 +42,7 @@ pub struct Store {
     node_data: Vec<Data>,
 }
 
-pub struct AliveCells<'a> {
+pub(crate) struct AliveCells<'a> {
     store: &'a Store,
     unexplored: Vec<(Id, Position)>,
     current: Vec<Position>,
@@ -134,7 +134,7 @@ impl Store {
         Ok(current_id)
     }
 
-    pub fn get_cell(&self, id: Id, pos: Position) -> Result<Cell> {
+    pub(crate) fn get_cell(&self, id: Id, pos: Position) -> Result<Cell> {
         let node = self.get_data(id)?.node;
         match node {
             Node::Leaf(leaf) => Ok(leaf.get_cell(pos.x, pos.y)),
@@ -151,11 +151,11 @@ impl Store {
         }
     }
 
-    pub fn alive_cells(&self, id: Id) -> AliveCells<'_> {
+    pub(crate) fn alive_cells(&self, id: Id) -> AliveCells<'_> {
         AliveCells::new(self, id)
     }
 
-    pub fn set_cell(&mut self, id: Id, pos: Position, cell: Cell) -> Result<Id> {
+    pub(crate) fn set_cell(&mut self, id: Id, pos: Position, cell: Cell) -> Result<Id> {
         let data = self.get_data(id)?;
 
         let level = data.node.level();
@@ -167,18 +167,19 @@ impl Store {
             Node::Branch(branch) => {
                 let delta = i64::try_from(level.side_len() / 4).unwrap();
                 let [mut nw, mut ne, mut sw, mut se] = branch.children.0;
+                let centers = level.quadrant_centers();
                 match (pos.x < 0, pos.y < 0) {
                     (true, true) => {
-                        nw = self.set_cell(nw, pos.offset(Offset::Southeast(delta)), cell)?;
+                        nw = self.set_cell(nw, pos.relative_to(centers.nw()), cell)?;
                     }
                     (false, true) => {
-                        ne = self.set_cell(ne, pos.offset(Offset::Southwest(delta)), cell)?;
+                        ne = self.set_cell(ne, pos.relative_to(centers.ne()), cell)?;
                     }
                     (true, false) => {
-                        sw = self.set_cell(sw, pos.offset(Offset::Northeast(delta)), cell)?;
+                        sw = self.set_cell(sw, pos.relative_to(centers.sw()), cell)?;
                     }
                     (false, false) => {
-                        se = self.set_cell(se, pos.offset(Offset::Northwest(delta)), cell)?;
+                        se = self.set_cell(se, pos.relative_to(centers.se()), cell)?;
                     }
                 };
                 let new_branch = self.make_branch(Grid2([nw, ne, sw, se]))?;
@@ -187,12 +188,16 @@ impl Store {
         }
     }
 
-    pub fn set_cells<I>(&mut self, id: Id, coords: I, cell: Cell) -> Result<Id>
+    pub(crate) fn set_cells<I>(&mut self, id: Id, coords: I, cell: Cell) -> Result<Id>
     where
         I: IntoIterator<Item = Position>,
     {
         let mut coords: Vec<_> = coords.into_iter().collect();
         self.set_helper(id, &mut coords, cell)
+    }
+
+    pub(crate) fn population(&self, id: Id) -> Result<u128> {
+        Ok(self.get_data(id)?.node.population())
     }
 
     fn set_helper(&mut self, id: Id, coords: &mut [Position], cell: Cell) -> Result<Id> {
@@ -250,7 +255,7 @@ impl Store {
         }
     }
 
-    fn get_data(&self, id: Id) -> Result<&Data> {
+    pub fn get_data(&self, id: Id) -> Result<&Data> {
         self.node_data.get(id.index()).ok_or(Error::IdNotFound(id))
     }
 
@@ -289,7 +294,7 @@ impl Store {
         self.empties[level.0 as usize]
     }
 
-    fn step(&mut self, id: Id, step: u64) -> Result<Id> {
+    pub fn step(&mut self, id: Id, step: u64) -> Result<Id> {
         match self.get_data(id)?.node {
             Node::Leaf(_) => todo!(),
             Node::Branch(branch) => self.evolve(branch.children, step),

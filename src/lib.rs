@@ -9,14 +9,15 @@ mod rle;
 mod store;
 mod util;
 
-use std::fmt;
 use store::{Id, Store};
 use util::{Bool8x8, SumResult};
+
+use std::{fmt, io};
 
 use thiserror::Error;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Position {
+pub(crate) struct Position {
     pub x: i64,
     pub y: i64,
 }
@@ -83,7 +84,7 @@ impl Position {
 /// A result.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// A runtime error.
+/// An error.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("parse")]
@@ -92,12 +93,14 @@ pub enum Error {
     Increment,
     #[error("unbalanced")]
     Unbalanced,
-    #[error("unbalanced")]
+    #[error("id not found")]
     IdNotFound(Id),
     #[error("out of bounds")]
     OutOfBounds,
     #[error("fmt {0}")]
     Fmt(#[from] fmt::Error),
+    #[error("io {0}")]
+    Io(#[from] io::Error),
 }
 
 /// The fundamental unit of a cellular automaton.
@@ -108,6 +111,8 @@ pub enum Cell {
 }
 
 impl Cell {
+    /// Checks whether the cell is alive or not.
+    ///
     /// # Examples
     ///
     /// ```
@@ -172,29 +177,92 @@ pub struct Universe {
 }
 
 impl Universe {
+    /// Creates new universe without any alive cells.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use smeagol::{Cell, Result, Rule, Universe};
+    /// # fn main() -> Result<()> {
+    /// #
+    /// // Conway's Game of Life: B3/S23
+    /// let life = Rule::new(&[3], &[2, 3]);
+    /// let empty = Universe::empty(life)?;
+    /// assert_eq!(empty.population()?, 0);
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn empty(rule: Rule) -> Result<Self> {
         let mut store = Store::new(rule);
         let root = store.initialize()?;
         Ok(Self { store, root })
     }
 
+    pub fn from_rle_pattern(rule: Rule, pattern: &str) -> Result<Self> {
+        use rle::Pattern;
+
+        let mut universe = Self::empty(rule)?;
+        let cells: Vec<Position> = Pattern::from_pattern(pattern)?.alive_cells().collect();
+        println!("{:?}", cells);
+        universe.root = universe
+            .store
+            .set_cells(universe.root, cells, Cell::Alive)?;
+        Ok(universe)
+    }
+
+    pub fn population(&self) -> Result<u128> {
+        self.store.population(self.root)
+    }
+
     /// # Examples
     ///
     /// ```
-    /// # use smeagol::{Rule, Universe};
+    /// # use smeagol::{Cell, Result, Rule, Universe};
+    /// # fn main() -> Result<()> {
+    /// #
+    /// // Conway's Game of Life: B3/S23
     /// let life = Rule::new(&[3], &[2, 3]);
-    /// let universe = Universe::empty(life);
+    /// let glider = Universe::from_rle_pattern(life, "bob$2bo$3o!")?;
+    /// assert_eq!(glider.get_cell(0, 0)?, Cell::Dead);
+    /// assert_eq!(glider.get_cell(1, 0)?, Cell::Alive);
+    /// #
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn get_cell(&self, x: i64, y: i64) -> Result<Cell> {
         self.store.get_cell(self.root, Position::new(x, y))
     }
 
-    pub fn set_cell(&mut self, x: i64, y: i64, cell: Cell) -> Result<()> {
-        self.root = self.store.set_cell(self.root, Position::new(x, y), cell)?;
+    /// # Examples
+    ///
+    /// ```
+    /// # use smeagol::{Cell, Result, Rule, Universe};
+    /// # fn main() -> Result<()> {
+    /// #
+    /// // Conway's Game of Life: B3/S23
+    /// let life = Rule::new(&[3], &[2, 3]);
+    ///
+    /// // +-------+
+    /// // | . O . |
+    /// // | . . O |
+    /// // | O O O |
+    /// // +-------+
+    /// let mut glider = Universe::from_rle_pattern(life, "bob$2bo$3o!")?;
+    ///
+    /// assert!(glider.get_cell(2, 2)?.is_alive());
+    ///
+    /// glider.step(4)?;
+    /// assert!(glider.get_cell(3, 3)?.is_alive());
+    ///
+    /// glider.step(4)?;
+    /// assert!(glider.get_cell(4, 4)?.is_alive());
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn step(&mut self, steps: u64) -> Result<()> {
+        self.root = self.store.step(self.root, steps)?;
         Ok(())
-    }
-
-    pub fn step(&mut self, steps: u64) {
-        todo!()
     }
 }
