@@ -5,8 +5,7 @@
 use crate::{
     node::{Branch, Leaf, Level, Node},
     util::{Grid2, Grid4},
-    Cell, Error, Result, Rule,
-    Position,
+    Cell, Error, Position, Result, Rule,
 };
 
 use std::{collections::HashMap, convert::TryFrom};
@@ -33,6 +32,10 @@ struct Data {
     node: Node,
     idle: Option<Id>,
     jump: Option<Id>,
+}
+
+pub struct LevelData<T> {
+    data: [T; 64],
 }
 
 #[derive(Clone, Default)]
@@ -233,14 +236,12 @@ impl Store {
                 for pos in sw_coords.iter_mut() {
                     *pos = pos.offset(dx, -dy);
                 }
-                let new_sw_id =
-                    self.set_helper(sw_id, sw_coords, cell)?;
+                let new_sw_id = self.set_helper(sw_id, sw_coords, cell)?;
 
                 for pos in se_coords.iter_mut() {
                     *pos = pos.offset(-dx, -dy);
                 }
-                let new_se_id =
-                    self.set_helper(se_id, se_coords, cell)?;
+                let new_se_id = self.set_helper(se_id, se_coords, cell)?;
 
                 let branch =
                     self.make_branch(Grid2([new_nw_id, new_ne_id, new_sw_id, new_se_id]))?;
@@ -389,7 +390,13 @@ mod tests {
         let mut alive8: Vec<Position> = store.alive_cells(eight).collect();
         alive8.sort();
 
-        assert!(alive0.iter().zip(alive4.iter()).all(|(&a, &b)| a.offset(1, 1) == b));
-        assert!(alive0.iter().zip(alive8.iter()).all(|(&a, &b)| a.offset(2, 2) == b));
+        assert!(alive0
+            .iter()
+            .zip(alive4.iter())
+            .all(|(&a, &b)| a.offset(1, 1) == b));
+        assert!(alive0
+            .iter()
+            .zip(alive8.iter())
+            .all(|(&a, &b)| a.offset(2, 2) == b));
     }
 }

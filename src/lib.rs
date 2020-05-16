@@ -35,9 +35,7 @@ pub enum Error {
     Fmt(#[from] fmt::Error),
 }
 
-/// The smallest and fundamental element of a cellular automaton.
-///
-/// A cell can have one of two states: `Cell::Dead` and `Cell::Alive`.
+/// The fundamental unit of a cellular automaton.
 #[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Cell {
     Dead,
@@ -45,6 +43,8 @@ pub enum Cell {
 }
 
 impl Cell {
+    /// # Examples
+    ///
     /// ```
     /// # use smeagol::Cell;
     /// assert!(Cell::Alive.is_alive());
