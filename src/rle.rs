@@ -14,13 +14,86 @@ use nom::{
     IResult,
 };
 
+pub struct RleFile {
+    comments: Vec<Comment>,
+    header: Header,
+    pattern: Pattern,
+}
+
+pub struct Header {
+    width: u32,
+    height: u32,
+}
+
+pub struct RuleString {
+    birth: Vec<u8>,
+    survival: Vec<u8>,
+}
+
+pub enum CommentKind {
+    Comment,
+    Name,
+    Author,
+}
+
+pub struct Comment {
+    kind: CommentKind,
+    text: String,
+}
+
 pub struct Pattern {
     runs: Vec<(u32, RunValue)>,
 }
 
+#[derive(Clone, Copy, Debug)]
+enum RunValue {
+    DeadCell,
+    AliveCell,
+    LineEnd,
+}
+
+fn parse_num(input: &str) -> IResult<&str, u32> {
+    map_opt(digit1, |digits: &str| {
+        if digits.starts_with("0") {
+            None
+        } else {
+            digits.parse().ok()
+        }
+    })(input)
+}
+
+fn parse_dead_cell(input: &str) -> IResult<&str, RunValue> {
+    map(tag("b"), |_| RunValue::DeadCell)(input)
+}
+
+fn parse_alive_cell(input: &str) -> IResult<&str, RunValue> {
+    map(tag("o"), |_| RunValue::AliveCell)(input)
+}
+
+fn parse_line_end(input: &str) -> IResult<&str, RunValue> {
+    map(tag("$"), |_| RunValue::LineEnd)(input)
+}
+
+fn parse_run(input: &str) -> IResult<&str, (u32, RunValue)> {
+    let (input, len) = map(opt(parse_num), |x| x.unwrap_or(1))(input)?;
+    let (input, value) = alt((parse_dead_cell, parse_alive_cell, parse_line_end))(input)?;
+    Ok((input, (len, value)))
+}
+
+fn parse_whitespace(input: &str) -> IResult<&str, &str> {
+    is_a(" \t\r\n")(input)
+}
+
+fn parse_rle(input: &str) -> IResult<&str, Pattern> {
+    let (input, _) = opt(parse_whitespace)(input)?;
+    let (input, runs) = many0(terminated(parse_run, opt(parse_whitespace)))(input)?;
+    let (input, _) = tag("!")(input)?;
+    Ok((input, Pattern { runs }))
+}
+
 impl Pattern {
     pub fn from_pattern(pattern: &str) -> Result<Self> {
-        parse_rle(pattern.as_bytes())
+        parse_rle(pattern)
             .map(|(_, rle)| rle)
             .map_err(|_| Error::RleParse)
     }
@@ -49,52 +122,6 @@ impl Pattern {
             })
             .flat_map(|x| x)
     }
-}
-
-#[derive(Clone, Copy, Debug)]
-enum RunValue {
-    DeadCell,
-    AliveCell,
-    LineEnd,
-}
-
-fn parse_num(input: &[u8]) -> IResult<&[u8], u32> {
-    map_opt(digit1, |digits: &[u8]| {
-        if digits[0] == b'0' {
-            None
-        } else {
-            String::from_utf8_lossy(digits).parse().ok()
-        }
-    })(input)
-}
-
-fn dead_cell(input: &[u8]) -> IResult<&[u8], RunValue> {
-    map(tag("b"), |_| RunValue::DeadCell)(input)
-}
-
-fn alive_cell(input: &[u8]) -> IResult<&[u8], RunValue> {
-    map(tag("o"), |_| RunValue::AliveCell)(input)
-}
-
-fn line_end(input: &[u8]) -> IResult<&[u8], RunValue> {
-    map(tag("$"), |_| RunValue::LineEnd)(input)
-}
-
-fn run(input: &[u8]) -> IResult<&[u8], (u32, RunValue)> {
-    let (input, len) = map(opt(parse_num), |x| x.unwrap_or(1))(input)?;
-    let (input, value) = alt((dead_cell, alive_cell, line_end))(input)?;
-    Ok((input, (len, value)))
-}
-
-fn whitespace(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    is_a(" \t\r\n")(input)
-}
-
-fn parse_rle(input: &[u8]) -> IResult<&[u8], Pattern> {
-    let (input, _) = opt(whitespace)(input)?;
-    let (input, runs) = many0(terminated(run, opt(whitespace)))(input)?;
-    let (input, _) = tag("!")(input)?;
-    Ok((input, Pattern { runs }))
 }
 
 #[cfg(test)]

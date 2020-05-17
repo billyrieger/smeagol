@@ -7,6 +7,8 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not},
 };
 
+use crate::Offset;
+
 /// A `u64` interpreted as a square grid of boolean values.
 ///
 /// # Bit layout
@@ -40,21 +42,9 @@ pub struct Bool8x8(pub u64);
 
 pub type SumResult = [Bool8x8; 9];
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
-pub enum Offset {
-    West(u8),
-    East(u8),
-    North(u8),
-    South(u8),
-    Northwest(u8),
-    Northeast(u8),
-    Southwest(u8),
-    Southeast(u8),
-}
-
 impl Bool8x8 {
-    pub const FALSE: Self = Self(u64::MIN);
-    pub const TRUE: Self = Self(u64::MAX);
+    pub const FALSE: Self = Self(0);
+    pub const TRUE: Self = Self(!0);
 
     pub const WEST: Self = Self(0x_F0_F0_F0_F0_F0_F0_F0_F0);
     pub const EAST: Self = Self(0x_0F_0F_0F_0F_0F_0F_0F_0F);
@@ -81,7 +71,7 @@ impl Bool8x8 {
         }
     }
 
-    pub fn offset(&self, offset: Offset) -> Self {
+    pub fn shift(&self, offset: Offset) -> Self {
         match offset {
             Offset::West(dx) => Self(self.0 << dx),
             Offset::East(dx) => Self(self.0 >> dx),
@@ -91,6 +81,7 @@ impl Bool8x8 {
             Offset::Northeast(delta) => Self(self.0 << 7 * delta),
             Offset::Southwest(delta) => Self(self.0 >> 7 * delta),
             Offset::Southeast(delta) => Self(self.0 >> 9 * delta),
+            Offset::Arbitrary { dx, dy } => Self(self.0 >> (8 * dy + dx)),
         }
     }
 
@@ -365,10 +356,10 @@ mod tests {
     fn shift() {
         type B = Bool8x8;
 
-        assert_eq!(B::CENTER.offset(Offset::Northwest(2)), B::NORTHWEST);
-        assert_eq!(B::CENTER.offset(Offset::Northeast(2)), B::NORTHEAST);
-        assert_eq!(B::CENTER.offset(Offset::Southwest(2)), B::SOUTHWEST);
-        assert_eq!(B::CENTER.offset(Offset::Southeast(2)), B::SOUTHEAST);
+        assert_eq!(B::CENTER.shift(Offset::Northwest(2)), B::NORTHWEST);
+        assert_eq!(B::CENTER.shift(Offset::Northeast(2)), B::NORTHEAST);
+        assert_eq!(B::CENTER.shift(Offset::Southwest(2)), B::SOUTHWEST);
+        assert_eq!(B::CENTER.shift(Offset::Southeast(2)), B::SOUTHEAST);
     }
 
     #[test]

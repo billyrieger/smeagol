@@ -139,13 +139,21 @@ impl Store {
         match node {
             Node::Leaf(leaf) => Ok(leaf.get_cell(pos.x, pos.y)),
             Node::Branch(branch) => {
-                let [nw, ne, sw, se]: [Id; 4] = branch.children.0;
+                let children = branch.children;
                 let centers = node.level().quadrant_centers();
                 match pos.quadrant() {
-                    Quadrant::Northwest => self.get_cell(nw, pos.relative_to(centers.nw())),
-                    Quadrant::Northeast => self.get_cell(ne, pos.relative_to(centers.ne())),
-                    Quadrant::Southwest => self.get_cell(sw, pos.relative_to(centers.sw())),
-                    Quadrant::Southeast => self.get_cell(se, pos.relative_to(centers.se())),
+                    Quadrant::Northwest => {
+                        self.get_cell(children.nw(), pos.relative_to(centers.nw()))
+                    }
+                    Quadrant::Northeast => {
+                        self.get_cell(children.ne(), pos.relative_to(centers.ne()))
+                    }
+                    Quadrant::Southwest => {
+                        self.get_cell(children.sw(), pos.relative_to(centers.sw()))
+                    }
+                    Quadrant::Southeast => {
+                        self.get_cell(children.se(), pos.relative_to(centers.se()))
+                    }
                 }
             }
         }

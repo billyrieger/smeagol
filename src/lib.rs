@@ -4,6 +4,7 @@
 
 #![allow(dead_code, unused_variables)]
 
+mod core;
 mod node;
 mod rle;
 mod store;
@@ -30,7 +31,7 @@ enum Quadrant {
     Southeast,
 }
 
-enum Offset {
+pub enum Offset {
     West(i64),
     East(i64),
     North(i64),
@@ -169,6 +170,10 @@ impl Rule {
             survival_neighbors: make_rule(survival),
         }
     }
+
+    pub fn b3s23() -> Self {
+        Self::new(&[3], &[2, 3])
+    }
 }
 
 pub struct Universe {
@@ -177,6 +182,10 @@ pub struct Universe {
 }
 
 impl Universe {
+    pub fn new() -> Result<Self> {
+        Self::empty(Rule::b3s23())
+    }
+
     /// Creates new universe without any alive cells.
     ///
     /// # Examples
@@ -184,12 +193,10 @@ impl Universe {
     /// ```
     /// # use smeagol::{Cell, Result, Rule, Universe};
     /// # fn main() -> Result<()> {
-    /// #
     /// // Conway's Game of Life: B3/S23
     /// let life = Rule::new(&[3], &[2, 3]);
     /// let empty = Universe::empty(life)?;
     /// assert_eq!(empty.population()?, 0);
-    /// #
     /// # Ok(())
     /// # }
     /// ```
@@ -220,13 +227,11 @@ impl Universe {
     /// ```
     /// # use smeagol::{Cell, Result, Rule, Universe};
     /// # fn main() -> Result<()> {
-    /// #
     /// // Conway's Game of Life: B3/S23
     /// let life = Rule::new(&[3], &[2, 3]);
     /// let glider = Universe::from_rle_pattern(life, "bob$2bo$3o!")?;
     /// assert_eq!(glider.get_cell(0, 0)?, Cell::Dead);
     /// assert_eq!(glider.get_cell(1, 0)?, Cell::Alive);
-    /// #
     /// # Ok(())
     /// # }
     /// ```
@@ -243,11 +248,6 @@ impl Universe {
     /// // Conway's Game of Life: B3/S23
     /// let life = Rule::new(&[3], &[2, 3]);
     ///
-    /// // +-------+
-    /// // | . O . |
-    /// // | . . O |
-    /// // | O O O |
-    /// // +-------+
     /// let mut glider = Universe::from_rle_pattern(life, "bob$2bo$3o!")?;
     ///
     /// assert!(glider.get_cell(2, 2)?.is_alive());

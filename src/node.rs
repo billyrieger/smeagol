@@ -4,8 +4,8 @@
 
 use crate::{
     store::Id,
-    util::{Bool8x8, Grid2, Offset, SumResult},
-    Cell, Error, Position, Result, Rule,
+    util::{Bool8x8, Grid2, SumResult},
+    Cell, Error, Position, Result, Rule, Offset,
 };
 
 use std::{convert::TryFrom, hash::Hash};
@@ -130,14 +130,14 @@ impl Leaf {
         let (alive, dead) = (self.alive, !self.alive);
 
         let alive_neighbors: SumResult = Bool8x8::sum(&[
-            alive.offset(Offset::West(1)),
-            alive.offset(Offset::East(1)),
-            alive.offset(Offset::North(1)),
-            alive.offset(Offset::South(1)),
-            alive.offset(Offset::Northwest(1)),
-            alive.offset(Offset::Northeast(1)),
-            alive.offset(Offset::Southwest(1)),
-            alive.offset(Offset::Southeast(1)),
+            alive.shift(Offset::West(1)),
+            alive.shift(Offset::East(1)),
+            alive.shift(Offset::North(1)),
+            alive.shift(Offset::South(1)),
+            alive.shift(Offset::Northwest(1)),
+            alive.shift(Offset::Northeast(1)),
+            alive.shift(Offset::Southwest(1)),
+            alive.shift(Offset::Southeast(1)),
         ]);
 
         let any_both = |xs: &SumResult, ys: &SumResult| -> Bool8x8 {
@@ -159,35 +159,35 @@ impl Leaf {
 
     fn join_horiz(west: Leaf, east: Leaf) -> Leaf {
         let combined = Bool8x8::FALSE
-            | west.alive.offset(Offset::West(4)) & Bool8x8::WEST
-            | east.alive.offset(Offset::East(4)) & Bool8x8::EAST;
+            | west.alive.shift(Offset::West(4)) & Bool8x8::WEST
+            | east.alive.shift(Offset::East(4)) & Bool8x8::EAST;
         Self::new(combined)
     }
 
     fn join_vert(north: Leaf, south: Leaf) -> Leaf {
         let combined = Bool8x8::FALSE
-            | north.alive.offset(Offset::North(4)) & Bool8x8::NORTH
-            | south.alive.offset(Offset::South(4)) & Bool8x8::SOUTH;
+            | north.alive.shift(Offset::North(4)) & Bool8x8::NORTH
+            | south.alive.shift(Offset::South(4)) & Bool8x8::SOUTH;
         Self::new(combined)
     }
 
     fn join_centers(leaves: Grid2<Leaf>) -> Leaf {
         let [nw, ne, sw, se] = leaves.0;
         let combined = Bool8x8::FALSE
-            | nw.alive.offset(Offset::Northwest(2)) & Bool8x8::NORTHWEST
-            | ne.alive.offset(Offset::Northeast(2)) & Bool8x8::NORTHEAST
-            | sw.alive.offset(Offset::Southwest(2)) & Bool8x8::SOUTHWEST
-            | se.alive.offset(Offset::Southeast(2)) & Bool8x8::SOUTHEAST;
+            | nw.alive.shift(Offset::Northwest(2)) & Bool8x8::NORTHWEST
+            | ne.alive.shift(Offset::Northeast(2)) & Bool8x8::NORTHEAST
+            | sw.alive.shift(Offset::Southwest(2)) & Bool8x8::SOUTHWEST
+            | se.alive.shift(Offset::Southeast(2)) & Bool8x8::SOUTHEAST;
         Self::new(combined)
     }
 
     fn join_corners(leaves: Grid2<Leaf>) -> Leaf {
         let [nw, ne, sw, se] = leaves.0;
         let combined = Bool8x8::FALSE
-            | nw.alive.offset(Offset::Northwest(4)) & Bool8x8::NORTHWEST
-            | ne.alive.offset(Offset::Northeast(4)) & Bool8x8::NORTHEAST
-            | sw.alive.offset(Offset::Southwest(4)) & Bool8x8::SOUTHWEST
-            | se.alive.offset(Offset::Southeast(4)) & Bool8x8::SOUTHEAST;
+            | nw.alive.shift(Offset::Northwest(4)) & Bool8x8::NORTHWEST
+            | ne.alive.shift(Offset::Northeast(4)) & Bool8x8::NORTHEAST
+            | sw.alive.shift(Offset::Southwest(4)) & Bool8x8::SOUTHWEST
+            | se.alive.shift(Offset::Southeast(4)) & Bool8x8::SOUTHEAST;
         Self::new(combined)
     }
 
@@ -298,7 +298,7 @@ mod tests {
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
-        let blinker_horiz = Leaf::new(Bool8x8(0x0000_0038_0000_0000));
+        let blinker_horiz = Leaf::new(Bool8x8(0x_00_00_00_38_00_00_00_00));
 
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
@@ -308,7 +308,7 @@ mod tests {
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
-        let blinker_vert = Leaf::new(Bool8x8(0x0000_1010_1000_0000));
+        let blinker_vert = Leaf::new(Bool8x8(0x_00_00_10_10_10_00_00_00));
 
         assert_eq!(blinker_horiz.step(life), blinker_vert);
         assert_eq!(blinker_vert.step(life), blinker_horiz);
@@ -363,7 +363,7 @@ mod tests {
         // 0x00 | . . . . . . . .
         let jump_leaf = Leaf::new(Bool8x8(0x_00_00_00_08_04_1C_00_00));
         assert_eq!(
-            idle_leaf.alive.offset(Offset::Southeast(1)),
+            idle_leaf.alive.shift(Offset::Southeast(1)),
             jump_leaf.alive
         );
 
