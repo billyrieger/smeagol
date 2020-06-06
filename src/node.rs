@@ -5,7 +5,7 @@
 use crate::{
     store::Id,
     util::{Bool8x8, Grid2, SumResult},
-    Cell, Error, Position, Result, Rule, Offset,
+    Cell, Error, Offset, Position, Result, Rule,
 };
 
 use std::{convert::TryFrom, hash::Hash};
@@ -121,8 +121,8 @@ impl Leaf {
     pub fn set_cell(&self, x: i64, y: i64, value: Cell) -> Self {
         let index = usize::try_from(63 - 8 * (y + 4) - (x + 4)).unwrap();
         match value {
-            Cell::Dead => Self::new(self.alive.set_bit(index, false)),
-            Cell::Alive => Self::new(self.alive.set_bit(index, true)),
+            Cell::Dead => Self::new(self.alive.unset_bit(index)),
+            Cell::Alive => Self::new(self.alive.set_bit(index)),
         }
     }
 
@@ -362,10 +362,7 @@ mod tests {
         // 0x00 | . . . . . . . .
         // 0x00 | . . . . . . . .
         let jump_leaf = Leaf::new(Bool8x8(0x_00_00_00_08_04_1C_00_00));
-        assert_eq!(
-            idle_leaf.alive.shift(Offset::Southeast(1)),
-            jump_leaf.alive
-        );
+        assert_eq!(idle_leaf.alive.shift(Offset::Southeast(1)), jump_leaf.alive);
 
         assert_eq!(Leaf::evolve_leaves(start, 0, life), idle_leaf);
         assert_eq!(Leaf::evolve_leaves(start, 4, life), jump_leaf);

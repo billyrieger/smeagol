@@ -4,7 +4,9 @@
 
 #![allow(dead_code, unused_variables)]
 
-mod core;
+pub mod core;
+pub mod life;
+
 mod node;
 mod rle;
 mod store;

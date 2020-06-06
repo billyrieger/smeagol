@@ -63,12 +63,12 @@ impl Bool8x8 {
         self.0 & (1 << index) > 0
     }
 
-    pub fn set_bit(&self, index: usize, value: bool) -> Self {
-        if value {
-            Self(self.0 | (1 << index))
-        } else {
-            Self(self.0 & !(1 << index))
-        }
+    pub fn set_bit(&self, index: usize) -> Self {
+        Self(self.0 | (1 << index))
+    }
+
+    pub fn unset_bit(&self, index: usize) -> Self {
+        Self(self.0 & !(1 << index))
     }
 
     pub fn shift(&self, offset: Offset) -> Self {
@@ -81,7 +81,14 @@ impl Bool8x8 {
             Offset::Northeast(delta) => Self(self.0 << 7 * delta),
             Offset::Southwest(delta) => Self(self.0 >> 7 * delta),
             Offset::Southeast(delta) => Self(self.0 >> 9 * delta),
-            Offset::Arbitrary { dx, dy } => Self(self.0 >> (8 * dy + dx)),
+            Offset::Arbitrary { dx, dy } => {
+                let shift = 8 * dy + dx;
+                if shift >= 0 {
+                    Self(self.0 >> shift)
+                } else {
+                    Self(self.0 << shift)
+                }
+            }
         }
     }
 
