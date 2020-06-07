@@ -72,8 +72,12 @@ pub struct Leaf {
 
 impl Leaf {
     fn pos_to_idx(pos: Position) -> u8 {
-        let index = usize::try_from(63 - 8 * (pos.y + 4) - (pos.x + 4)).unwrap();
-        todo!()
+        u8::try_from(63 - 8 * (pos.y + 4) - (pos.x + 4)).unwrap()
+    }
+
+    fn idx_to_pos(idx: u8) -> Position {
+        let idx = i64::from(idx);
+        Position::new(3 - (idx % 8), 3 - (idx / 8))
     }
 
     pub fn new(alive: Bool8x8) -> Self {
@@ -84,8 +88,7 @@ impl Leaf {
         (0..64)
             .filter_map(|i| {
                 if self.alive.get_bit(i) {
-                    let i = i64::try_from(i).unwrap();
-                    Some(Position::new(3 - (i % 8), 3 - (i / 8)))
+                    Some(Self::idx_to_pos(i))
                 } else {
                     None
                 }
@@ -94,12 +97,8 @@ impl Leaf {
     }
 
     pub fn get_cell(&self, x: i64, y: i64) -> Cell {
-        // (-4, -4) -> 63
-        // (3, -4) -> 56
-        // (-4, 3) -> 7
-        // (3, 3) -> 0
-        let index = usize::try_from(63 - 8 * (y + 4) - (x + 4)).unwrap();
-        if self.alive.get_bit(index) {
+        let idx = Self::pos_to_idx(Position { x, y });
+        if self.alive.get_bit(idx) {
             Cell::Alive
         } else {
             Cell::Dead
@@ -107,10 +106,10 @@ impl Leaf {
     }
 
     pub fn set_cell(&self, x: i64, y: i64, value: Cell) -> Self {
-        let index = usize::try_from(63 - 8 * (y + 4) - (x + 4)).unwrap();
+        let idx = Self::pos_to_idx(Position { x, y });
         match value {
-            Cell::Dead => Self::new(self.alive.unset_bit(index)),
-            Cell::Alive => Self::new(self.alive.set_bit(index)),
+            Cell::Dead => Self::new(self.alive.unset_bit(idx)),
+            Cell::Alive => Self::new(self.alive.set_bit(idx)),
         }
     }
 

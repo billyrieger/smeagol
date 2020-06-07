@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-/// A `2x2` square grid of values.
+/// Four elements arranged in a `2x2` grid.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Grid2<T>(pub [T; 4]);
 
@@ -58,7 +58,7 @@ where
     }
 }
 
-/// A `3x3` square grid of values.
+/// Nine elements arranged in a `3x3` grid.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Grid3<T>(pub [T; 9]);
 
@@ -84,7 +84,7 @@ where
     }
 }
 
-/// A `4x4` square grid of values.
+/// Sixteen elements arranged in a `4x4` grid.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Grid4<T>(pub [T; 16]);
 

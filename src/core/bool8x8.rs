@@ -40,31 +40,42 @@ pub struct Bool8x8(pub u64);
 pub type SumResult = [Bool8x8; 9];
 
 impl Bool8x8 {
+    /// The `Bool8x8` where all elements are `false`.
     pub const FALSE: Self = Self(0);
+    /// The `Bool8x8` where all elements are `true`.
     pub const TRUE: Self = Self(!0);
 
+    /// The `Bool8x8` where the left half is `true`.
     pub const WEST: Self = Self(0x_F0_F0_F0_F0_F0_F0_F0_F0);
+    /// The `Bool8x8` where the right half is `true`.
     pub const EAST: Self = Self(0x_0F_0F_0F_0F_0F_0F_0F_0F);
 
+    /// The `Bool8x8` where the upper half is `true`.
     pub const NORTH: Self = Self(0x_FF_FF_FF_FF_00_00_00_00);
+    /// The `Bool8x8` where the lower half is `true`.
     pub const SOUTH: Self = Self(0x_00_00_00_00_FF_FF_FF_FF);
 
+    /// The `Bool8x8` where the upper-left quarter is `true`.
     pub const NORTHWEST: Self = Self(0x_F0_F0_F0_F0_00_00_00_00);
+    /// The `Bool8x8` where the upper-right quarter is `true`.
     pub const NORTHEAST: Self = Self(0x_0F_0F_0F_0F_00_00_00_00);
+    /// The `Bool8x8` where the lower-left quarter is `true`.
     pub const SOUTHWEST: Self = Self(0x_00_00_00_00_F0_F0_F0_F0);
+    /// The `Bool8x8` where the lower-right quarter is `true`.
     pub const SOUTHEAST: Self = Self(0x_00_00_00_00_0F_0F_0F_0F);
 
+    /// The `Bool8x8` where the central `4x4` square is `true`.
     pub const CENTER: Self = Self(0x_00_00_3C_3C_3C_3C_00_00);
 
-    pub fn get_bit(&self, index: usize) -> bool {
+    pub fn get_bit(&self, index: u8) -> bool {
         self.0 & (1 << index) > 0
     }
 
-    pub fn set_bit(&self, index: usize) -> Self {
+    pub fn set_bit(&self, index: u8) -> Self {
         Self(self.0 | (1 << index))
     }
 
-    pub fn unset_bit(&self, index: usize) -> Self {
+    pub fn unset_bit(&self, index: u8) -> Self {
         Self(self.0 & !(1 << index))
     }
 
