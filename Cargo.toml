@@ -10,4 +10,5 @@ edition = "2018"
 publish = false
 
 [dependencies]
+generational-arena = "0.2.8"
 packed_simd = "0.3.3"
