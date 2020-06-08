@@ -165,8 +165,8 @@ mod tests {
                 0b_00000000,
                 0b_00000000,
                 0b_00000100,
-                0b_00000100,
-                0b_00000100,
+                0b_00000010,
+                0b_00001110,
                 0b_00000000,
             ],
         };
@@ -179,8 +179,8 @@ mod tests {
         let expected0 = TwoStateLeaf {
             alive: [
                 0b_01000000,
-                0b_01000000,
-                0b_01000000,
+                0b_00100000,
+                0b_11100000,
                 0b_00000000,
                 0b_00000000,
                 0b_00000000,
@@ -189,12 +189,12 @@ mod tests {
             ],
         };
 
-        let expected1 = TwoStateLeaf {
+        let expected4 = TwoStateLeaf {
             alive: [
                 0b_00000000,
-                0b_11100000,
-                0b_00000000,
-                0b_00000000,
+                0b_00100000,
+                0b_00010000,
+                0b_01110000,
                 0b_00000000,
                 0b_00000000,
                 0b_00000000,
@@ -203,6 +203,6 @@ mod tests {
         };
 
         assert_eq!(rule.evolve(grid, 0), expected0);
-        assert_eq!(rule.evolve(grid, 1), expected1);
+        assert_eq!(rule.evolve(grid, 4), expected4);
     }
 }
