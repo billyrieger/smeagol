@@ -10,7 +10,4 @@ edition = "2018"
 publish = false
 
 [dependencies]
-either = "1.5"
-itertools = "0.9"
-nom = "5.1"
-thiserror = "1.0"
+packed_simd = "0.3.3"

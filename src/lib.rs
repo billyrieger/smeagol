@@ -2,267 +2,207 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#![allow(dead_code, unused_variables)]
+use packed_simd::{shuffle, u16x16};
 
-mod core;
-mod node;
-mod rle;
-mod store;
-mod util;
+#[derive(Clone, Copy, Debug)]
+pub struct Grid2<T>([T; 4]);
 
-use store::{Id, Store};
-use util::{Bool8x8, SumResult};
+impl<T> Grid2<T>
+where
+    T: Copy,
+{
+    pub fn unpack(&self) -> [T; 4] {
+        self.0
+    }
 
-use std::{fmt, io};
+    pub fn nw(&self) -> T {
+        self.0[0]
+    }
+    pub fn ne(&self) -> T {
+        self.0[1]
+    }
+    pub fn sw(&self) -> T {
+        self.0[2]
+    }
+    pub fn se(&self) -> T {
+        self.0[3]
+    }
+}
 
-use thiserror::Error;
+pub trait Rule {
+    type Leaf;
+
+    fn evolve(&self, grid: Grid2<Self::Leaf>, steps: u8) -> Self::Leaf;
+}
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) struct Position {
-    pub x: i64,
-    pub y: i64,
+pub struct TwoStateLeaf {
+    alive: [u8; 8],
 }
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-enum Quadrant {
-    Northwest,
-    Northeast,
-    Southwest,
-    Southeast,
+fn grid_to_u16x16(grid: Grid2<TwoStateLeaf>) -> u16x16 {
+    let [nw, ne, sw, se] = grid.unpack();
+    let [nw, ne, sw, se] = [nw.alive, ne.alive, sw.alive, se.alive];
+
+    u16x16::new(
+        u16::from_be_bytes([nw[0], ne[0]]),
+        u16::from_be_bytes([nw[1], ne[1]]),
+        u16::from_be_bytes([nw[2], ne[2]]),
+        u16::from_be_bytes([nw[3], ne[3]]),
+        u16::from_be_bytes([nw[4], ne[4]]),
+        u16::from_be_bytes([nw[5], ne[5]]),
+        u16::from_be_bytes([nw[6], ne[6]]),
+        u16::from_be_bytes([nw[7], ne[7]]),
+        u16::from_be_bytes([sw[0], se[0]]),
+        u16::from_be_bytes([sw[1], se[1]]),
+        u16::from_be_bytes([sw[2], se[2]]),
+        u16::from_be_bytes([sw[3], se[3]]),
+        u16::from_be_bytes([sw[4], se[4]]),
+        u16::from_be_bytes([sw[5], se[5]]),
+        u16::from_be_bytes([sw[6], se[6]]),
+        u16::from_be_bytes([sw[7], se[7]]),
+    )
 }
 
-pub enum Offset {
-    West(i64),
-    East(i64),
-    North(i64),
-    South(i64),
-    Northwest(i64),
-    Northeast(i64),
-    Southwest(i64),
-    Southeast(i64),
-    Arbitrary { dx: i64, dy: i64 },
-}
+fn center(grid: u16x16) -> TwoStateLeaf {
+    let grid: [u16; 16] = grid.into();
 
-impl Position {
-    pub const ORIGIN: Self = Self::new(0, 0);
+    let middle = |row: u16| (row >> 4) as u8;
 
-    /// Creates a new `Position` from the given `x` and `y` coordinates.
-    pub const fn new(x: i64, y: i64) -> Self {
-        Self { x, y }
-    }
-
-    fn quadrant(&self) -> Quadrant {
-        match (self.x < 0, self.y < 0) {
-            (true, true) => Quadrant::Northwest,
-            (false, true) => Quadrant::Northeast,
-            (true, false) => Quadrant::Southwest,
-            (false, false) => Quadrant::Southeast,
-        }
-    }
-
-    fn relative_to(&self, other: Position) -> Position {
-        self.offset(Offset::Arbitrary {
-            dx: -other.x,
-            dy: -other.y,
-        })
-    }
-
-    fn offset(&self, offset: Offset) -> Position {
-        match offset {
-            Offset::West(dx) => Self::new(self.x - dx, self.y),
-            Offset::East(dx) => Self::new(self.x + dx, self.y),
-            Offset::North(dy) => Self::new(self.x, self.y - dy),
-            Offset::South(dy) => Self::new(self.x, self.y + dy),
-            Offset::Northwest(delta) => Self::new(self.x - delta, self.y - delta),
-            Offset::Northeast(delta) => Self::new(self.x + delta, self.y - delta),
-            Offset::Southwest(delta) => Self::new(self.x - delta, self.y + delta),
-            Offset::Southeast(delta) => Self::new(self.x + delta, self.y + delta),
-            Offset::Arbitrary { dx, dy } => Self::new(self.x + dx, self.y + dy),
-        }
+    TwoStateLeaf {
+        alive: [
+            middle(grid[4]),
+            middle(grid[5]),
+            middle(grid[6]),
+            middle(grid[7]),
+            middle(grid[8]),
+            middle(grid[9]),
+            middle(grid[10]),
+            middle(grid[11]),
+        ],
     }
 }
 
-/// A result.
-pub type Result<T> = std::result::Result<T, Error>;
-
-/// An error.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("parse")]
-    RleParse,
-    #[error("increment")]
-    Increment,
-    #[error("unbalanced")]
-    Unbalanced,
-    #[error("id not found")]
-    IdNotFound(Id),
-    #[error("out of bounds")]
-    OutOfBounds,
-    #[error("fmt {0}")]
-    Fmt(#[from] fmt::Error),
-    #[error("io {0}")]
-    Io(#[from] io::Error),
+fn rotate_up(grid: u16x16) -> u16x16 {
+    shuffle!(grid, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0])
 }
 
-/// The fundamental unit of a cellular automaton.
-#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
-pub enum Cell {
-    Dead,
-    Alive,
+fn rotate_down(grid: u16x16) -> u16x16 {
+    shuffle!(grid, [15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
 }
 
-impl Cell {
-    /// Checks whether the cell is alive or not.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use smeagol::Cell;
-    /// assert!(Cell::Alive.is_alive());
-    /// assert!(!Cell::Dead.is_alive());
-    /// ```
-    pub fn is_alive(&self) -> bool {
-        match self {
-            Cell::Dead => false,
-            Cell::Alive => true,
-        }
-    }
+fn rotate_left(grid: u16x16) -> u16x16 {
+    grid.rotate_left(u16x16::splat(1))
 }
 
-/// A description of how one state of a cellular automaton transitions into the next.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Rule {
-    birth_neighbors: SumResult,
-    survival_neighbors: SumResult,
+fn rotate_right(grid: u16x16) -> u16x16 {
+    grid.rotate_right(u16x16::splat(1))
 }
 
-impl Rule {
-    /// Creates a new `Rule` using B/S notation.
-    ///
-    /// From [LifeWiki]:
-    ///
-    /// > The most common notation for rulestrings B{number list}/S{number list}; this is referred
-    /// > to as "B/S notation", and is sometimes called the rulestring of the [cellular automaton]
-    /// > in question. B (for birth) is a list of all the numbers of live neighbors that cause a
-    /// > dead cell to come alive (be born); S (for survival) is a list of all the numbers of live
-    /// > neighbors that cause a live cell to remain alive (survive).
-    ///
-    /// [LifeWiki]: https://www.conwaylife.com/wiki/Rulestring#B.2FS_notation
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use smeagol::Rule;
-    /// // Conway's Game of Life: B3/S23
-    /// let life = Rule::new(&[3], &[2, 3]);
-    /// ```
-    pub fn new(birth: &[usize], survival: &[usize]) -> Self {
-        let make_rule = |neighbor_count: &[usize]| -> SumResult {
-            let mut result = [Bool8x8::FALSE; 9];
-            for &i in neighbor_count.iter().filter(|&&count| count < 9) {
-                result[i] = Bool8x8::TRUE;
+fn half_adder(sum: &mut u16x16, addend: u16x16) -> u16x16 {
+    let carry = *sum & addend;
+    *sum ^= addend;
+    carry
+}
+
+pub struct B3S23;
+
+impl Rule for B3S23 {
+    type Leaf = TwoStateLeaf;
+
+    fn evolve(&self, grid: Grid2<TwoStateLeaf>, steps: u8) -> TwoStateLeaf {
+        assert!(steps <= 4);
+
+        let step_once = |alive: u16x16| -> u16x16 {
+            let [mut d2, mut d1, mut d0] = [u16x16::splat(0); 3];
+
+            let moore_neighborhood = [
+                rotate_up(alive),
+                rotate_down(alive),
+                rotate_left(alive),
+                rotate_right(alive),
+                rotate_up(rotate_left(alive)),
+                rotate_up(rotate_right(alive)),
+                rotate_down(rotate_left(alive)),
+                rotate_down(rotate_right(alive)),
+            ];
+
+            for &addend in &moore_neighborhood {
+                let carry0 = half_adder(&mut d0, addend);
+                let carry1 = half_adder(&mut d1, carry0);
+                d2 |= carry1;
             }
-            result
+
+            // two is 010 is binary
+            let sum_is_two = !d2 & d1 & !d0;
+
+            // three is 011 in binary
+            let sum_is_three = !d2 & d1 & d0;
+
+            sum_is_three | (alive & sum_is_two)
         };
 
-        Self {
-            birth_neighbors: make_rule(birth),
-            survival_neighbors: make_rule(survival),
+        let mut result: u16x16 = grid_to_u16x16(grid);
+        for _ in 0..steps {
+            result = step_once(result);
         }
-    }
-
-    pub fn b3s23() -> Self {
-        Self::new(&[3], &[2, 3])
+        center(result)
     }
 }
 
-pub struct Universe {
-    store: Store,
-    root: Id,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl Universe {
-    pub fn new() -> Result<Self> {
-        Self::empty(Rule::b3s23())
-    }
+    #[test]
+    fn test() {
+        let rule = B3S23;
 
-    /// Creates new universe without any alive cells.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use smeagol::{Cell, Result, Rule, Universe};
-    /// # fn main() -> Result<()> {
-    /// // Conway's Game of Life: B3/S23
-    /// let life = Rule::new(&[3], &[2, 3]);
-    /// let empty = Universe::empty(life)?;
-    /// assert_eq!(empty.population()?, 0);
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn empty(rule: Rule) -> Result<Self> {
-        let mut store = Store::new(rule);
-        let root = store.initialize()?;
-        Ok(Self { store, root })
-    }
+        let nw = TwoStateLeaf {
+            alive: [
+                0b_00000000,
+                0b_00000000,
+                0b_00000000,
+                0b_00000000,
+                0b_00000100,
+                0b_00000100,
+                0b_00000100,
+                0b_00000000,
+            ],
+        };
+        let ne = TwoStateLeaf { alive: [0; 8] };
+        let sw = TwoStateLeaf { alive: [0; 8] };
+        let se = TwoStateLeaf { alive: [0; 8] };
 
-    pub fn from_rle_pattern(rule: Rule, pattern: &str) -> Result<Self> {
-        use rle::Pattern;
+        let grid = Grid2([nw, ne, sw, se]);
 
-        let mut universe = Self::empty(rule)?;
-        let cells: Vec<Position> = Pattern::from_pattern(pattern)?.alive_cells().collect();
-        println!("{:?}", cells);
-        universe.root = universe
-            .store
-            .set_cells(universe.root, cells, Cell::Alive)?;
-        Ok(universe)
-    }
+        let expected0 = TwoStateLeaf {
+            alive: [
+                0b_01000000,
+                0b_01000000,
+                0b_01000000,
+                0b_00000000,
+                0b_00000000,
+                0b_00000000,
+                0b_00000000,
+                0b_00000000,
+            ],
+        };
 
-    pub fn population(&self) -> Result<u128> {
-        self.store.population(self.root)
-    }
+        let expected1 = TwoStateLeaf {
+            alive: [
+                0b_00000000,
+                0b_11100000,
+                0b_00000000,
+                0b_00000000,
+                0b_00000000,
+                0b_00000000,
+                0b_00000000,
+                0b_00000000,
+            ],
+        };
 
-    /// # Examples
-    ///
-    /// ```
-    /// # use smeagol::{Cell, Result, Rule, Universe};
-    /// # fn main() -> Result<()> {
-    /// // Conway's Game of Life: B3/S23
-    /// let life = Rule::new(&[3], &[2, 3]);
-    /// let glider = Universe::from_rle_pattern(life, "bob$2bo$3o!")?;
-    /// assert_eq!(glider.get_cell(0, 0)?, Cell::Dead);
-    /// assert_eq!(glider.get_cell(1, 0)?, Cell::Alive);
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn get_cell(&self, x: i64, y: i64) -> Result<Cell> {
-        self.store.get_cell(self.root, Position::new(x, y))
-    }
-
-    /// # Examples
-    ///
-    /// ```
-    /// # use smeagol::{Cell, Result, Rule, Universe};
-    /// # fn main() -> Result<()> {
-    /// #
-    /// // Conway's Game of Life: B3/S23
-    /// let life = Rule::new(&[3], &[2, 3]);
-    ///
-    /// let mut glider = Universe::from_rle_pattern(life, "bob$2bo$3o!")?;
-    ///
-    /// assert!(glider.get_cell(2, 2)?.is_alive());
-    ///
-    /// glider.step(4)?;
-    /// assert!(glider.get_cell(3, 3)?.is_alive());
-    ///
-    /// glider.step(4)?;
-    /// assert!(glider.get_cell(4, 4)?.is_alive());
-    /// #
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn step(&mut self, steps: u64) -> Result<()> {
-        self.root = self.store.step(self.root, steps)?;
-        Ok(())
+        assert_eq!(rule.evolve(grid, 0), expected0);
+        assert_eq!(rule.evolve(grid, 1), expected1);
     }
 }
