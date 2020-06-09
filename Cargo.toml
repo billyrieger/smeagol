@@ -12,3 +12,5 @@ publish = false
 [dependencies]
 generational-arena = "0.2.8"
 packed_simd = "0.3.3"
+itertools = "0.9.0"
+derive_more = "0.99.7"
