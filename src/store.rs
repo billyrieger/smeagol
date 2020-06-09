@@ -4,16 +4,33 @@
 
 use crate::{life::Rule, Grid2};
 
+use arrayvec::ArrayVec;
 use generational_arena::{Arena, Index};
-use itertools::izip;
 
 const MAX_SIDE_LEN: u64 = 1 << 63;
 const LEAF_SIDE_LEN: u64 = 1 << 3;
 
-// const MIN_COORD: i64 = -((MAX_SIDE_LEN / 2) as i64);
-// const MAX_COORD: i64 = ((MAX_SIDE_LEN / 1) - 1) as i64;
-const MIN_LEAF_COORD: i64 = -((LEAF_SIDE_LEN >> 1) as i64);
-const MAX_LEAF_COORD: i64 = ((LEAF_SIDE_LEN / 1) - 1) as i64;
+pub trait NodeVisitor<T = ()> {
+    fn visit_leaf(&mut self, leaf: Leaf) -> Option<T>;
+    fn visit_branch(&mut self, branch: Branch) -> Option<T>;
+}
+
+pub struct AliveCells<'s, R: 's> {
+    store: &'s Store<R>,
+    root: Id,
+    center: Position,
+    coords: Vec<Position>,
+}
+
+impl<'s, R: 's> NodeVisitor for AliveCells<'s, R> {
+    fn visit_leaf(&mut self, leaf: Leaf) -> Option<()> {
+        None
+    }
+
+    fn visit_branch(&mut self, branch: Branch) -> Option<()> {
+        None
+    }
+}
 
 pub enum Quadrant {
     Northwest,
@@ -22,7 +39,7 @@ pub enum Quadrant {
     Southeast,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Position {
     pub x: i64,
     pub y: i64,
@@ -87,6 +104,31 @@ impl Leaf {
         Self { alive }
     }
 
+    pub fn alive_cells(&self) -> ArrayVec<[Position; 64]> {
+        let mut result = ArrayVec::new();
+
+        if self.alive == 0 {
+            return result;
+        }
+
+        let mut bits: u64 = self.alive;
+        let mut reverse_index: usize = 0;
+
+        while bits > 0 {
+            let n_zeros = bits.leading_zeros() as usize;
+
+            bits <<= n_zeros;
+            reverse_index += n_zeros;
+
+            result.push(self.standarize(63 - reverse_index));
+
+            reverse_index += 1;
+            bits <<= 1;
+        }
+
+        result
+    }
+
     fn localize(&self, pos: Position) -> Option<usize> {
         let (min, max): (i64, i64) = (Self::MIN_COORD, Self::MAX_COORD);
 
@@ -98,6 +140,14 @@ impl Leaf {
         } else {
             Some((8 * (max - pos.y) + (max - pos.x)) as usize)
         }
+    }
+
+    fn standarize(&self, index: usize) -> Position {
+        assert!(index < 64);
+        let index = index as i64;
+        let y: i64 = 3 - index / 8;
+        let x: i64 = 3 - index % 8;
+        Position::new(x, y)
     }
 
     pub fn population(&self) -> u128 {
@@ -115,18 +165,13 @@ impl Leaf {
     }
 
     fn set_cells(self, coords: &mut [Position], cell: Cell) -> Option<Self> {
-        coords.iter().flat_map(|&pos| self.localize(pos)).fold(
-            self,
-            |mut leaf: Leaf, index: usize| {
-                match cell {
-                    Cell::Dead => todo!(),
-                    Cell::Alive => {
-                        // leaf.alive[row_idx] = leaf.alive[row_idx] | (1 << col_idx);
-                        todo!()
-                    }
-                }
-            },
-        );
+        coords
+            .iter()
+            .flat_map(|&pos| self.localize(pos))
+            .fold(self, |leaf: Leaf, index: usize| match cell {
+                Cell::Dead => Leaf::new(leaf.alive & !(1 << index)),
+                Cell::Alive => Leaf::new(leaf.alive | (1 << index)),
+            });
         todo!()
     }
 }
@@ -164,7 +209,7 @@ pub enum NodeKind {
     Branch,
 }
 
-pub struct Store<R: Rule> {
+pub struct Store<R> {
     rule: R,
     nodes: Arena<Node>,
 }
@@ -211,142 +256,117 @@ where
         self.nodes.get(id.index).copied()
     }
 
-    pub fn get_cells(&self, id: Id, coords: &mut [Position]) -> Option<Vec<Cell>> {
-        let mut accumulator: Vec<Cell> = Vec::with_capacity(coords.len());
-        self.get_cells_helper(id, coords, Position::ORIGIN, &mut accumulator)?;
-        Some(accumulator)
-    }
-
-    fn get_cells_helper(
+    pub fn visit<B, F, G>(
         &self,
-        id: Id,
-        coords: &mut [Position],
-        center: Position,
-        accumulator: &mut Vec<Cell>,
-    ) -> Option<()> {
-        if coords.is_empty() {
-            return Some(());
-        }
-
-        let node = self.get_node(id)?;
-        match node {
-            Node::Leaf(leaf) => {
-                for &mut pos in coords {
-                    accumulator.push(leaf.get_cell(pos.relative_to(center))?);
-                }
-                Some(())
-            }
-
-            Node::Branch(branch) => {
-                let delta = (branch.side_len / 4) as i64;
-                let (dx, dy) = (delta, delta);
-
-                let is_western = |p: &Position| p.x >= 0;
-                let is_northern = |p: &Position| p.y >= 0;
-
-                let ids: [Id; 4] = branch.children.unpack();
-
-                let centers: [Position; 4] = [
-                    center.offset(-dx, -dy),
-                    center.offset(dx, -dy),
-                    center.offset(-dx, dy),
-                    center.offset(dx, dy),
-                ];
-
-                let mut parts: [&mut [Position]; 4] =
-                    self.partition(coords, is_western, is_northern).unpack();
-
-                for (&id, &center, part) in izip!(ids.iter(), centers.iter(), parts.iter_mut()) {
-                    self.get_cells_helper(id, part, center, accumulator)?;
-                }
-
-                Some(())
-            }
-        }
-    }
-
-    fn set_cells_helper(
-        &mut self,
-        id: Id,
-        coords: &mut [Position],
-        center: Position,
-        cell: Cell,
-    ) -> Option<(Node, Id)> {
-        let node = self.get_node(id)?;
-
-        if coords.is_empty() {
-            return Some((node, id));
-        }
-
-        match node {
-            Node::Leaf(leaf) => {
-                // for &mut pos in coords {
-                //     accumulator.push(leaf.get_cell(pos.relative_to(center))?);
-                // }
-                None
-            }
-
-            Node::Branch(branch) => {
-                let delta = (branch.side_len / 4) as i64;
-                let (dx, dy) = (delta, delta);
-
-                let is_western = |p: &Position| p.x >= 0;
-                let is_northern = |p: &Position| p.y >= 0;
-
-                let ids: [Id; 4] = branch.children.unpack();
-
-                let centers: [Position; 4] = [
-                    center.offset(-dx, -dy),
-                    center.offset(dx, -dy),
-                    center.offset(-dx, dy),
-                    center.offset(dx, dy),
-                ];
-
-                let parts: [&mut [Position]; 4] =
-                    self.partition(coords, is_western, is_northern).unpack();
-
-                let (nw_node, nw_id) = self.set_cells_helper(ids[0], parts[0], centers[0], cell)?;
-                let (ne_node, ne_id) = self.set_cells_helper(ids[1], parts[1], centers[1], cell)?;
-                let (sw_node, sw_id) = self.set_cells_helper(ids[2], parts[2], centers[2], cell)?;
-                let (se_node, se_id) = self.set_cells_helper(ids[3], parts[3], centers[3], cell)?;
-
-                let new_population = 0
-                    + nw_node.population()
-                    + ne_node.population()
-                    + sw_node.population()
-                    + se_node.population();
-
-                let new_branch = Branch {
-                    children: Grid2::pack([nw_id, ne_id, sw_id, se_id]),
-                    side_len: branch.side_len,
-                    population: new_population,
-                };
-                None
-            }
-        }
-    }
-
-    fn partition<'list, F, G, T>(
-        &self,
-        list: &'list mut [T],
-        horiz_pred: F,
-        vert_pred: G,
-    ) -> Grid2<&'list mut [T]>
+        init: B,
+        root_id: Id,
+        visit_leaf: &mut F,
+        visit_branch: &mut G,
+    ) -> Option<B>
     where
-        F: Fn(&T) -> bool,
-        G: Fn(&T) -> bool,
+        F: Fn(B, Leaf) -> Option<B>,
+        G: Fn(B, Branch) -> Option<B>,
     {
-        // a note on itertools::partition
-        // elements that satisfy the predicate are placed before the elements that don't
-        let split_index = itertools::partition(list.iter_mut(), |t| horiz_pred(&t));
-        let (west_coords, east_coords) = list.split_at_mut(split_index);
-
-        let split_index = itertools::partition(east_coords.iter_mut(), |t| vert_pred(&t));
-        let (se_coords, ne_coords) = east_coords.split_at_mut(split_index);
-
-        let split_index = itertools::partition(west_coords.iter_mut(), |t| vert_pred(&t));
-        let (sw_coords, nw_coords) = west_coords.split_at_mut(split_index);
-
-        Grid2::pack([nw_coords, ne_coords, sw_coords, se_coords])
+        let root: Node = self.get_node(root_id)?;
+        match root {
+            Node::Leaf(leaf) => visit_leaf(init, leaf),
+            Node::Branch(branch) => visit_branch(init, branch),
+        }
     }
 }
+
+fn split<F, T>(list: &mut [T], pred: F) -> (&mut [T], &mut [T])
+where
+    F: Fn(&T) -> bool,
+{
+    // a note on itertools::partition
+    // elements that satisfy the predicate are placed before the elements that don't
+    let index: usize = itertools::partition(list.iter_mut(), |t| pred(t));
+    list.split_at_mut(index)
+}
+
+fn partition(list: &mut [Position]) -> Grid2<&mut [Position]> {
+    let (north, south) = split(list, |p| p.y < 0);
+
+    let (nw, ne) = split(north, |p| p.x < 0);
+    let (sw, se) = split(south, |p| p.x < 0);
+
+    Grid2::pack([nw, ne, sw, se])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn alive_cells() {
+        let empty = Leaf::DEAD;
+        let nw_leaf = Leaf::new(0x_80_00_00_00_00_00_00_00);
+        let ne_leaf = Leaf::new(0x_01_00_00_00_00_00_00_00);
+        let sw_leaf = Leaf::new(0x_00_00_00_00_00_00_00_80);
+        let se_leaf = Leaf::new(0x_00_00_00_00_00_00_00_01);
+        let four_corners = Leaf::new(nw_leaf.alive | ne_leaf.alive | sw_leaf.alive | se_leaf.alive);
+
+        assert_eq!(&*empty.alive_cells(), &[]);
+        assert_eq!(&*nw_leaf.alive_cells(), &[Position::new(-4, -4)]);
+        assert_eq!(&*ne_leaf.alive_cells(), &[Position::new(3, -4)]);
+        assert_eq!(&*sw_leaf.alive_cells(), &[Position::new(-4, 3)]);
+        assert_eq!(&*se_leaf.alive_cells(), &[Position::new(3, 3)]);
+        assert_eq!(
+            &*four_corners.alive_cells(),
+            &[
+                Position::new(-4, -4),
+                Position::new(3, -4),
+                Position::new(-4, 3),
+                Position::new(3, 3)
+            ]
+        );
+    }
+}
+
+//     fn _get_cells_helper(
+//         &self,
+//         id: Id,
+//         coords: &mut [Position],
+//         center: Position,
+//         buf: &mut Vec<Cell>,
+//     ) -> Option<()> {
+//         if coords.is_empty() {
+//             return Some(());
+//         }
+
+//         let node = self.get_node(id)?;
+//         match node {
+//             Node::Leaf(leaf) => {
+//                 for &mut pos in coords {
+//                     buf.push(leaf.get_cell(pos.relative_to(center))?);
+//                 }
+//                 Some(())
+//             }
+
+//             Node::Branch(branch) => {
+//                 let delta = (branch.side_len / 4) as i64;
+//                 let (dx, dy) = (delta, delta);
+
+//                 let is_western = |p: &Position| p.x >= 0;
+//                 let is_northern = |p: &Position| p.y >= 0;
+
+//                 let ids: [Id; 4] = branch.children.unpack();
+
+//                 let centers: [Position; 4] = [
+//                     center.offset(-dx, -dy),
+//                     center.offset(dx, -dy),
+//                     center.offset(-dx, dy),
+//                     center.offset(dx, dy),
+//                 ];
+
+//                 let mut parts: [&mut [Position]; 4] =
+//                     self.partition(coords, is_western, is_northern).unpack();
+
+//                 for ((&id, &center), part) in ids.iter().zip(centers.iter()).zip(parts.iter_mut()) {
+//                     self._get_cells_helper(id, part, center, buf)?;
+//                 }
+
+//                 Some(())
+//             }
+//         }
