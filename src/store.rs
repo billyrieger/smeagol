@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::{life::Rule, Grid2};
+use crate::{life::Rule, util::Grid2};
 
 use arrayvec::ArrayVec;
 use generational_arena::{Arena, Index};
@@ -94,8 +94,9 @@ pub struct Leaf {
 }
 
 impl Leaf {
-    pub const MIN_COORD: i64 = -4;
-    pub const MAX_COORD: i64 = 3;
+    pub const MIN: i64 = -4;
+    pub const MAX: i64 = 3;
+    pub const SIDE_LEN: i64 = 8;
 
     pub const DEAD: Self = Self::new(0);
     pub const ALIVE: Self = Self::new(!0);
@@ -120,7 +121,7 @@ impl Leaf {
             bits <<= n_zeros;
             reverse_index += n_zeros;
 
-            result.push(self.standarize(63 - reverse_index));
+            result.push(self.idx_to_pos(63 - reverse_index));
 
             reverse_index += 1;
             bits <<= 1;
@@ -129,24 +130,20 @@ impl Leaf {
         result
     }
 
-    fn localize(&self, pos: Position) -> Option<usize> {
-        let (min, max): (i64, i64) = (Self::MIN_COORD, Self::MAX_COORD);
-
-        let x_is_oob: bool = !(min <= pos.x && pos.x <= max);
-        let y_is_oob: bool = !(min <= pos.y && pos.y <= max);
-
-        if x_is_oob || y_is_oob {
-            None
-        } else {
-            Some((8 * (max - pos.y) + (max - pos.x)) as usize)
-        }
+    fn check_bounds(&self, pos: Position) -> bool {
+        let x_ok = Self::MIN <= pos.x && pos.x <= Self::MAX;
+        let y_ok = Self::MIN <= pos.y && pos.y <= Self::MAX;
+        x_ok && y_ok
     }
 
-    fn standarize(&self, index: usize) -> Position {
-        assert!(index < 64);
+    fn pos_to_idx(&self, pos: Position) -> usize {
+        (Self::SIDE_LEN * (Self::MAX - pos.y) + (Self::MAX - pos.x)) as usize
+    }
+
+    fn idx_to_pos(&self, index: usize) -> Position {
         let index = index as i64;
-        let y: i64 = 3 - index / 8;
-        let x: i64 = 3 - index % 8;
+        let y = Self::MAX - index / Self::SIDE_LEN;
+        let x = Self::MAX - index % Self::SIDE_LEN;
         Position::new(x, y)
     }
 
@@ -155,23 +152,26 @@ impl Leaf {
     }
 
     pub fn get_cell(&self, pos: Position) -> Option<Cell> {
-        self.localize(pos).map(|index| {
+        if self.check_bounds(pos) {
+            None
+        } else {
+            let index = self.pos_to_idx(pos);
             if self.alive & (1 << index) == 0 {
-                Cell::Dead
+                Some(Cell::Dead)
             } else {
-                Cell::Alive
+                Some(Cell::Alive)
             }
-        })
+        }
     }
 
-    fn set_cells(self, coords: &mut [Position], cell: Cell) -> Option<Self> {
-        coords
-            .iter()
-            .flat_map(|&pos| self.localize(pos))
-            .fold(self, |leaf: Leaf, index: usize| match cell {
-                Cell::Dead => Leaf::new(leaf.alive & !(1 << index)),
-                Cell::Alive => Leaf::new(leaf.alive | (1 << index)),
-            });
+    fn set_cells(&self, coords: &mut [Position], cell: Cell) -> Option<Self> {
+        // coords
+        //     .iter()
+        //     .flat_map(|&pos| self.get_cell(pos))
+        //     .fold(*self, |leaf: Leaf, index: usize| match cell {
+        //         Cell::Dead => Leaf::new(leaf.alive & !(1 << index)),
+        //         Cell::Alive => Leaf::new(leaf.alive | (1 << index)),
+        //     });
         todo!()
     }
 }

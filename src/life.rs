@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::{store::Leaf, Grid2};
+mod rule;
+pub use rule::Rule;
+
+use crate::{store::Leaf, util::Grid2};
 
 use derive_more::{
     BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, ShlAssign, Shr,
@@ -10,23 +13,9 @@ use derive_more::{
 };
 use packed_simd::{shuffle, u16x16};
 
-// derives from the standard library
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
-// derives from derive_std
-// TODO condense formatting
-#[derive(
-    BitAnd,
-    BitAndAssign,
-    BitOr,
-    BitOrAssign,
-    BitXor,
-    BitXorAssign,
-    Not,
-    Shl,
-    ShlAssign,
-    Shr,
-    ShrAssign,
-)]
+#[derive(BitAnd, BitOr, BitXor, Shl, Shr, Not)]
+#[derive(BitAndAssign, BitOrAssign, BitXorAssign, ShlAssign, ShrAssign)]
 struct Bool16x16(u16x16);
 
 impl Bool16x16 {
@@ -115,13 +104,11 @@ impl Bool16x16 {
     }
 }
 
-pub trait Rule {
-    fn evolve(&self, grid: Grid2<Leaf>, steps: u8) -> Leaf;
-}
-
 pub struct B3S23;
 
 impl Rule for B3S23 {
+    type Leaf = Leaf;
+
     fn evolve(&self, grid: Grid2<Leaf>, steps: u8) -> Leaf {
         assert!(steps <= 4);
 
