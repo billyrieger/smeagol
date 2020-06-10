@@ -102,13 +102,9 @@ impl BitMatrix for Bit16x16 {
     const SIDE_LEN: u8 = 16;
 
     fn moore_neighborhood(&self) -> [Self; 8] {
-        let up = || {
-            todo!()
-        };
+        let up = || todo!();
 
-        let down = |grid: Self| {
-            todo!()
-        };
+        let down = |grid: Self| todo!();
 
         let left = |grid: Self| Self(grid.0.rotate_left(u16x16::splat(1)));
 
