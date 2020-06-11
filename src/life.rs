@@ -4,7 +4,7 @@
 
 mod rule;
 pub use rule::Rule;
-pub mod tree;
+pub mod quadtree;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Cell {

@@ -3,8 +3,8 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use crate::{
-    life::tree::Leaf,
-    util::{Bit16x16, Bit8x8, BitMatrix, Grid2},
+    life::quadtree::Leaf,
+    util::{Bit16x16, Grid2},
 };
 
 pub trait Rule {
@@ -22,15 +22,18 @@ impl Rule for B3S23 {
         type B = Bit16x16;
         assert!(steps <= 4);
 
-        let half_adder = |sum: B, addend: B| (sum ^ addend, sum & addend);
+        let half_adder = |sum: &mut B, addend: B| -> B {
+            let carry = *sum & addend;
+            *sum ^= addend;
+            carry
+        };
 
         let step_once = |alive: B| -> B {
             let mut sum: [B; 3] = Default::default();
             for &addend in &alive.moore_neighborhood() {
-                let (sum0, carry) = half_adder(sum[0], addend);
-                let (sum1, carry) = half_adder(sum[1], carry);
-                let sum2 = sum[2] | carry;
-                sum = [sum0, sum1, sum2];
+                let carry = half_adder(&mut sum[0], addend);
+                let carry = half_adder(&mut sum[1], carry);
+                sum[2] |= carry;
             }
 
             // two is 010 is binary
@@ -43,7 +46,7 @@ impl Rule for B3S23 {
         };
 
         let mut result: Bit16x16 = crate::util::combine(grid.map(|leaf| {
-            let nw_bits: Bit8x8 = leaf.into();
+            let nw: [u8; 8] = leaf.alive.0.to_be_bytes();
             todo!()
         }));
         for _ in 0..steps {

@@ -5,128 +5,63 @@
 use crate::util::Grid2;
 
 // traits from std
-use std::{
-    default::Default,
-    fmt::Debug,
-    hash::Hash,
-    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not},
-};
+use std::{default::Default, fmt::Debug, hash::Hash};
 
 // these derive macro imports don't clash with the trait imports from std above
 use derive_more::{
-    BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, From, Into, Not, Shl,
-    ShlAssign, Shr, ShrAssign,
+    BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, From, Into, Not,
 };
 
 use packed_simd::u16x16;
 
-pub trait BitMatrix:
-    Clone
-    + Copy
-    + Eq
-    + Hash
-    + PartialEq
-    + BitAnd<Output = Self>
-    + BitOr<Output = Self>
-    + BitXor<Output = Self>
-    + Not<Output = Self>
-    + BitAndAssign
-    + BitOrAssign
-    + BitXorAssign
-{
-    const SIDE_LEN: u8;
-
-    fn zero() -> Self;
-
-    fn moore_neighborhood(&self) -> [Self; 8];
-
-    fn count(&self) -> u32;
-}
-
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 // foo
-#[derive(BitAnd, BitOr, BitXor, From, Into, Not, Shl, Shr)]
+#[derive(BitAnd, BitOr, BitXor, From, Into, Not)]
 // foo
-#[derive(BitAndAssign, BitOrAssign, BitXorAssign, ShlAssign, ShrAssign)]
-pub struct Bit4x4(u16);
-
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-// foo
-#[derive(BitAnd, BitOr, BitXor, From, Into, Not, Shl, Shr)]
-// foo
-#[derive(BitAndAssign, BitOrAssign, BitXorAssign, ShlAssign, ShrAssign)]
-pub struct Bit8x8(u64);
+#[derive(BitAndAssign, BitOrAssign, BitXorAssign)]
+pub struct Bit8x8(pub u64);
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 // foo
-#[derive(BitAnd, BitOr, BitXor, From, Into, Not, Shl, Shr)]
+#[derive(BitAnd, BitOr, BitXor, From, Into, Not)]
 // foo
-#[derive(BitAndAssign, BitOrAssign, BitXorAssign, ShlAssign, ShrAssign)]
-pub struct Bit16x16(u16x16);
+#[derive(BitAndAssign, BitOrAssign, BitXorAssign)]
+pub struct Bit16x16(pub u16x16);
 
-impl BitMatrix for Bit4x4 {
-    const SIDE_LEN: u8 = 4;
+impl Bit16x16 {
+    pub const SIDE_LEN: u8 = 16;
 
-    fn zero() -> Self {
-        Self(0)
+    pub fn from_parts(grid: Grid2<Bit8x8>) -> Self {
+        let [nw, ne, sw, se]: [[u8; 8]; 4] = [
+            grid.nw.0.to_be_bytes(),
+            grid.ne.0.to_be_bytes(),
+            grid.sw.0.to_be_bytes(),
+            grid.se.0.to_be_bytes(),
+        ];
+
+        let f = u16::from_be_bytes;
+
+        Bit16x16(u16x16::new(
+            f([nw[0], ne[0]]),
+            f([nw[1], ne[1]]),
+            f([nw[2], ne[2]]),
+            f([nw[3], ne[3]]),
+            f([nw[4], ne[4]]),
+            f([nw[5], ne[5]]),
+            f([nw[6], ne[6]]),
+            f([nw[7], ne[7]]),
+            f([sw[0], se[0]]),
+            f([sw[1], se[1]]),
+            f([sw[2], se[2]]),
+            f([sw[3], se[3]]),
+            f([sw[4], se[4]]),
+            f([sw[5], se[5]]),
+            f([sw[6], se[6]]),
+            f([sw[7], se[7]]),
+        ))
     }
 
-    fn count(&self) -> u32 {
-        0
-    }
-
-    fn moore_neighborhood(&self) -> [Self; 8] {
-        let x = *self;
-        [
-            x >> 5,
-            x >> 4,
-            x >> 3,
-            x >> 1,
-            x << 1,
-            x << 3,
-            x << 4,
-            x << 5,
-        ]
-    }
-}
-
-impl BitMatrix for Bit8x8 {
-    const SIDE_LEN: u8 = 8;
-
-    fn zero() -> Self {
-        Self(0)
-    }
-
-    fn count(&self) -> u32 {
-        0
-    }
-
-    fn moore_neighborhood(&self) -> [Self; 8] {
-        [
-            Self(self.0 >> 9),
-            Self(self.0 >> 8),
-            Self(self.0 >> 7),
-            Self(self.0 >> 1),
-            Self(self.0 << 1),
-            Self(self.0 << 7),
-            Self(self.0 << 8),
-            Self(self.0 << 9),
-        ]
-    }
-}
-
-impl BitMatrix for Bit16x16 {
-    const SIDE_LEN: u8 = 16;
-
-    fn zero() -> Self {
-        Self([0; 16].into())
-    }
-
-    fn count(&self) -> u32 {
-        0
-    }
-
-    fn moore_neighborhood(&self) -> [Self; 8] {
+    pub fn moore_neighborhood(&self) -> [Self; 8] {
         let array: [u16; 16] = self.0.into();
 
         let mut north = array;
@@ -149,6 +84,10 @@ impl BitMatrix for Bit16x16 {
         [
             northwest, north, northeast, west, east, southwest, south, southeast,
         ]
+    }
+
+    pub fn zero() -> Self {
+        Self([0; 16].into())
     }
 }
 
@@ -195,78 +134,4 @@ pub fn combine(grid: Grid2<Bit8x8>) -> Bit16x16 {
         u16::from_be_bytes([sw[6], se[6]]),
         u16::from_be_bytes([sw[7], se[7]]),
     ))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn evolve<B>(grid: B, steps: u8) -> B
-    where
-        B: BitMatrix + Debug,
-    {
-        assert!(steps <= B::SIDE_LEN / 4);
-
-        let half_adder = |sum: B, addend: B| (sum ^ addend, sum & addend);
-
-        let step_once = |alive: B| -> B {
-            let mut sum: [B; 3] = [B::zero(); 3];
-
-            for &addend in &alive.moore_neighborhood() {
-                let (sum0, carry) = half_adder(sum[0], addend);
-                let (sum1, carry) = half_adder(sum[1], carry);
-                let sum2 = sum[2] | carry;
-
-                sum = [sum0, sum1, sum2];
-            }
-
-            // two is 010 is binary
-            let sum_is_two = !sum[2] & sum[1] & !sum[0];
-
-            // three is 011 is binary
-            let sum_is_three = !sum[2] & sum[1] & sum[0];
-
-            sum_is_three | (alive & sum_is_two)
-        };
-
-        let mut result = grid;
-        for _ in 0..steps {
-            result = step_once(result);
-        }
-        result
-    }
-
-    #[test]
-    fn blinker4x4() {
-        let vertical: Bit4x4 = 0b_0010_0010_0010_0000.into();
-        let horizontal: Bit4x4 = 0b_0000_0111_0000_0000.into();
-
-        assert_eq!(evolve(vertical, 1), horizontal);
-        assert_eq!(evolve(horizontal, 1), vertical);
-    }
-
-    #[test]
-    fn blinker8x8() {
-        let vertical: Bit8x8 = 0x_00_00_08_08_08_00_00_00.into();
-        let horizontal: Bit8x8 = 0x_00_00_00_1C_00_00_00_00.into();
-
-        assert_eq!(evolve(vertical, 1), horizontal);
-        assert_eq!(evolve(horizontal, 1), vertical);
-    }
-
-    #[test]
-    fn blinker16x16() {
-        let vertical: Bit16x16 =
-            Bit16x16([0, 0, 0, 0, 0, 0, 0x08, 0x08, 0x08, 0, 0, 0, 0, 0, 0, 0_u16].into());
-        let horizontal: Bit16x16 = Bit16x16(
-            [
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00,
-            ]
-            .into(),
-        );
-
-        assert_eq!(evolve(vertical, 1), horizontal);
-        assert_eq!(evolve(horizontal, 1), vertical);
-    }
 }

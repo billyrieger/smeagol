@@ -21,7 +21,6 @@ pub struct Position {
 impl Position {
     pub const ORIGIN: Self = Self::new(0, 0);
 
-    /// Creates a new `Position` from the given `x` and `y` coordinates.
     pub const fn new(x: i64, y: i64) -> Self {
         Self { x, y }
     }
@@ -48,19 +47,7 @@ impl Id {
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Leaf {
-    alive: u64,
-}
-
-impl Into<Bit8x8> for Leaf {
-    fn into(self) -> Bit8x8 {
-        self.alive.into()
-    }
-}
-
-impl Into<Leaf> for Bit8x8 {
-    fn into(self) -> Leaf {
-        Leaf { alive: self.into() }
-    }
+    pub alive: Bit8x8,
 }
 
 impl Leaf {
@@ -68,18 +55,18 @@ impl Leaf {
     const MAX: i64 = 3;
     const SIDE_LEN: i64 = 8;
 
-    pub const fn new(alive: u64) -> Self {
+    pub const fn new(alive: Bit8x8) -> Self {
         Self { alive }
     }
 
     pub fn alive_cells(&self) -> Vec<Position> {
         let mut result = Vec::new();
 
-        if self.alive == 0 {
+        if self.alive == Bit8x8::default() {
             return result;
         }
 
-        let mut bits: u64 = self.alive;
+        let mut bits: u64 = self.alive.into();
         let mut reverse_index: usize = 0;
 
         while bits > 0 {
@@ -115,7 +102,7 @@ impl Leaf {
     }
 
     pub fn population(&self) -> u128 {
-        u128::from(self.alive.count_ones())
+        u128::from(self.alive.0.count_ones())
     }
 
     pub fn get_cell(&self, pos: Position) -> Option<Cell> {
@@ -123,7 +110,7 @@ impl Leaf {
             None
         } else {
             let index = self.pos_to_idx(pos);
-            if self.alive & (1 << index) == 0 {
+            if self.alive.0 & (1 << index) == 0 {
                 Some(Cell::Dead)
             } else {
                 Some(Cell::Alive)
@@ -145,9 +132,9 @@ impl Leaf {
 
 #[derive(Clone, Copy, Debug)]
 pub struct Branch {
-    children: Grid2<Id>,
-    side_len: u64,
-    population: u128,
+    pub children: Grid2<Id>,
+    pub side_len: u64,
+    pub population: u128,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -165,12 +152,12 @@ impl Node {
     }
 }
 
-pub struct Store<R> {
+pub struct Trunk<R> {
     rule: R,
     nodes: Arena<Node>,
 }
 
-impl<R> Store<R>
+impl<R> Trunk<R>
 where
     R: Rule,
 {
@@ -182,7 +169,7 @@ where
     }
 
     pub fn init(&mut self) -> Id {
-        let empty_leaf = Leaf::new(0);
+        let empty_leaf = Leaf::new(Bit8x8(0));
         let empty_leaf_id = Id::new(self.nodes.insert(Node::Leaf(empty_leaf)));
 
         let mut empty_branch = Branch {
@@ -256,11 +243,11 @@ mod tests {
 
     #[test]
     fn alive_cells() {
-        let empty = Leaf::new(0);
-        let nw_leaf = Leaf::new(0x_80_00_00_00_00_00_00_00);
-        let ne_leaf = Leaf::new(0x_01_00_00_00_00_00_00_00);
-        let sw_leaf = Leaf::new(0x_00_00_00_00_00_00_00_80);
-        let se_leaf = Leaf::new(0x_00_00_00_00_00_00_00_01);
+        let empty = Leaf::new(Bit8x8(0));
+        let nw_leaf = Leaf::new(Bit8x8(0x_80_00_00_00_00_00_00_00));
+        let ne_leaf = Leaf::new(Bit8x8(0x_01_00_00_00_00_00_00_00));
+        let sw_leaf = Leaf::new(Bit8x8(0x_00_00_00_00_00_00_00_80));
+        let se_leaf = Leaf::new(Bit8x8(0x_00_00_00_00_00_00_00_01));
         let four_corners = Leaf::new(nw_leaf.alive | ne_leaf.alive | sw_leaf.alive | se_leaf.alive);
 
         assert_eq!(&*empty.alive_cells(), &[]);
