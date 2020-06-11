@@ -19,18 +19,6 @@ impl<T> Grid2<T> {
         [self.nw, self.ne, self.sw, self.se]
     }
 
-    pub fn repeat(val: T) -> Self
-    where
-        T: Clone,
-    {
-        Self {
-            nw: val.clone(),
-            ne: val.clone(),
-            sw: val.clone(),
-            se: val,
-        }
-    }
-
     pub fn map<F, U>(self, f: F) -> Grid2<U>
     where
         F: Fn(T) -> U,

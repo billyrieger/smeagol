@@ -3,5 +3,4 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 pub mod life;
-pub mod store;
 pub mod util;

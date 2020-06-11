@@ -2,44 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::{life::Rule, util::Grid2};
+use crate::{
+    life::{Cell, Rule},
+    util::{Bit8x8, Grid2},
+};
 
-use arrayvec::ArrayVec;
 use generational_arena::{Arena, Index};
 
 const MAX_SIDE_LEN: u64 = 1 << 63;
 const LEAF_SIDE_LEN: u64 = 1 << 3;
 
-pub trait NodeVisitor<T = ()> {
-    fn visit_leaf(&mut self, leaf: Leaf) -> Option<T>;
-    fn visit_branch(&mut self, branch: Branch) -> Option<T>;
-}
-
-pub struct AliveCells<'s, R: 's> {
-    store: &'s Store<R>,
-    root: Id,
-    center: Position,
-    coords: Vec<Position>,
-}
-
-impl<'s, R: 's> NodeVisitor for AliveCells<'s, R> {
-    fn visit_leaf(&mut self, leaf: Leaf) -> Option<()> {
-        None
-    }
-
-    fn visit_branch(&mut self, branch: Branch) -> Option<()> {
-        None
-    }
-}
-
-pub enum Quadrant {
-    Northwest,
-    Northeast,
-    Southwest,
-    Southeast,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Position {
     pub x: i64,
     pub y: i64,
@@ -60,21 +33,6 @@ impl Position {
     pub const fn relative_to(&self, other: Position) -> Position {
         self.offset(-other.x, -other.y)
     }
-
-    pub fn quadrant(&self) -> Quadrant {
-        match (self.x < 0, self.y < 0) {
-            (true, true) => Quadrant::Northwest,
-            (false, true) => Quadrant::Northeast,
-            (true, false) => Quadrant::Southwest,
-            (false, false) => Quadrant::Southeast,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum Cell {
-    Dead,
-    Alive,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -90,23 +48,32 @@ impl Id {
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Leaf {
-    pub alive: u64,
+    alive: u64,
+}
+
+impl Into<Bit8x8> for Leaf {
+    fn into(self) -> Bit8x8 {
+        self.alive.into()
+    }
+}
+
+impl Into<Leaf> for Bit8x8 {
+    fn into(self) -> Leaf {
+        Leaf { alive: self.into() }
+    }
 }
 
 impl Leaf {
-    pub const MIN: i64 = -4;
-    pub const MAX: i64 = 3;
-    pub const SIDE_LEN: i64 = 8;
-
-    pub const DEAD: Self = Self::new(0);
-    pub const ALIVE: Self = Self::new(!0);
+    const MIN: i64 = -4;
+    const MAX: i64 = 3;
+    const SIDE_LEN: i64 = 8;
 
     pub const fn new(alive: u64) -> Self {
         Self { alive }
     }
 
-    pub fn alive_cells(&self) -> ArrayVec<[Position; 64]> {
-        let mut result = ArrayVec::new();
+    pub fn alive_cells(&self) -> Vec<Position> {
+        let mut result = Vec::new();
 
         if self.alive == 0 {
             return result;
@@ -164,7 +131,7 @@ impl Leaf {
         }
     }
 
-    fn set_cells(&self, coords: &mut [Position], cell: Cell) -> Option<Self> {
+    fn _set_cells(&self, _coords: &mut [Position], _cell: Cell) -> Option<Self> {
         // coords
         //     .iter()
         //     .flat_map(|&pos| self.get_cell(pos))
@@ -196,17 +163,6 @@ impl Node {
             Node::Branch(branch) => branch.population,
         }
     }
-    pub fn kind(&self) -> NodeKind {
-        match self {
-            Node::Leaf(_) => NodeKind::Leaf,
-            Node::Branch(_) => NodeKind::Branch,
-        }
-    }
-}
-
-pub enum NodeKind {
-    Leaf,
-    Branch,
 }
 
 pub struct Store<R> {
@@ -230,7 +186,7 @@ where
         let empty_leaf_id = Id::new(self.nodes.insert(Node::Leaf(empty_leaf)));
 
         let mut empty_branch = Branch {
-            children: Grid2::repeat(empty_leaf_id),
+            children: Grid2::pack([empty_leaf_id; 4]),
             side_len: LEAF_SIDE_LEN << 1,
             population: 0,
         };
@@ -239,7 +195,7 @@ where
         let mut side_len = LEAF_SIDE_LEN;
         loop {
             empty_branch = Branch {
-                children: Grid2::repeat(id),
+                children: Grid2::pack([id; 4]),
                 side_len: empty_branch.side_len,
                 population: 0,
             };
@@ -300,7 +256,7 @@ mod tests {
 
     #[test]
     fn alive_cells() {
-        let empty = Leaf::DEAD;
+        let empty = Leaf::new(0);
         let nw_leaf = Leaf::new(0x_80_00_00_00_00_00_00_00);
         let ne_leaf = Leaf::new(0x_01_00_00_00_00_00_00_00);
         let sw_leaf = Leaf::new(0x_00_00_00_00_00_00_00_80);
@@ -323,50 +279,3 @@ mod tests {
         );
     }
 }
-
-//     fn _get_cells_helper(
-//         &self,
-//         id: Id,
-//         coords: &mut [Position],
-//         center: Position,
-//         buf: &mut Vec<Cell>,
-//     ) -> Option<()> {
-//         if coords.is_empty() {
-//             return Some(());
-//         }
-
-//         let node = self.get_node(id)?;
-//         match node {
-//             Node::Leaf(leaf) => {
-//                 for &mut pos in coords {
-//                     buf.push(leaf.get_cell(pos.relative_to(center))?);
-//                 }
-//                 Some(())
-//             }
-
-//             Node::Branch(branch) => {
-//                 let delta = (branch.side_len / 4) as i64;
-//                 let (dx, dy) = (delta, delta);
-
-//                 let is_western = |p: &Position| p.x >= 0;
-//                 let is_northern = |p: &Position| p.y >= 0;
-
-//                 let ids: [Id; 4] = branch.children.unpack();
-
-//                 let centers: [Position; 4] = [
-//                     center.offset(-dx, -dy),
-//                     center.offset(dx, -dy),
-//                     center.offset(-dx, dy),
-//                     center.offset(dx, dy),
-//                 ];
-
-//                 let mut parts: [&mut [Position]; 4] =
-//                     self.partition(coords, is_western, is_northern).unpack();
-
-//                 for ((&id, &center), part) in ids.iter().zip(centers.iter()).zip(parts.iter_mut()) {
-//                     self._get_cells_helper(id, part, center, buf)?;
-//                 }
-
-//                 Some(())
-//             }
-//         }
