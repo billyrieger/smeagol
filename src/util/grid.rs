@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use crate::prelude::*;
+
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Grid2<T> {
     pub nw: T,
@@ -31,11 +33,11 @@ impl<T> Grid2<T> {
         }
     }
 
-    pub fn try_map<B, F>(self, f: F) -> Option<Grid2<B>>
+    pub fn try_map<B, F>(self, f: F) -> Result<Grid2<B>>
     where
-        F: Fn(T) -> Option<B>,
+        F: Fn(T) -> Result<B>,
     {
-        Some(Grid2 {
+        Ok(Grid2 {
             nw: f(self.nw)?,
             ne: f(self.ne)?,
             sw: f(self.sw)?,

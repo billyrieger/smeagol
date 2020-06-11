@@ -2,15 +2,70 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use crate::prelude::*;
+
 use crate::{
     life::{Cell, Rule},
     util::{Bit8x8, Grid2},
 };
 
+use std::{convert::TryFrom, option::NoneError};
+
 use generational_arena::{Arena, Index};
 
-const MAX_SIDE_LEN: u64 = 1 << 63;
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Length(u64);
+
+impl Length {
+    pub const MAX: Length = Self(1u64 << 63);
+    pub const HALF_MAX: Length = Self(Self::MAX.0 / 2);
+}
+
+impl Into<u64> for Length {
+    fn into(self) -> u64 {
+        self.0
+    }
+}
+
+impl TryFrom<u64> for Length {
+    type Error = NoneError;
+
+    fn try_from(val: u64) -> Result<Length> {
+        if val <= Length::MAX.0 {
+            Ok(Length(val))
+        } else {
+            None?
+        }
+    }
+}
+
 const LEAF_SIDE_LEN: u64 = 1 << 3;
+
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Coord(i64);
+
+impl Coord {
+    pub const MIN: Coord = Self(-(Length::HALF_MAX.0 as i64));
+    pub const MAX: Coord = Self((1i64 << 62) - 1);
+}
+
+impl Into<i64> for Coord {
+    fn into(self) -> i64 {
+        self.0
+    }
+}
+
+impl TryFrom<i64> for Coord {
+    type Error = NoneError;
+
+    fn try_from(val: i64) -> Result<Coord> {
+        if Coord::MIN.0 <= val && val <= Coord::MAX.0 {
+            Ok(Coord(val))
+        } else {
+            None?
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Position {
@@ -187,7 +242,7 @@ where
                 population: 0,
             };
             id = Id::new(self.nodes.insert(Node::Branch(empty_branch)));
-            if side_len == MAX_SIDE_LEN {
+            if side_len == Length::MAX.0 {
                 return id;
             } else {
                 side_len <<= 1;
