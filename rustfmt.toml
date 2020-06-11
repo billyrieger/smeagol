@@ -1,3 +1,2 @@
 license_template_path = "./LICENSE_TEMPLATE"
-merge_derives = false
 merge_imports = true

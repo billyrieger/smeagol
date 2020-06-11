@@ -13,9 +13,26 @@ use derive_more::{
 };
 use packed_simd::{shuffle, u16x16};
 
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
-#[derive(BitAnd, BitOr, BitXor, Shl, Shr, Not)]
-#[derive(BitAndAssign, BitOrAssign, BitXorAssign, ShlAssign, ShrAssign)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Eq,
+    Hash,
+    PartialEq,
+    BitAnd,
+    BitOr,
+    BitXor,
+    Shl,
+    Shr,
+    Not,
+    BitAndAssign,
+    BitOrAssign,
+    BitXorAssign,
+    ShlAssign,
+    ShrAssign,
+)]
 struct Bool16x16(u16x16);
 
 impl Bool16x16 {
