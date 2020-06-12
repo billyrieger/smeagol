@@ -5,20 +5,22 @@
 use crate::prelude::*;
 
 use crate::{
-    life::{Cell, Rule},
+    life::Cell,
     util::{Bit8x8, Grid2},
 };
 
-use std::{convert::TryFrom, option::NoneError};
-
-use generational_arena::{Arena, Index};
+use std::{
+    convert::TryFrom,
+    ops::{Add, Div, Mul, Sub},
+    option::NoneError,
+};
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Length(u64);
 
 impl Length {
     pub const MAX: Length = Self(1u64 << 63);
-    pub const HALF_MAX: Length = Self(Self::MAX.0 / 2);
+    pub const HALF_MAX: Length = Self(1u64 << 62);
 }
 
 impl Into<u64> for Length {
@@ -39,15 +41,55 @@ impl TryFrom<u64> for Length {
     }
 }
 
-const LEAF_SIDE_LEN: u64 = 1 << 3;
-
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Coord(i64);
 
 impl Coord {
-    pub const MIN: Coord = Self(-(Length::HALF_MAX.0 as i64));
+    pub const MIN: Coord = Self(-(1i64 << 62));
     pub const MAX: Coord = Self((1i64 << 62) - 1);
 }
+
+#[macro_export]
+macro_rules! impl_binop {
+    ( $op:ident , $func:ident , $type:ident ) => {
+        impl $op<$type> for $type {
+            type Output = $type;
+
+            fn $func(self, other: $type) -> $type {
+                $type(self.0 + other.0)
+            }
+        }
+
+        impl<'lhs> $op<$type> for &'lhs $type {
+            type Output = $type;
+
+            fn $func(self, other: $type) -> $type {
+                $type(self.0 + other.0)
+            }
+        }
+
+        impl<'rhs> $op<&'rhs $type> for $type {
+            type Output = $type;
+
+            fn $func(self, other: &'rhs $type) -> $type {
+                $type(self.0 + other.0)
+            }
+        }
+
+        impl<'lhs, 'rhs> $op<&'rhs $type> for &'lhs $type {
+            type Output = $type;
+
+            fn $func(self, other: &'rhs $type) -> $type {
+                $type(self.0 + other.0)
+            }
+        }
+    };
+}
+
+impl_binop!(Add, add, Coord);
+impl_binop!(Sub, sub, Coord);
+impl_binop!(Mul, mul, Coord);
+impl_binop!(Div, div, Coord);
 
 impl Into<i64> for Coord {
     fn into(self) -> i64 {
@@ -91,13 +133,7 @@ impl Position {
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Id {
-    index: Index,
-}
-
-impl Id {
-    fn new(index: Index) -> Self {
-        Self { index }
-    }
+    index: u64,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -172,17 +208,6 @@ impl Leaf {
             }
         }
     }
-
-    fn _set_cells(&self, _coords: &mut [Position], _cell: Cell) -> Option<Self> {
-        // coords
-        //     .iter()
-        //     .flat_map(|&pos| self.get_cell(pos))
-        //     .fold(*self, |leaf: Leaf, index: usize| match cell {
-        //         Cell::Dead => Leaf::new(leaf.alive & !(1 << index)),
-        //         Cell::Alive => Leaf::new(leaf.alive | (1 << index)),
-        //     });
-        todo!()
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -204,120 +229,5 @@ impl Node {
             Node::Leaf(leaf) => leaf.population(),
             Node::Branch(branch) => branch.population,
         }
-    }
-}
-
-pub struct Trunk<R> {
-    rule: R,
-    nodes: Arena<Node>,
-}
-
-impl<R> Trunk<R>
-where
-    R: Rule,
-{
-    pub fn new(rule: R) -> Self {
-        Self {
-            rule,
-            nodes: Arena::new(),
-        }
-    }
-
-    pub fn init(&mut self) -> Id {
-        let empty_leaf = Leaf::new(Bit8x8(0));
-        let empty_leaf_id = Id::new(self.nodes.insert(Node::Leaf(empty_leaf)));
-
-        let mut empty_branch = Branch {
-            children: Grid2::pack([empty_leaf_id; 4]),
-            side_len: LEAF_SIDE_LEN << 1,
-            population: 0,
-        };
-
-        let mut id = empty_leaf_id;
-        let mut side_len = LEAF_SIDE_LEN;
-        loop {
-            empty_branch = Branch {
-                children: Grid2::pack([id; 4]),
-                side_len: empty_branch.side_len,
-                population: 0,
-            };
-            id = Id::new(self.nodes.insert(Node::Branch(empty_branch)));
-            if side_len == Length::MAX.0 {
-                return id;
-            } else {
-                side_len <<= 1;
-            }
-        }
-    }
-
-    pub fn get_node(&self, id: Id) -> Option<Node> {
-        self.nodes.get(id.index).copied()
-    }
-
-    pub fn visit<B, F, G>(
-        &self,
-        init: B,
-        root_id: Id,
-        visit_leaf: &mut F,
-        visit_branch: &mut G,
-    ) -> Option<B>
-    where
-        F: Fn(B, Leaf) -> Option<B>,
-        G: Fn(B, Branch) -> Option<B>,
-    {
-        let root: Node = self.get_node(root_id)?;
-        match root {
-            Node::Leaf(leaf) => visit_leaf(init, leaf),
-            Node::Branch(branch) => visit_branch(init, branch),
-        }
-    }
-}
-
-fn split<F, T>(list: &mut [T], pred: F) -> (&mut [T], &mut [T])
-where
-    F: Fn(&T) -> bool,
-{
-    // a note on itertools::partition
-    // elements that satisfy the predicate are placed before the elements that don't
-    let index: usize = itertools::partition(list.iter_mut(), |t| pred(t));
-    list.split_at_mut(index)
-}
-
-fn partition(list: &mut [Position]) -> Grid2<&mut [Position]> {
-    let (north, south) = split(list, |p| p.y < 0);
-
-    let (nw, ne) = split(north, |p| p.x < 0);
-    let (sw, se) = split(south, |p| p.x < 0);
-
-    Grid2::pack([nw, ne, sw, se])
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn alive_cells() {
-        let empty = Leaf::new(Bit8x8(0));
-        let nw_leaf = Leaf::new(Bit8x8(0x_80_00_00_00_00_00_00_00));
-        let ne_leaf = Leaf::new(Bit8x8(0x_01_00_00_00_00_00_00_00));
-        let sw_leaf = Leaf::new(Bit8x8(0x_00_00_00_00_00_00_00_80));
-        let se_leaf = Leaf::new(Bit8x8(0x_00_00_00_00_00_00_00_01));
-        let four_corners = Leaf::new(nw_leaf.alive | ne_leaf.alive | sw_leaf.alive | se_leaf.alive);
-
-        assert_eq!(&*empty.alive_cells(), &[]);
-        assert_eq!(&*nw_leaf.alive_cells(), &[Position::new(-4, -4)]);
-        assert_eq!(&*ne_leaf.alive_cells(), &[Position::new(3, -4)]);
-        assert_eq!(&*sw_leaf.alive_cells(), &[Position::new(-4, 3)]);
-        assert_eq!(&*se_leaf.alive_cells(), &[Position::new(3, 3)]);
-        assert_eq!(
-            &*four_corners.alive_cells(),
-            &[
-                Position::new(-4, -4),
-                Position::new(3, -4),
-                Position::new(-4, 3),
-                Position::new(3, 3)
-            ]
-        );
     }
 }

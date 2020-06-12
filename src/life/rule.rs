@@ -19,17 +19,16 @@ impl Rule for B3S23 {
     type Leaf = Leaf;
 
     fn evolve(&self, grid: Grid2<Leaf>, steps: u8) -> Leaf {
-        type B = Bit16x16;
         assert!(steps <= 4);
 
-        let half_adder = |sum: &mut B, addend: B| -> B {
+        let half_adder = |sum: &mut Bit16x16, addend: Bit16x16| -> Bit16x16 {
             let carry = *sum & addend;
             *sum ^= addend;
             carry
         };
 
-        let step_once = |alive: B| -> B {
-            let mut sum: [B; 3] = Default::default();
+        let step_once = |alive: Bit16x16| -> Bit16x16 {
+            let mut sum: [Bit16x16; 3] = Default::default();
             for &addend in &alive.moore_neighborhood() {
                 let carry = half_adder(&mut sum[0], addend);
                 let carry = half_adder(&mut sum[1], carry);
@@ -45,10 +44,7 @@ impl Rule for B3S23 {
             total_is_three | (alive & total_is_two)
         };
 
-        let mut result: Bit16x16 = crate::util::combine(grid.map(|leaf| {
-            let nw: [u8; 8] = leaf.alive.0.to_be_bytes();
-            todo!()
-        }));
+        let mut result = Bit16x16::from_parts(grid.map(|leaf| leaf.alive));
         for _ in 0..steps {
             result = step_once(result);
         }
