@@ -48,6 +48,7 @@ impl Rule for B3S23 {
         for _ in 0..steps {
             result = step_once(result);
         }
-        Leaf::new(crate::util::center(result).into())
+        // Leaf::new(crate::util::center(result).into())
+        todo!()
     }
 }

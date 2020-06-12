@@ -2,112 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::prelude::*;
-
 use crate::{
-    life::Cell,
     util::{Bit8x8, Grid2},
+    Error, Result,
 };
 
 use std::{
     convert::TryFrom,
-    ops::{Add, Div, Mul, Sub},
-    option::NoneError,
+    ops::{Index, IndexMut},
 };
-
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Length(u64);
-
-impl Length {
-    pub const MAX: Length = Self(1u64 << 63);
-    pub const HALF_MAX: Length = Self(1u64 << 62);
-}
-
-impl Into<u64> for Length {
-    fn into(self) -> u64 {
-        self.0
-    }
-}
-
-impl TryFrom<u64> for Length {
-    type Error = NoneError;
-
-    fn try_from(val: u64) -> Result<Length> {
-        if val <= Length::MAX.0 {
-            Ok(Length(val))
-        } else {
-            None?
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Coord(i64);
-
-impl Coord {
-    pub const MIN: Coord = Self(-(1i64 << 62));
-    pub const MAX: Coord = Self((1i64 << 62) - 1);
-}
-
-#[macro_export]
-macro_rules! impl_binop {
-    ( $op:ident , $func:ident , $type:ident ) => {
-        impl $op<$type> for $type {
-            type Output = $type;
-
-            fn $func(self, other: $type) -> $type {
-                $type(self.0 + other.0)
-            }
-        }
-
-        impl<'lhs> $op<$type> for &'lhs $type {
-            type Output = $type;
-
-            fn $func(self, other: $type) -> $type {
-                $type(self.0 + other.0)
-            }
-        }
-
-        impl<'rhs> $op<&'rhs $type> for $type {
-            type Output = $type;
-
-            fn $func(self, other: &'rhs $type) -> $type {
-                $type(self.0 + other.0)
-            }
-        }
-
-        impl<'lhs, 'rhs> $op<&'rhs $type> for &'lhs $type {
-            type Output = $type;
-
-            fn $func(self, other: &'rhs $type) -> $type {
-                $type(self.0 + other.0)
-            }
-        }
-    };
-}
-
-impl_binop!(Add, add, Coord);
-impl_binop!(Sub, sub, Coord);
-impl_binop!(Mul, mul, Coord);
-impl_binop!(Div, div, Coord);
-
-impl Into<i64> for Coord {
-    fn into(self) -> i64 {
-        self.0
-    }
-}
-
-impl TryFrom<i64> for Coord {
-    type Error = NoneError;
-
-    fn try_from(val: i64) -> Result<Coord> {
-        if Coord::MIN.0 <= val && val <= Coord::MAX.0 {
-            Ok(Coord(val))
-        } else {
-            None?
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Position {
@@ -116,7 +19,7 @@ pub struct Position {
 }
 
 impl Position {
-    pub const ORIGIN: Self = Self::new(0, 0);
+    pub const ORIGIN: Position = Self::new(0, 0);
 
     pub const fn new(x: i64, y: i64) -> Self {
         Self { x, y }
@@ -131,103 +34,117 @@ impl Position {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Id {
-    index: u64,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Leaf {
-    pub alive: Bit8x8,
-}
-
-impl Leaf {
-    const MIN: i64 = -4;
-    const MAX: i64 = 3;
-    const SIDE_LEN: i64 = 8;
-
-    pub const fn new(alive: Bit8x8) -> Self {
-        Self { alive }
-    }
-
-    pub fn alive_cells(&self) -> Vec<Position> {
-        let mut result = Vec::new();
-
-        if self.alive == Bit8x8::default() {
-            return result;
-        }
-
-        let mut bits: u64 = self.alive.into();
-        let mut reverse_index: usize = 0;
-
-        while bits > 0 {
-            let n_zeros = bits.leading_zeros() as usize;
-
-            bits <<= n_zeros;
-            reverse_index += n_zeros;
-
-            result.push(self.idx_to_pos(63 - reverse_index));
-
-            reverse_index += 1;
-            bits <<= 1;
-        }
-
-        result
-    }
-
-    fn check_bounds(&self, pos: Position) -> bool {
-        let x_ok = Self::MIN <= pos.x && pos.x <= Self::MAX;
-        let y_ok = Self::MIN <= pos.y && pos.y <= Self::MAX;
-        x_ok && y_ok
-    }
-
-    fn pos_to_idx(&self, pos: Position) -> usize {
-        (Self::SIDE_LEN * (Self::MAX - pos.y) + (Self::MAX - pos.x)) as usize
-    }
-
-    fn idx_to_pos(&self, index: usize) -> Position {
-        let index = index as i64;
-        let y = Self::MAX - index / Self::SIDE_LEN;
-        let x = Self::MAX - index % Self::SIDE_LEN;
-        Position::new(x, y)
-    }
-
-    pub fn population(&self) -> u128 {
-        u128::from(self.alive.0.count_ones())
-    }
-
-    pub fn get_cell(&self, pos: Position) -> Option<Cell> {
-        if self.check_bounds(pos) {
-            None
-        } else {
-            let index = self.pos_to_idx(pos);
-            if self.alive.0 & (1 << index) == 0 {
-                Some(Cell::Dead)
-            } else {
-                Some(Cell::Alive)
-            }
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Branch {
-    pub children: Grid2<Id>,
-    pub side_len: u64,
-    pub population: u128,
-}
-
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Node {
     Leaf(Leaf),
     Branch(Branch),
 }
 
+/// This is documentation of an impl block. Why?
 impl Node {
-    pub fn population(&self) -> u128 {
+    pub fn level(&self) -> Level {
         match self {
-            Node::Leaf(leaf) => leaf.population(),
-            Node::Branch(branch) => branch.population,
+            Node::Leaf(_) => Level(3),
+            Node::Branch(branch) => branch.level,
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Leaf {
+    pub alive: Bit8x8,
+}
+
+impl Leaf {
+    pub const fn new(alive: Bit8x8) -> Self {
+        Self { alive }
+    }
+
+    pub const fn dead() -> Self {
+        Self::new(Bit8x8(0))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Branch {
+    pub level: Level,
+    pub children: Grid2<Id>,
+    pub population: u128,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Id {
+    level: Level,
+    index: usize,
+}
+
+impl Id {
+    const fn new(level: Level, index: usize) -> Self {
+        Self { level, index }
+    }
+}
+
+
+#[derive(Clone, Debug, Default)]
+pub struct Arena {
+    // Why not use `[Vec<Node>; 64]`? Many traits in the standard library are only implemented for
+    // arrays up to an arbitrary maximum length. Check out `std::array::LengthAtMost32`.
+    buffers: [[Vec<Node>; 32]; 2],
+}
+
+impl Arena {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn init(&mut self) {
+        let mut empty: Node = Node::Leaf(Leaf::dead());
+        let mut current_level = empty.level();
+
+        let empty_id: Id = Id::new(empty.level(), 0);
+        let no_children: Grid2<Id> = Grid2::repeat(empty_id);
+
+        for buf in self.buffers.iter_mut().flatten() {
+            let next_branch = Branch {
+                level: current_level,
+                children: no_children,
+                population: 0,
+            };
+
+            empty = Node::Branch(next_branch);
+            current_level = Level(current_level.0 + 1);
+            buf.push(empty);
+        }
+    }
+
+    pub fn create_node(&mut self, node: Node) -> Id {
+        let buf: &mut Vec<Node> = &mut self[node.level()];
+        let new_id = Id::new(node.level(), buf.len());
+        buf.push(node);
+        new_id
+    }
+
+    fn level_indices(level: u8) -> (usize, usize) {
+        assert!(level < 64);
+        let level = level as usize;
+        (level / 32, level % 32)
+    }
+}
+
+impl Index<Level> for Arena {
+    type Output = Vec<Node>;
+
+    fn index(&self, idx: Level) -> &Vec<Node> {
+        assert!(idx.0 < 64);
+        let (i, j) = Self::level_indices(idx.0);
+        &self.buffers[i][j]
+    }
+}
+
+impl IndexMut<Level> for Arena {
+    fn index_mut(&mut self, idx: Level) -> &mut Vec<Node> {
+        assert!(idx.0 < 64);
+        let (i, j) = Self::level_indices(idx.0);
+        &mut self.buffers[i][j]
     }
 }

@@ -6,6 +6,8 @@ mod rule;
 pub use rule::Rule;
 pub mod quadtree;
 
+mod memory;
+
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Cell {
     Dead,

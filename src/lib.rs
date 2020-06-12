@@ -7,9 +7,7 @@
 pub mod life;
 pub mod util;
 
-pub type Error = std::option::NoneError;
+// Eventually `Error` will have an enum of all the things that can go wrong. For now, it's
+// effectively a black hole that we throw errors into.
+pub struct Error;
 pub type Result<T> = std::result::Result<T, Error>;
-
-pub mod prelude {
-    pub use crate::{Error, Result};
-}

@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::prelude::*;
+use crate::Result;
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Grid2<T> {
@@ -15,6 +15,13 @@ pub struct Grid2<T> {
 impl<T> Grid2<T> {
     pub fn pack([nw, ne, sw, se]: [T; 4]) -> Self {
         Self { nw, ne, sw, se }
+    }
+
+    pub fn repeat(val: T) -> Self
+    where
+        T: Clone,
+    {
+        Self::pack([val.clone(), val.clone(), val.clone(), val])
     }
 
     pub fn unpack(self) -> [T; 4] {
