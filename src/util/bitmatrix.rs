@@ -9,10 +9,22 @@ use std::{
     default::Default,
     fmt::Debug,
     hash::Hash,
-    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign},
+    ops::{BitAnd, BitOr, BitXor, Not},
 };
 
 use packed_simd::u16x16;
+
+macro_rules! unary_not {
+    ( $ty:ident ) => {
+        impl Not for $ty {
+            type Output = $ty;
+
+            fn not(self) -> $ty {
+                $ty(!self.0)
+            }
+        }
+    };
+}
 
 macro_rules! binary_op {
     ( $ty:ident , $op:ident , $fn:ident , $ident:tt ) => {
@@ -26,9 +38,12 @@ macro_rules! binary_op {
     };
 }
 
+unary_not!(Bit8x8);
 binary_op!(Bit8x8, BitAnd, bitand, &);
 binary_op!(Bit8x8, BitOr, bitor, |);
 binary_op!(Bit8x8, BitXor, bitxor, ^);
+
+unary_not!(Bit16x16);
 binary_op!(Bit16x16, BitAnd, bitand, &);
 binary_op!(Bit16x16, BitOr, bitor, |);
 binary_op!(Bit16x16, BitXor, bitxor, ^);
