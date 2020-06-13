@@ -5,27 +5,38 @@
 use crate::util::Grid2;
 
 // traits from std
-use std::{default::Default, fmt::Debug, hash::Hash};
-
-// these derive macro imports don't clash with the trait imports from std above
-use derive_more::{
-    BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, From, Into, Not,
+use std::{
+    default::Default,
+    fmt::Debug,
+    hash::Hash,
+    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign},
 };
 
 use packed_simd::u16x16;
 
+macro_rules! binary_op {
+    ( $ty:ident , $op:ident , $fn:ident , $ident:tt ) => {
+        impl $op<$ty> for $ty {
+            type Output = $ty;
+
+            fn $fn(self, rhs: $ty) -> $ty {
+                $ty(self.0 $ident rhs.0)
+            }
+        }
+    };
+}
+
+binary_op!(Bit8x8, BitAnd, bitand, &);
+binary_op!(Bit8x8, BitOr, bitor, |);
+binary_op!(Bit8x8, BitXor, bitxor, ^);
+binary_op!(Bit16x16, BitAnd, bitand, &);
+binary_op!(Bit16x16, BitOr, bitor, |);
+binary_op!(Bit16x16, BitXor, bitxor, ^);
+
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-// foo
-#[derive(BitAnd, BitOr, BitXor, From, Into, Not)]
-// foo
-#[derive(BitAndAssign, BitOrAssign, BitXorAssign)]
 pub struct Bit8x8(pub u64);
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
-// foo
-#[derive(BitAnd, BitOr, BitXor, From, Into, Not)]
-// foo
-#[derive(BitAndAssign, BitOrAssign, BitXorAssign)]
 pub struct Bit16x16(pub u16x16);
 
 impl Bit16x16 {

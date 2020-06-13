@@ -2,6 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use std::ops::BitAnd;
+use std::ops::BitOr;
+use std::ops::BitXor;
+
 use crate::{
     life::quadtree::Leaf,
     util::{Bit16x16, Grid2},
@@ -23,7 +27,7 @@ impl Rule for B3S23 {
 
         let half_adder = |sum: &mut Bit16x16, addend: Bit16x16| -> Bit16x16 {
             let carry = *sum & addend;
-            *sum ^= addend;
+            *sum = *sum ^ addend;
             carry
         };
 
@@ -32,7 +36,7 @@ impl Rule for B3S23 {
             for &addend in &alive.moore_neighborhood() {
                 let carry = half_adder(&mut sum[0], addend);
                 let carry = half_adder(&mut sum[1], carry);
-                sum[2] |= carry;
+                sum[2] = sum[2] | carry;
             }
 
             // two is 010 is binary
