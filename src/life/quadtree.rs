@@ -46,10 +46,13 @@ pub struct Branch {
 
 impl Branch {}
 
-impl<B> Node<B> {
+impl<B> Node<B>
+where
+    B: BitSquare,
+{
     pub fn level(&self) -> Level {
         match self {
-            Node::Leaf(_) => Level(2),
+            Node::Leaf(_) => Level::new(B::LOG_SIDE_LEN),
             Node::Branch(branch) => branch.level,
         }
     }

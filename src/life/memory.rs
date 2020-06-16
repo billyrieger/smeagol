@@ -5,13 +5,20 @@
 use crate::{
     life::quadtree::{Branch, Leaf, Node},
     util::{BitSquare, Grid2},
+    Error, Result,
 };
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Level(pub u8);
+pub struct Level {
+    index: u8,
+}
 
 impl Level {
-    const MAX: Self = Level(63);
+    const MAX: Level = Level::new(63);
+
+    pub const fn new(index: u8) -> Self {
+        Self { index }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -26,11 +33,50 @@ impl Id {
     }
 }
 
+pub struct Buffer<T> {
+    buf: Vec<Option<T>>,
+    next_free: usize,
+}
+
+impl<T> Buffer<T> {
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            // every slot in the buffer is initially empty
+            buf: std::iter::repeat_with(|| None).take(capacity).collect(),
+            next_free: 0,
+        }
+    }
+
+    pub fn try_insert(&mut self, value: T) -> Result<usize> {
+        self.buf
+            .get_mut(self.next_free)
+            .ok_or(Error)?
+            .replace(value);
+
+        let value_index = self.next_free;
+
+        while let Some(Some(_)) = self.buf.get(self.next_free) {
+            self.next_free += 1;
+        }
+
+        Ok(value_index)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Arena<B> {
-    /// Why not use `[Vec<Node>; 64]`? Many traits in the standard library are only implemented for
-    /// arrays up to an arbitrary maximum length. Check out [`std::array::LengthAtMost32`].
+    /// Why not use `[Vec<Node>; 64]`? Many traits in the standard library, such as `Debug` and
+    /// `Default`, are only implemented for arrays up to an arbitrary maximum length. Check out
+    /// [`std::array::LengthAtMost32`].
     buffers: [[Vec<Node<B>>; 32]; 2],
+}
+
+impl<B> Default for Arena<B> {
+    fn default() -> Self {
+        Self {
+            buffers: Default::default(),
+        }
+    }
 }
 
 impl<B> Arena<B>
@@ -38,14 +84,16 @@ where
     B: BitSquare,
 {
     pub fn new() -> Self {
-        Self {
-            buffers: Default::default(),
-        }
+        let mut result = Self::default();
+
+        result.init();
+
+        result
     }
 
-    pub fn init(&mut self) {
+    fn init(&mut self) {
         let mut id = self.register(Node::Leaf(Leaf::dead()));
-        let mut level = Level(B::LOG_SIDE_LEN);
+        let mut level = Level::new(B::LOG_SIDE_LEN);
 
         while level < Level::MAX {
             let branch = Branch {
@@ -56,7 +104,7 @@ where
 
             id = self.register(Node::Branch(branch));
 
-            level = Level(level.0 + 1);
+            level = Level::new(level.index + 1);
         }
     }
 
@@ -75,14 +123,14 @@ where
     }
 
     fn buffer(&self, level: Level) -> &[Node<B>] {
-        let i = (level.0 / 32) as usize;
-        let j = (level.0 % 32) as usize;
+        let i = (level.index / 32) as usize;
+        let j = (level.index % 32) as usize;
         &self.buffers[i][j]
     }
 
     fn buffer_mut(&mut self, level: Level) -> &mut Vec<Node<B>> {
-        let i = (level.0 / 32) as usize;
-        let j = (level.0 % 32) as usize;
+        let i = (level.index / 32) as usize;
+        let j = (level.index % 32) as usize;
         &mut self.buffers[i][j]
     }
 }
