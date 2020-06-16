@@ -10,5 +10,3 @@ edition = "2018"
 publish = false
 
 [dependencies]
-packed_simd = "0.3.3"
-derive_more = "0.99.7"

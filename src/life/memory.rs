@@ -4,70 +4,85 @@
 
 use crate::{
     life::quadtree::{Branch, Leaf, Node},
-    util::Grid2,
+    util::{BitSquare, Grid2},
 };
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Level(pub u8);
+
+impl Level {
+    const MAX: Self = Level(63);
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Id {
-    level: u8,
+    level: Level,
     index: usize,
 }
 
 impl Id {
-    const fn new(level: u8, index: usize) -> Self {
+    const fn new(level: Level, index: usize) -> Self {
         Self { level, index }
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct Arena {
-    // Why not use `[Vec<Node>; 64]`? Many traits in the standard library are only implemented for
-    // arrays up to an arbitrary maximum length. Check out `std::array::LengthAtMost32`.
-    buffers: [[Vec<Node>; 32]; 2],
+#[derive(Clone, Debug)]
+pub struct Arena<B> {
+    /// Why not use `[Vec<Node>; 64]`? Many traits in the standard library are only implemented for
+    /// arrays up to an arbitrary maximum length. Check out [`std::array::LengthAtMost32`].
+    buffers: [[Vec<Node<B>>; 32]; 2],
 }
 
-impl Arena {
+impl<B> Arena<B>
+where
+    B: BitSquare,
+{
     pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn init(&mut self) {
-        let mut empty: Node = Node::Leaf(Leaf::dead());
-        let mut current_level = empty.level();
-
-        let empty_id: Id = Id::new(empty.level(), 0);
-        let no_children: Grid2<Id> = Grid2::repeat(empty_id);
-
-        for buf in self.buffers.iter_mut().flatten() {
-            let next_branch = Branch {
-                level: current_level,
-                children: no_children,
-                population: 0,
-            };
-
-            empty = Node::Branch(next_branch);
-            current_level += 1;
-            buf.push(empty);
+        Self {
+            buffers: Default::default(),
         }
     }
 
-    pub fn create_node(&mut self, node: Node) -> Id {
-        let level: u8 = node.level();
+    pub fn init(&mut self) {
+        let mut id = self.register(Node::Leaf(Leaf::dead()));
+        let mut level = Level(B::LOG_SIDE_LEN);
 
-        let (i, j) = Self::level_to_indices(level);
+        while level < Level::MAX {
+            let branch = Branch {
+                level,
+                children: Grid2::repeat(id),
+                population: 0,
+            };
 
-        let buflen = self.buffers[i][j].len();
+            id = self.register(Node::Branch(branch));
 
-        let new_id = Id::new(level, buflen);
-
-        self.buffers[i][j].push(node);
-
-        new_id
+            level = Level(level.0 + 1);
+        }
     }
 
-    fn level_to_indices(level: u8) -> (usize, usize) {
-        assert!(level < 64);
-        let level = level as usize;
-        (level / 32, level % 32)
+    pub fn register(&mut self, node: Node<B>) -> Id {
+        let level = node.level();
+
+        let next_index = self.buffer(level).len();
+
+        self.buffer_mut(level).push(node);
+
+        Id::new(level, next_index)
+    }
+
+    pub fn empty_node(&self, level: Level) -> Node<B> {
+        self.buffer(level)[0]
+    }
+
+    fn buffer(&self, level: Level) -> &[Node<B>] {
+        let i = (level.0 / 32) as usize;
+        let j = (level.0 % 32) as usize;
+        &self.buffers[i][j]
+    }
+
+    fn buffer_mut(&mut self, level: Level) -> &mut Vec<Node<B>> {
+        let i = (level.0 / 32) as usize;
+        let j = (level.0 % 32) as usize;
+        &mut self.buffers[i][j]
     }
 }

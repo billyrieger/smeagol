@@ -3,48 +3,57 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use crate::{
-    life::memory::Id,
-    util::{Bit8x8, Grid2},
+    life::memory::{Id, Level},
+    util::{BitSquare, Grid2},
 };
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum Node {
-    Leaf(Leaf),
+pub enum Cell {
+    Dead,
+    Alive,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum Node<B> {
+    Leaf(Leaf<B>),
     Branch(Branch),
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Leaf {
-    pub alive: Bit8x8,
+pub struct Leaf<B> {
+    pub alive: B,
+}
+
+impl<B> Leaf<B>
+where
+    B: BitSquare,
+{
+    pub fn new(alive: B) -> Self {
+        Self { alive }
+    }
+
+    pub fn dead() -> Self {
+        Self::new(B::zero())
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Branch {
     pub children: Grid2<Id>,
     pub population: u128,
-    pub level: u8,
+    pub level: Level,
 }
 
-/// This is documentation of an impl block. Why?
-impl Node {
-    pub fn level(&self) -> u8 {
+impl Branch {}
+
+impl<B> Node<B> {
+    pub fn level(&self) -> Level {
         match self {
-            Node::Leaf(_) => 3,
+            Node::Leaf(_) => Level(2),
             Node::Branch(branch) => branch.level,
         }
     }
 }
-
-impl Leaf {
-    pub const fn new(alive: Bit8x8) -> Self {
-        Self { alive }
-    }
-
-    pub const fn dead() -> Self {
-        Self::new(Bit8x8(0))
-    }
-}
-
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Position {

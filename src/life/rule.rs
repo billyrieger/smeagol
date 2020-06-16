@@ -2,14 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// use std::ops::BitAnd;
-// use std::ops::BitOr;
-// use std::ops::BitXor;
-
-use crate::{
-    life::quadtree::Leaf,
-    util::{Bit16x16, Grid2},
-};
+use crate::util::{BitSquare, Grid2};
 
 pub trait Rule {
     type Leaf;
@@ -17,22 +10,25 @@ pub trait Rule {
     fn evolve(&self, grid: Grid2<Self::Leaf>, steps: u8) -> Self::Leaf;
 }
 
-pub struct B3S23;
+pub struct B3S23<B>(std::marker::PhantomData<B>);
 
-impl Rule for B3S23 {
-    type Leaf = Leaf;
+impl<B> Rule for B3S23<B>
+where
+    B: BitSquare,
+{
+    type Leaf = B;
 
-    fn evolve(&self, grid: Grid2<Leaf>, steps: u8) -> Leaf {
+    fn evolve(&self, _grid: Grid2<B>, steps: u8) -> B {
         assert!(steps <= 4);
 
-        let half_adder = |sum: &mut Bit16x16, addend: Bit16x16| -> Bit16x16 {
+        let half_adder = |sum: &mut B, addend: B| -> B {
             let carry = *sum & addend;
             *sum = *sum ^ addend;
             carry
         };
 
-        let step_once = |alive: Bit16x16| -> Bit16x16 {
-            let mut sum: [Bit16x16; 3] = Default::default();
+        let step_once = |alive: B| -> B {
+            let mut sum: [B; 3] = [B::zero(); 3];
             for &addend in &alive.moore_neighborhood() {
                 let carry = half_adder(&mut sum[0], addend);
                 let carry = half_adder(&mut sum[1], carry);
@@ -48,7 +44,7 @@ impl Rule for B3S23 {
             total_is_three | (alive & total_is_two)
         };
 
-        let mut result = Bit16x16::from_parts(grid.map(|leaf| leaf.alive));
+        let mut result = B::zero();
         for _ in 0..steps {
             result = step_once(result);
         }
