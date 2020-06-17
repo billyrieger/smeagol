@@ -3,7 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use crate::{
-    life::quadtree::{Branch, Leaf, Node},
+    life::quadtree::{Branch, Leaf},
     util::{BitSquare, Grid2},
 };
 
@@ -43,9 +43,16 @@ impl<T> Arena<T>
 where
     T: Copy,
 {
+    pub fn new() -> Self {
+        Self {
+            slots: Vec::new(),
+            len: 0,
+            next_free: 0,
+        }
+    }
+
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            // Every slot is initially vacant.
             slots: vec![Slot::Vacant; capacity],
             len: 0,
             next_free: 0,
@@ -61,14 +68,19 @@ where
     }
 
     pub fn insert(&mut self, value: T) -> usize {
+        assert!(self.next_free <= self.slots.len());
+
+        // Ensure that `self.next_free` points inside `self.slots`. If it's out of bounds, extend
+        // the vector by adding an empty slot to the end.
         if self.next_free == self.slots.len() {
             self.slots.push(Slot::Vacant);
         }
 
+        // After ensuring `self.next_free` is a valid index, occupy the slot with the given value
+        // and increment the length. Keep track of the insertion index as it's the return value.
         self.slots[self.next_free].occupy(value);
         self.len += 1;
-
-        let insert_index = self.next_free;
+        let insertion_index = self.next_free;
 
         // Increment `self.next_free` in a while loop to find the next vacant slot. The loop is
         // broken under either of two conditions:
@@ -84,7 +96,7 @@ where
             self.next_free += 1;
         }
 
-        insert_index
+        insertion_index
     }
 
     pub fn retain<F>(&mut self, mut predicate: F)
