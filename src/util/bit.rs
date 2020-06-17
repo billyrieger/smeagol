@@ -14,6 +14,8 @@ use std::{
 pub trait BitSquare:
     Sized
     + Copy
+    + Debug
+    + Default
     + Eq
     + Hash
     + BitAnd<Output = Self>

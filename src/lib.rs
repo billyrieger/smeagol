@@ -7,6 +7,12 @@ pub mod util;
 
 /// Eventually `Error` will have an enum of all the things that can go wrong. For now, it's
 /// effectively a black hole that we throw errors into.
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Error;
+
+#[derive(Clone, Copy, Debug)]
+pub enum ErrorKind {
+    OutOfBounds,
+}
 
 pub type Result<T> = std::result::Result<T, Error>;

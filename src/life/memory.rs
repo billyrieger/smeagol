@@ -5,132 +5,213 @@
 use crate::{
     life::quadtree::{Branch, Leaf, Node},
     util::{BitSquare, Grid2},
-    Error, Result,
 };
 
+#[derive(Clone, Copy, Debug)]
+pub enum Slot<T> {
+    Occupied(T),
+    Vacant,
+}
+
+impl<T> Slot<T>
+where
+    T: Copy,
+{
+    pub fn occupy(&mut self, value: T) {
+        *self = Slot::Occupied(value);
+    }
+
+    pub fn vacate(&mut self) {
+        *self = Slot::Vacant;
+    }
+}
+
+impl<T> Default for Slot<T> {
+    fn default() -> Self {
+        Slot::Vacant
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Arena<T> {
+    slots: Vec<Slot<T>>,
+    len: usize,
+    next_free: usize,
+}
+
+impl<T> Arena<T>
+where
+    T: Copy,
+{
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            // Every slot is initially vacant.
+            slots: vec![Slot::Vacant; capacity],
+            len: 0,
+            next_free: 0,
+        }
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.slots.len()
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn insert(&mut self, value: T) -> usize {
+        if self.next_free == self.slots.len() {
+            self.slots.push(Slot::Vacant);
+        }
+
+        self.slots[self.next_free].occupy(value);
+        self.len += 1;
+
+        let insert_index = self.next_free;
+
+        // Increment `self.next_free` in a while loop to find the next vacant slot. The loop is
+        // broken under either of two conditions:
+        //
+        // * A vacant slot is found, in which case `Slot::Occupied(_)` fails to match.
+        // `self.next_free` is the index of the vacant slot and the next call to `try_insert` will
+        // succeed.
+        //
+        // * No vacant slot is found, in which case `Some(_)` fails to match. `self.next_free` is
+        // beyond the range of valid indices and the next call to `try_insert` will return an
+        // error, unless elements are pruned.
+        while let Some(Slot::Occupied(_)) = self.slots.get(self.next_free) {
+            self.next_free += 1;
+        }
+
+        insert_index
+    }
+
+    pub fn retain<F>(&mut self, mut predicate: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        let mut last_seen_vacant: usize = self.capacity();
+
+        for (index, slot) in self.slots.iter_mut().enumerate().rev() {
+            match slot {
+                Slot::Vacant => {
+                    last_seen_vacant = index;
+                }
+                Slot::Occupied(value) => {
+                    if !predicate(value) {
+                        slot.vacate();
+                        self.len -= 1;
+                        last_seen_vacant = index;
+                    }
+                }
+            }
+        }
+
+        self.next_free = last_seen_vacant;
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Level {
+pub struct Tier {
     index: u8,
 }
 
-impl Level {
-    const MAX: Level = Level::new(63);
+impl Tier {
+    const MAX: Tier = Tier::new(63);
 
     pub const fn new(index: u8) -> Self {
         Self { index }
+    }
+
+    pub const fn decrement(&self) -> Self {
+        Self::new(self.index - 1)
+    }
+
+    pub const fn increment(&self) -> Self {
+        Self::new(self.index + 1)
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Id {
-    level: Level,
+    tier: Tier,
     index: usize,
 }
 
 impl Id {
-    const fn new(level: Level, index: usize) -> Self {
-        Self { level, index }
+    fn new(tier: Tier, index: usize) -> Self {
+        Self { tier, index }
     }
 }
 
-pub struct Buffer<T> {
-    buf: Vec<Option<T>>,
-    next_free: usize,
+#[derive(Clone, Debug, Default)]
+pub struct TieredArena<B> {
+    leaves: Arena<Leaf<B>>,
+    branches: Vec<Arena<Branch>>,
 }
 
-impl<T> Buffer<T> {
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            // every slot in the buffer is initially empty
-            buf: std::iter::repeat_with(|| None).take(capacity).collect(),
-            next_free: 0,
-        }
-    }
-
-    pub fn try_insert(&mut self, value: T) -> Result<usize> {
-        self.buf
-            .get_mut(self.next_free)
-            .ok_or(Error)?
-            .replace(value);
-
-        let value_index = self.next_free;
-
-        while let Some(Some(_)) = self.buf.get(self.next_free) {
-            self.next_free += 1;
-        }
-
-        Ok(value_index)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Arena<B> {
-    /// Why not use `[Vec<Node>; 64]`? Many traits in the standard library, such as `Debug` and
-    /// `Default`, are only implemented for arrays up to an arbitrary maximum length. Check out
-    /// [`std::array::LengthAtMost32`].
-    buffers: [[Vec<Node<B>>; 32]; 2],
-}
-
-impl<B> Default for Arena<B> {
-    fn default() -> Self {
-        Self {
-            buffers: Default::default(),
-        }
-    }
-}
-
-impl<B> Arena<B>
+impl<B> TieredArena<B>
 where
     B: BitSquare,
 {
     pub fn new() -> Self {
-        let mut result = Self::default();
+        let mut result: Self = Default::default();
 
-        result.init();
+        let mut prev_id = result.register_leaf(Leaf::dead());
+        let mut tier = Tier::new(B::LOG_SIDE_LEN + 1);
+
+        while tier < Tier::MAX {
+            let empty = Branch {
+                tier,
+                children: Grid2::repeat(prev_id),
+                population: 0,
+            };
+
+            prev_id = result.register_branch(empty);
+            tier = tier.increment();
+        }
 
         result
     }
 
-    fn init(&mut self) {
-        let mut id = self.register(Node::Leaf(Leaf::dead()));
-        let mut level = Level::new(B::LOG_SIDE_LEN);
-
-        while level < Level::MAX {
-            let branch = Branch {
-                level,
-                children: Grid2::repeat(id),
-                population: 0,
-            };
-
-            id = self.register(Node::Branch(branch));
-
-            level = Level::new(level.index + 1);
-        }
+    pub fn register_leaf(&mut self, leaf: Leaf<B>) -> Id {
+        let index = self.leaves.insert(leaf);
+        Id::new(Tier::new(B::LOG_SIDE_LEN), index)
     }
 
-    pub fn register(&mut self, node: Node<B>) -> Id {
-        let level = node.level();
+    pub fn register_branch(&mut self, branch: Branch) -> Id {
+        let arena_index = (branch.tier.index - B::LOG_SIDE_LEN) as usize;
 
-        let next_index = self.buffer(level).len();
+        let index = self.branches[arena_index].len();
+        self.branches[arena_index].insert(branch);
 
-        self.buffer_mut(level).push(node);
-
-        Id::new(level, next_index)
+        Id::new(branch.tier, index)
     }
+}
 
-    pub fn empty_node(&self, level: Level) -> Node<B> {
-        self.buffer(level)[0]
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    fn buffer(&self, level: Level) -> &[Node<B>] {
-        let i = (level.index / 32) as usize;
-        let j = (level.index % 32) as usize;
-        &self.buffers[i][j]
-    }
+    #[test]
+    fn arena() {
+        let mut arena = Arena::<char>::with_capacity(5);
 
-    fn buffer_mut(&mut self, level: Level) -> &mut Vec<Node<B>> {
-        let i = (level.index / 32) as usize;
-        let j = (level.index % 32) as usize;
-        &mut self.buffers[i][j]
+        arena.insert('a');
+        arena.insert('b');
+        arena.insert('c');
+        arena.insert('d');
+        arena.insert('e');
+
+        assert_eq!(arena.len(), 5);
+
+        arena.retain(|&c| (c as u8) % 2 == 1);
+
+        assert_eq!(arena.len(), 3);
+
+        arena.insert('X');
+        arena.insert('Y');
+        arena.insert('Z');
     }
 }

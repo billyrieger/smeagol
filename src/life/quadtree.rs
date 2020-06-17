@@ -3,7 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use crate::{
-    life::memory::{Id, Level},
+    life::memory::{Id, Tier},
     util::{BitSquare, Grid2},
 };
 
@@ -17,6 +17,18 @@ pub enum Cell {
 pub enum Node<B> {
     Leaf(Leaf<B>),
     Branch(Branch),
+}
+
+impl<B> Node<B>
+where
+    B: BitSquare,
+{
+    pub fn tier(&self) -> Tier {
+        match self {
+            Node::Leaf(_) => Tier::new(B::LOG_SIDE_LEN),
+            Node::Branch(branch) => branch.tier,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -41,22 +53,10 @@ where
 pub struct Branch {
     pub children: Grid2<Id>,
     pub population: u128,
-    pub level: Level,
+    pub tier: Tier,
 }
 
 impl Branch {}
-
-impl<B> Node<B>
-where
-    B: BitSquare,
-{
-    pub fn level(&self) -> Level {
-        match self {
-            Node::Leaf(_) => Level::new(B::LOG_SIDE_LEN),
-            Node::Branch(branch) => branch.level,
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Position {
