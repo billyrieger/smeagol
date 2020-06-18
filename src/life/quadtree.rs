@@ -2,15 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::util::{
-    bit::BitSquare,
-    grid::Grid2,
-    memory::{Arena, Id},
-};
+use crate::util::{bit::BitSquare, grid::Grid2, memory::Arena};
+use crate::Error;
+use crate::Result;
 
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct NodeId {
-    id: Id,
     level: Level,
+    index: usize,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -72,16 +71,11 @@ where
     fn new(alive: B) -> Self {
         Self { alive }
     }
-
-    fn position_to_index(pos: Position) -> u32 {
-        let side_len = Level::new(B::LOG_SIDE_LEN).side_len();
-        todo!()
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Branch {
-    children: Grid2<Id>,
+    children: Grid2<NodeId>,
     population: u128,
     level: Level,
 }
@@ -134,54 +128,81 @@ pub enum Cell {
 }
 
 pub struct Tree<B> {
-    leaves: Arena<Leaf<B>>,
-    branches: Vec<Arena<Branch>>,
-    root: Id,
+    leaf_arena: Arena<Leaf<B>>,
+    branch_arenas: Vec<Arena<Branch>>,
+    root: NodeId,
 }
 
 impl<B> Tree<B>
 where
     B: BitSquare,
 {
+    fn min_level() -> Level {
+        Level::new(B::LOG_SIDE_LEN)
+    }
+
+    fn max_level() -> Level {
+        Level::new(63)
+    }
+
     pub fn new() -> Self {
-        let mut leaves: Arena<Leaf<B>> = Arena::new();
-        let mut branches: Vec<Arena<Branch>> =
-            std::iter::repeat_with(|| Arena::new()).take(2).collect();
+        let n_levels = (Self::max_level().log_side_len - B::LOG_SIDE_LEN) as usize;
 
-        let mut prev_id = leaves.register(Leaf::new(B::zero()));
-        let mut current_level = Level::new(B::LOG_SIDE_LEN).increment();
+        let mut leaf_arena: Arena<Leaf<B>> = Arena::new();
 
-        for arena in branches.iter_mut() {
+        let mut prev_id = NodeId {
+            level: Self::min_level(),
+            index: leaf_arena.register(Leaf::new(B::zero())),
+        };
+        let mut current_level = prev_id.level.increment();
+
+        let branch_arenas: Vec<Arena<Branch>> = std::iter::repeat_with(|| {
+            let mut arena = Arena::new();
+
             let empty_branch = Branch {
                 level: current_level,
                 children: Grid2::repeat(prev_id),
                 population: 0,
             };
 
-            prev_id = arena.register(empty_branch);
+            prev_id = NodeId {
+                level: current_level,
+                index: arena.register(empty_branch),
+            };
             current_level = current_level.increment();
-        }
+
+            arena
+        })
+        .take(n_levels)
+        .collect();
 
         Self {
-            leaves,
-            branches,
+            leaf_arena,
+            branch_arenas,
             root: prev_id,
         }
     }
 
-    fn visit<T, V>(&mut self, level: Level, node: Id, visitor: V)
-    where
-        V: Visitor<B, T>,
-    {
-        todo!()
+    fn get_node(&self, id: NodeId) -> Result<Node<B>> {
+        if id.level == Self::min_level() {
+            let leaf = self.leaf_arena.get(id.index).ok_or(Error)?;
+            Ok(Node::Leaf(leaf))
+        } else {
+            let arena_index = (id.level.log_side_len - B::LOG_SIDE_LEN - 1) as usize;
+            let branch = self.branch_arenas[arena_index].get(id.index).ok_or(Error)?;
+            Ok(Node::Branch(branch))
+        }
     }
 }
 
 trait Visitor<B, T> {
     fn visit_leaf(&mut self, leaf: Leaf<B>) -> T;
-    fn visit_branch(&mut self, branch: Branch, results: Grid2<T>) -> T;
+    fn visit_branch(&mut self, branch: Branch) -> T;
 }
 
-pub struct AliveCells<'t, B> {
-    tree: &'t Tree<B>,
+fn walk<B, V>(visitor: &mut V, node: NodeId)
+where
+    V: Visitor<B, ()>,
+{
+    todo!()
 }

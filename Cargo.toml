@@ -10,7 +10,8 @@ edition = "2018"
 publish = false
 
 [features]
-simd = ["packed_simd"]
+default = []
+# simd = ["packed_simd"]
 
 [dependencies]
-packed_simd = { version = "0.3.3", optional = true }
+# packed_simd = { version = "0.3.3", optional = true }

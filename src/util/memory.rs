@@ -23,17 +23,6 @@ where
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Id {
-    index: usize,
-}
-
-impl Id {
-    fn new(index: usize) -> Self {
-        Self { index }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct Arena<T> {
     slots: Vec<Slot<T>>,
@@ -53,14 +42,6 @@ where
         }
     }
 
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            slots: vec![Slot::Vacant; capacity],
-            lookup: HashMap::with_capacity(capacity),
-            next_free: 0,
-        }
-    }
-
     pub fn capacity(&self) -> usize {
         self.slots.len()
     }
@@ -69,9 +50,9 @@ where
         self.lookup.len()
     }
 
-    pub fn lookup(&self, id: Id) -> Option<T> {
+    pub fn get(&self, index: usize) -> Option<T> {
         self.slots
-            .get(id.index)
+            .get(index)
             .and_then(|slot| match slot {
                 Slot::Vacant => None,
                 Slot::Occupied(value) => Some(value),
@@ -79,9 +60,9 @@ where
             .copied()
     }
 
-    pub fn register(&mut self, value: T) -> Id {
+    pub fn register(&mut self, value: T) -> usize {
         if let Some(&index) = self.lookup.get(&value) {
-            return Id::new(index);
+            return index;
         }
 
         assert!(self.next_free <= self.slots.len());
@@ -106,7 +87,7 @@ where
             self.next_free += 1;
         }
 
-        Id::new(insertion_index)
+        insertion_index
     }
 
     pub fn retain<F>(&mut self, predicate: F)
