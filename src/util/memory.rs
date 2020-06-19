@@ -4,7 +4,7 @@
 
 use std::{collections::HashMap, hash::Hash};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 enum Slot<T> {
     Occupied(T),
     Vacant,
@@ -40,6 +40,12 @@ where
             lookup: HashMap::new(),
             next_free: 0,
         }
+    }
+
+    pub fn with_value(value: T) -> Self {
+        let mut arena = Self::new();
+        arena.register(value);
+        arena
     }
 
     pub fn capacity(&self) -> usize {
@@ -113,5 +119,6 @@ where
         self.next_free = last_seen_vacant;
 
         self.lookup.retain(|key, _| predicate(key));
+        self.lookup.shrink_to_fit();
     }
 }

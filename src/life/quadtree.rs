@@ -7,12 +7,6 @@ use crate::Error;
 use crate::Result;
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-struct NodeId {
-    level: Level,
-    index: usize,
-}
-
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Level {
     log_side_len: u8,
 }
@@ -39,6 +33,12 @@ impl Level {
         let half = (self.side_len() / 2) as i64;
         half - 1
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+struct NodeId {
+    level: Level,
+    index: usize,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -128,8 +128,7 @@ pub enum Cell {
 }
 
 pub struct Tree<B> {
-    leaf_arena: Arena<Leaf<B>>,
-    branch_arenas: Vec<Arena<Branch>>,
+    arenas: Vec<Arena<Node<B>>>,
     root: NodeId,
 }
 
@@ -148,13 +147,22 @@ where
     pub fn new() -> Self {
         let n_levels = (Self::max_level().log_side_len - B::LOG_SIDE_LEN) as usize;
 
-        let mut leaf_arena: Arena<Leaf<B>> = Arena::new();
+        let _ = (0..n_levels).map(|i| {
+            if i == 0 {
+            } else {
+
+            }
+        });
+
+        let mut arenas: Vec<Arena<Node<B>>> = std::iter::repeat_with(|| Arena::new())
+            .take(n_levels)
+            .collect();
 
         let mut prev_id = NodeId {
             level: Self::min_level(),
-            index: leaf_arena.register(Leaf::new(B::zero())),
+            index: arenas[0].register(Node::Leaf(Leaf::new(B::zero()))),
         };
-        let mut current_level = prev_id.level.increment();
+        let mut current_level = Self::min_level().increment();
 
         let branch_arenas: Vec<Arena<Branch>> = std::iter::repeat_with(|| {
             let mut arena = Arena::new();
@@ -177,32 +185,28 @@ where
         .collect();
 
         Self {
-            leaf_arena,
-            branch_arenas,
+            arenas,
             root: prev_id,
         }
     }
 
     fn get_node(&self, id: NodeId) -> Result<Node<B>> {
-        if id.level == Self::min_level() {
-            let leaf = self.leaf_arena.get(id.index).ok_or(Error)?;
-            Ok(Node::Leaf(leaf))
-        } else {
-            let arena_index = (id.level.log_side_len - B::LOG_SIDE_LEN - 1) as usize;
-            let branch = self.branch_arenas[arena_index].get(id.index).ok_or(Error)?;
-            Ok(Node::Branch(branch))
-        }
+        todo!()
+        // match id {
+        //     NodeId::Leaf { index } => {
+        //         let leaf = self.leaf_arena.get(index).ok_or(Error)?;
+        //         Ok(Node::Leaf(leaf))
+        //     }
+        //     NodeId::Branch { level, index } => {
+        //         let arena_index = (level.log_side_len - B::LOG_SIDE_LEN - 1) as usize;
+        //         let branch = self.branch_arenas[arena_index].get(index).ok_or(Error)?;
+        //         Ok(Node::Branch(branch))
+        //     }
+        // }
     }
 }
 
 trait Visitor<B, T> {
     fn visit_leaf(&mut self, leaf: Leaf<B>) -> T;
     fn visit_branch(&mut self, branch: Branch) -> T;
-}
-
-fn walk<B, V>(visitor: &mut V, node: NodeId)
-where
-    V: Visitor<B, ()>,
-{
-    todo!()
 }
