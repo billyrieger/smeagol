@@ -24,7 +24,7 @@ pub trait BitSquare:
     + Not<Output = Self>
 {
     type Quadrant: BitSquare;
-    const SIDE_LEN: u8;
+    const SIDE_LEN: u32;
     const LOG_SIDE_LEN: u8;
 
     fn zero() -> Self;

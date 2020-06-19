@@ -2,36 +2,22 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::util::{bit::BitSquare, grid::Grid2, memory::Arena};
+use crate::life::rule::{Leaf, Rule};
+use crate::util::grid::{Grid3, Grid4};
+use crate::util::{grid::Grid2, memory::Arena};
 use crate::Error;
 use crate::Result;
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-struct Level {
-    log_side_len: u8,
-}
+struct Level(u8);
 
 impl Level {
-    const fn new(log_side_len: u8) -> Self {
-        Self { log_side_len }
-    }
-
     fn increment(&self) -> Level {
-        Level::new(self.log_side_len + 1)
+        Level(self.0 + 1)
     }
 
-    fn side_len(&self) -> u64 {
-        1_u64 << self.log_side_len
-    }
-
-    fn min_coord(&self) -> i64 {
-        let half = (self.side_len() / 2) as i64;
-        -half
-    }
-
-    fn max_coord(&self) -> i64 {
-        let half = (self.side_len() / 2) as i64;
-        half - 1
+    fn decrement(&self) -> Level {
+        Level(self.0 + 1)
     }
 }
 
@@ -42,41 +28,43 @@ struct NodeId {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-enum Node<B> {
-    Leaf(Leaf<B>),
+enum Node<L> {
+    Leaf(L),
     Branch(Branch),
 }
 
-impl<B> Node<B>
+pub struct Data<L> {
+    population: u128,
+    jump: Option<Node<L>>,
+}
+
+impl<L> Node<L>
 where
-    B: BitSquare,
+    L: Leaf,
 {
+    fn from_children(children: Grid2<NodeId>) -> Self {
+        debug_assert_eq!(children.nw.level, children.ne.level);
+        debug_assert_eq!(children.nw.level, children.sw.level);
+        debug_assert_eq!(children.nw.level, children.se.level);
+
+        let branch = Branch {
+            level: children.nw.level.increment(),
+            children,
+        };
+        Node::Branch(branch)
+    }
+
     fn level(&self) -> Level {
         match self {
-            Node::Leaf(_) => Level::new(B::LOG_SIDE_LEN),
-            Node::Branch(branch) => branch.level,
+            Node::Leaf(_) => Level(L::LOG_SIDE_LEN),
+            Node::Branch(b) => b.level,
         }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-struct Leaf<B> {
-    pub alive: B,
-}
-
-impl<B> Leaf<B>
-where
-    B: BitSquare,
-{
-    fn new(alive: B) -> Self {
-        Self { alive }
     }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Branch {
     children: Grid2<NodeId>,
-    population: u128,
     level: Level,
 }
 
@@ -121,92 +109,103 @@ impl Position {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum Cell {
-    Dead,
-    Alive,
-}
-
-pub struct Tree<B> {
-    arenas: Vec<Arena<Node<B>>>,
+pub struct Tree<L, R> {
+    arenas: Vec<Arena<Node<L>>>,
     root: NodeId,
+    rule: R,
 }
 
-impl<B> Tree<B>
+impl<L, R> Tree<L, R>
 where
-    B: BitSquare,
+    L: Leaf,
+    R: Rule<Leaf = L>,
 {
     fn min_level() -> Level {
-        Level::new(B::LOG_SIDE_LEN)
+        Level(L::LOG_SIDE_LEN)
     }
 
     fn max_level() -> Level {
-        Level::new(63)
+        Level(63)
     }
 
-    pub fn new() -> Self {
-        let n_levels = (Self::max_level().log_side_len - B::LOG_SIDE_LEN) as usize;
+    pub fn new(rule: R) -> Self {
+        let min: u8 = Self::min_level().0;
+        let max: u8 = Self::max_level().0;
 
-        let _ = (0..n_levels).map(|i| {
-            if i == 0 {
-            } else {
-
-            }
-        });
-
-        let mut arenas: Vec<Arena<Node<B>>> = std::iter::repeat_with(|| Arena::new())
-            .take(n_levels)
+        let arenas: Vec<Arena<Node<L>>> = (min..=max)
+            .map(Level)
+            .map(|level| {
+                if level == Self::min_level() {
+                    Arena::with_value(Node::Leaf(L::default()))
+                } else {
+                    let previous_id = NodeId {
+                        level: level.decrement(),
+                        index: 0,
+                    };
+                    let children = Grid2::repeat(previous_id);
+                    Arena::with_value(Node::from_children(children))
+                }
+            })
             .collect();
 
-        let mut prev_id = NodeId {
-            level: Self::min_level(),
-            index: arenas[0].register(Node::Leaf(Leaf::new(B::zero()))),
+        let root = NodeId {
+            level: Self::max_level(),
+            index: 0,
         };
-        let mut current_level = Self::min_level().increment();
 
-        let branch_arenas: Vec<Arena<Branch>> = std::iter::repeat_with(|| {
-            let mut arena = Arena::new();
+        Self { arenas, root, rule }
+    }
 
-            let empty_branch = Branch {
-                level: current_level,
-                children: Grid2::repeat(prev_id),
-                population: 0,
-            };
-
-            prev_id = NodeId {
-                level: current_level,
-                index: arena.register(empty_branch),
-            };
-            current_level = current_level.increment();
-
-            arena
-        })
-        .take(n_levels)
-        .collect();
-
-        Self {
-            arenas,
-            root: prev_id,
+    fn classify(&self, ids: Grid2<NodeId>) -> Result<Children<L>> {
+        let nodes: Grid2<Node<L>> = ids.try_map(|id| self.get_node(id))?;
+        match nodes.unpack() {
+            [Node::Leaf(nw), Node::Leaf(ne), Node::Leaf(sw), Node::Leaf(se)] => {
+                Ok(Children::Leaves(Grid2::pack([nw, ne, sw, se])))
+            }
+            [Node::Branch(nw), Node::Branch(ne), Node::Branch(sw), Node::Branch(se)] => {
+                Ok(Children::Branches(Grid2::pack([nw, ne, sw, se])))
+            }
+            _ => Err(Error),
         }
     }
 
-    fn get_node(&self, id: NodeId) -> Result<Node<B>> {
-        todo!()
-        // match id {
-        //     NodeId::Leaf { index } => {
-        //         let leaf = self.leaf_arena.get(index).ok_or(Error)?;
-        //         Ok(Node::Leaf(leaf))
-        //     }
-        //     NodeId::Branch { level, index } => {
-        //         let arena_index = (level.log_side_len - B::LOG_SIDE_LEN - 1) as usize;
-        //         let branch = self.branch_arenas[arena_index].get(index).ok_or(Error)?;
-        //         Ok(Node::Branch(branch))
-        //     }
-        // }
+    fn register(&mut self, node: Node<L>) -> NodeId {
+        let level = node.level();
+        let arena_index = self.arena_index(level);
+        let index = self.arenas[arena_index].register(node);
+        NodeId { level, index }
+    }
+
+    fn evolve(&mut self, grid: Grid2<NodeId>, steps: u64) -> Result<NodeId> {
+        match self.classify(grid)? {
+            Children::Leaves(leaves) => {
+                let new_leaf = self.rule.evolve(leaves, steps);
+                let id = self.register(Node::Leaf(new_leaf));
+                Ok(id)
+            }
+            Children::Branches(branches) => {
+                let grandchildren: Grid4<NodeId> = branches.map(|branch| branch.children).flatten();
+
+                let partial: Grid3<NodeId> = grandchildren.shrink(|ids| self.evolve(ids, steps))?;
+                let complete: Grid2<NodeId> = partial.shrink(|ids| self.evolve(ids, steps))?;
+                todo!()
+            }
+        }
+    }
+
+    fn arena_index(&self, level: Level) -> usize {
+        (level.0 - Self::min_level().0) as usize
+    }
+
+    fn get_node(&self, id: NodeId) -> Result<Node<L>> {
+        self.arenas
+            .get(self.arena_index(id.level))
+            .and_then(|arena| arena.get(id.index))
+            .ok_or(Error)
     }
 }
 
-trait Visitor<B, T> {
-    fn visit_leaf(&mut self, leaf: Leaf<B>) -> T;
-    fn visit_branch(&mut self, branch: Branch) -> T;
+enum Children<L> {
+    Leaves(Grid2<L>),
+    Branches(Grid2<Branch>),
 }
