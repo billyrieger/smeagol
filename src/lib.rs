@@ -5,8 +5,10 @@
 mod life;
 pub(crate) mod util;
 
-pub use life::quadtree::Tree;
-pub use life::rule::{Leaf, Rule};
+pub use life::{
+    quadtree::Tree,
+    rule::{Leaf, Rule},
+};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Error;

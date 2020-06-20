@@ -9,10 +9,13 @@ use crate::Result;
 pub struct Grid2<T> {
     /// The value in the top-left corner.
     pub nw: T,
+
     /// The value in the top-right corner.
     pub ne: T,
+
     /// The value in the bottom-left corner.
     pub sw: T,
+
     /// The value in the bottom-right corner.
     pub se: T,
 }
@@ -151,28 +154,49 @@ where
     where
         F: FnMut(Grid2<T>) -> Result<T>,
     {
-        // a b c
-        // d e f
-        // g h i
+        // +-------------+
+        // |  a   b   c  |   +---------+
+        // |             |   |  w   x  |
+        // |  d   e   f  |   |         |
+        // |             |   |  y   z  |
+        // |  g   h   i  |   +---------+
+        // +-------------+
         let [a, b, c, d, e, f, g, h, i] = self.0;
 
-        // a b
-        // d e
-        let northwest = func(Grid2::pack([a, b, d, e]))?;
+        // +---------+
+        // |  a   b  |
+        // |         |
+        // |  d   e  |
+        // +---------+
+        let w = func(Grid2::pack([a, b, d, e]))?;
 
-        // b c
-        // e f
-        let northeast = func(Grid2::pack([b, c, e, f]))?;
+        // +---------+
+        // |  b   c  |
+        // |         |
+        // |  e   f  |
+        // +---------+
+        let x = func(Grid2::pack([b, c, e, f]))?;
 
-        // d e
-        // g h
-        let southwest = func(Grid2::pack([d, e, g, h]))?;
+        // +---------+
+        // |  d   e  |
+        // |         |
+        // |  g   h  |
+        // +---------+
+        let y = func(Grid2::pack([d, e, g, h]))?;
 
-        // e g
-        // h i
-        let southeast = func(Grid2::pack([e, f, h, i]))?;
+        // +---------+
+        // |  e   f  |
+        // |         |
+        // |  h   i  |
+        // +---------+
+        let z = func(Grid2::pack([e, f, h, i]))?;
 
-        Ok(Grid2::pack([northwest, northeast, southwest, southeast]))
+        // +---------+
+        // |  w   x  |
+        // |         |
+        // |  y   z  |
+        // +---------+
+        Ok(Grid2::pack([w, x, y, z]))
     }
 }
 
@@ -186,50 +210,87 @@ where
     where
         F: FnMut(Grid2<T>) -> Result<T>,
     {
-        // a b c d
-        // e f g h
-        // i j k l
-        // m n o p
+        // +-----------------+
+        // |  a   b   c   d  |   +-------------+
+        // |                 |   |  r   s   t  |
+        // |  e   f   g   h  |   |             |
+        // |                 |   |  u   v   w  |
+        // |  i   j   k   l  |   |             |
+        // |                 |   |  x   y   z  |
+        // |  m   n   o   p  |   +-------------+
+        // +-----------------+
         let [a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p] = self.0;
 
-        // a b
-        // e f
-        let northwest = func(Grid2::pack([a, b, e, f]))?;
+        // +---------+
+        // |  a   b  |
+        // |         |
+        // |  e   f  |
+        // +---------+
+        let r = func(Grid2::pack([a, b, e, f]))?;
 
-        // b c
-        // f g
-        let north = func(Grid2::pack([b, c, f, g]))?;
+        // +---------+
+        // |  b   c  |
+        // |         |
+        // |  f   g  |
+        // +---------+
+        let s = func(Grid2::pack([b, c, f, g]))?;
 
-        // c d
-        // g h
-        let northeast = func(Grid2::pack([b, c, f, g]))?;
+        // +---------+
+        // |  c   d  |
+        // |         |
+        // |  g   h  |
+        // +---------+
+        let t = func(Grid2::pack([c, d, g, h]))?;
 
-        // e f
-        // i j
-        let west = func(Grid2::pack([e, f, i, j]))?;
+        // +---------+
+        // |  e   f  |
+        // |         |
+        // |  i   j  |
+        // +---------+
+        let u = func(Grid2::pack([e, f, i, j]))?;
 
-        // f g
-        // j k
-        let center = func(Grid2::pack([f, g, j, k]))?;
+        // +---------+
+        // |  f   g  |
+        // |         |
+        // |  j   k  |
+        // +---------+
+        let v = func(Grid2::pack([f, g, j, k]))?;
 
-        // g h
-        // k l
-        let east = func(Grid2::pack([g, h, k, l]))?;
+        // +---------+
+        // |  g   h  |
+        // |         |
+        // |  k   l  |
+        // +---------+
+        let w = func(Grid2::pack([g, h, k, l]))?;
 
-        // i j
-        // m n
-        let southwest = func(Grid2::pack([i, j, m, n]))?;
+        // +---------+
+        // |  i   j  |
+        // |         |
+        // |  m   n  |
+        // +---------+
+        let x = func(Grid2::pack([i, j, m, n]))?;
 
-        // j k
-        // n o
-        let south = func(Grid2::pack([j, k, n, o]))?;
+        // +---------+
+        // |  j   k  |
+        // |         |
+        // |  n   o  |
+        // +---------+
+        let y = func(Grid2::pack([j, k, n, o]))?;
 
-        // k l
-        // o p
-        let southeast = func(Grid2::pack([k, l, o, p]))?;
+        // +---------+
+        // |  k   l  |
+        // |         |
+        // |  o   p  |
+        // +---------+
+        let z = func(Grid2::pack([k, l, o, p]))?;
 
-        Ok(Grid3([
-            northwest, north, northeast, west, center, east, southwest, south, southeast,
-        ]))
+        // +-------------+
+        // |  r   s   t  |
+        // |             |
+        // |  u   v   w  |
+        // |             |
+        // |  x   y   z  |
+        // +-------------+
+        Ok(Grid3([r, s, t, u, v, w, x, y, z]))
     }
 }

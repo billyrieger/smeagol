@@ -2,11 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::life::rule::{Leaf, Rule};
-use crate::util::grid::{Grid3, Grid4};
-use crate::util::{grid::Grid2, memory::Arena};
-use crate::Error;
-use crate::Result;
+use crate::{
+    life::rule::{Leaf, Rule},
+    util::{
+        grid::{Grid2, Grid3, Grid4},
+        memory::Arena,
+    },
+    Error, Result,
+};
+
+use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Level(u8);
@@ -31,11 +36,6 @@ struct NodeId {
 enum Node<L> {
     Leaf(L),
     Branch(Branch),
-}
-
-pub struct Data<L> {
-    population: u128,
-    jump: Option<Node<L>>,
 }
 
 impl<L> Node<L>
@@ -113,6 +113,7 @@ pub struct Tree<L, R> {
     arenas: Vec<Arena<Node<L>>>,
     root: NodeId,
     rule: R,
+    cache: HashMap<Grid2<NodeId>, NodeId>,
 }
 
 impl<L, R> Tree<L, R>
@@ -153,7 +154,19 @@ where
             index: 0,
         };
 
-        Self { arenas, root, rule }
+        Self {
+            arenas,
+            root,
+            rule,
+            cache: HashMap::new(),
+        }
+    }
+
+    fn register(&mut self, node: Node<L>) -> NodeId {
+        let level = node.level();
+        let arena_index = self.arena_index(level);
+        let index = self.arenas[arena_index].register(node);
+        NodeId { level, index }
     }
 
     fn classify(&self, ids: Grid2<NodeId>) -> Result<Children<L>> {
@@ -169,14 +182,11 @@ where
         }
     }
 
-    fn register(&mut self, node: Node<L>) -> NodeId {
-        let level = node.level();
-        let arena_index = self.arena_index(level);
-        let index = self.arenas[arena_index].register(node);
-        NodeId { level, index }
-    }
-
     fn evolve(&mut self, grid: Grid2<NodeId>, steps: u64) -> Result<NodeId> {
+        if let Some(&evolution) = self.cache.get(&grid) {
+            return Ok(evolution);
+        }
+
         match self.classify(grid)? {
             Children::Leaves(leaves) => {
                 let new_leaf = self.rule.evolve(leaves, steps);
