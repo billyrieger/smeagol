@@ -137,6 +137,16 @@ where
         NodeId { level, index }
     }
 
+    pub fn step(&mut self, steps: u64) -> Result<()> {
+        match self.get_node(self.root)? {
+            Node::Leaf(_) => panic!(),
+            Node::Branch(branch) => {
+                self.root = self.evolve(branch, steps)?;
+                Ok(())
+            }
+        }
+    }
+
     fn evolve(&mut self, branch: Branch, steps: u64) -> Result<NodeId> {
         if steps == branch.level.max_steps() {
             if let Some(&jump) = self.jump_cache.get(&branch) {
