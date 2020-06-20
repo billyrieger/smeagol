@@ -24,6 +24,14 @@ impl Level {
     fn decrement(&self) -> Level {
         Level(self.0 + 1)
     }
+
+    fn side_len(&self) -> u64 {
+        1 << self.0
+    }
+
+    fn max_steps(&self) -> u64 {
+        self.side_len() / 4
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -42,18 +50,6 @@ impl<L> Node<L>
 where
     L: Leaf,
 {
-    fn from_children(children: Grid2<NodeId>) -> Self {
-        debug_assert_eq!(children.nw.level, children.ne.level);
-        debug_assert_eq!(children.nw.level, children.sw.level);
-        debug_assert_eq!(children.nw.level, children.se.level);
-
-        let branch = Branch {
-            level: children.nw.level.increment(),
-            children,
-        };
-        Node::Branch(branch)
-    }
-
     fn level(&self) -> Level {
         match self {
             Node::Leaf(_) => Level(L::LOG_SIDE_LEN),
@@ -68,44 +64,16 @@ struct Branch {
     level: Level,
 }
 
-impl Branch {}
+impl Branch {
+    fn from_children(children: Grid2<NodeId>) -> Self {
+        debug_assert_eq!(children.nw.level, children.ne.level);
+        debug_assert_eq!(children.nw.level, children.sw.level);
+        debug_assert_eq!(children.nw.level, children.se.level);
 
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-struct Position {
-    x: i64,
-    y: i64,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-enum Quadrant {
-    Northwest,
-    Northeast,
-    Southwest,
-    Southeast,
-}
-
-impl Position {
-    const ORIGIN: Position = Self::new(0, 0);
-
-    const fn new(x: i64, y: i64) -> Self {
-        Self { x, y }
-    }
-
-    fn quadrant(&self) -> Quadrant {
-        match (self.x < 0, self.y < 0) {
-            (true, true) => Quadrant::Northwest,
-            (false, true) => Quadrant::Northeast,
-            (true, false) => Quadrant::Southwest,
-            (false, false) => Quadrant::Southeast,
+        Branch {
+            level: children.nw.level.increment(),
+            children,
         }
-    }
-
-    fn offset(&self, dx: i64, dy: i64) -> Position {
-        Self::new(self.x + dx, self.y + dy)
-    }
-
-    fn relative_to(&self, other: Position) -> Position {
-        self.offset(-other.x, -other.y)
     }
 }
 
@@ -113,7 +81,7 @@ pub struct Tree<L, R> {
     arenas: Vec<Arena<Node<L>>>,
     root: NodeId,
     rule: R,
-    cache: HashMap<Grid2<NodeId>, NodeId>,
+    jump_cache: HashMap<Branch, NodeId>,
 }
 
 impl<L, R> Tree<L, R>
@@ -143,8 +111,8 @@ where
                         level: level.decrement(),
                         index: 0,
                     };
-                    let children = Grid2::repeat(previous_id);
-                    Arena::with_value(Node::from_children(children))
+                    let branch = Branch::from_children(Grid2::repeat(previous_id));
+                    Arena::with_value(Node::Branch(branch))
                 }
             })
             .collect();
@@ -158,7 +126,7 @@ where
             arenas,
             root,
             rule,
-            cache: HashMap::new(),
+            jump_cache: HashMap::new(),
         }
     }
 
@@ -169,38 +137,42 @@ where
         NodeId { level, index }
     }
 
-    fn classify(&self, ids: Grid2<NodeId>) -> Result<Children<L>> {
-        let nodes: Grid2<Node<L>> = ids.try_map(|id| self.get_node(id))?;
-        match nodes.unpack() {
+    fn evolve(&mut self, branch: Branch, steps: u64) -> Result<NodeId> {
+        if steps == branch.level.max_steps() {
+            if let Some(&jump) = self.jump_cache.get(&branch) {
+                return Ok(jump);
+            }
+        }
+
+        let children: Grid2<Node<L>> = branch.children.try_map(|id| self.get_node(id))?;
+
+        let node = match children.unpack() {
             [Node::Leaf(nw), Node::Leaf(ne), Node::Leaf(sw), Node::Leaf(se)] => {
-                Ok(Children::Leaves(Grid2::pack([nw, ne, sw, se])))
+                let leaves: Grid2<L> = Grid2::pack([nw, ne, sw, se]);
+                let new_leaf = self.rule.evolve(leaves, steps);
+                Node::Leaf(new_leaf)
             }
             [Node::Branch(nw), Node::Branch(ne), Node::Branch(sw), Node::Branch(se)] => {
-                Ok(Children::Branches(Grid2::pack([nw, ne, sw, se])))
-            }
-            _ => Err(Error),
-        }
-    }
+                let branches: Grid2<Branch> = Grid2::pack([nw, ne, sw, se]);
 
-    fn evolve(&mut self, grid: Grid2<NodeId>, steps: u64) -> Result<NodeId> {
-        if let Some(&evolution) = self.cache.get(&grid) {
-            return Ok(evolution);
-        }
-
-        match self.classify(grid)? {
-            Children::Leaves(leaves) => {
-                let new_leaf = self.rule.evolve(leaves, steps);
-                let id = self.register(Node::Leaf(new_leaf));
-                Ok(id)
-            }
-            Children::Branches(branches) => {
                 let grandchildren: Grid4<NodeId> = branches.map(|branch| branch.children).flatten();
 
-                let partial: Grid3<NodeId> = grandchildren.shrink(|ids| self.evolve(ids, steps))?;
-                let complete: Grid2<NodeId> = partial.shrink(|ids| self.evolve(ids, steps))?;
-                todo!()
+                let partial: Grid3<NodeId> =
+                    grandchildren.shrink(|ids| self.evolve(Branch::from_children(ids), steps))?;
+                let complete: Grid2<NodeId> =
+                    partial.shrink(|ids| self.evolve(Branch::from_children(ids), steps))?;
+
+                Node::Branch(Branch::from_children(complete))
             }
+            _ => Err(Error)?,
+        };
+        let id = self.register(node);
+
+        if steps == branch.level.max_steps() {
+            self.jump_cache.insert(branch, id);
         }
+
+        Ok(id)
     }
 
     fn arena_index(&self, level: Level) -> usize {
@@ -213,9 +185,4 @@ where
             .and_then(|arena| arena.get(id.index))
             .ok_or(Error)
     }
-}
-
-enum Children<L> {
-    Leaves(Grid2<L>),
-    Branches(Grid2<Branch>),
 }

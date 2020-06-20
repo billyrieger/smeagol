@@ -23,17 +23,14 @@ pub trait BitSquare:
     + BitXor<Output = Self>
     + Not<Output = Self>
 {
-    type Quadrant: BitSquare;
     const SIDE_LEN: u32;
     const LOG_SIDE_LEN: u8;
 
-    fn zero() -> Self;
     fn get_bit(&self, index: u32) -> bool;
     fn set_bit(&self, index: u32);
     fn unset_bit(&self, index: u32);
     fn count_ones(&self) -> u32;
     fn moore_neighborhood(&self) -> [Self; 8];
-    fn from_parts(parts: Grid2<Self::Quadrant>) -> Self;
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]

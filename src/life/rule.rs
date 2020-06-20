@@ -7,20 +7,11 @@ use crate::util::grid::Grid2;
 use std::hash::Hash;
 
 pub trait Leaf: Copy + Default + Eq + Hash {
-    const SIDE_LEN: u32;
+    const SIDE_LEN: u64;
     const LOG_SIDE_LEN: u8;
 
-    type Cell;
+    type Cell: Copy + Default + Eq + Hash;
 }
-
-// impl<B> Leaf for B
-// where
-//     B: BitSquare,
-// {
-//     const SIDE_LEN: u32 = B::SIDE_LEN;
-//     const LOG_SIDE_LEN: u8 = B::LOG_SIDE_LEN;
-//     type Cell = bool;
-// }
 
 pub trait Rule {
     type Leaf: Leaf;
