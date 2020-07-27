@@ -13,46 +13,22 @@ use crate::{
 
 use std::collections::HashMap;
 
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-struct Level(u8);
-
-impl Level {
-    fn increment(&self) -> Level {
-        Level(self.0 + 1)
-    }
-
-    fn decrement(&self) -> Level {
-        Level(self.0 + 1)
-    }
-
-    fn side_len(&self) -> u64 {
-        1 << self.0
-    }
-
-    fn max_steps(&self) -> u64 {
-        self.side_len() / 4
-    }
-}
-
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct NodeId {
-    level: Level,
+    level: u8,
     index: usize,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-enum Node<L> {
-    Leaf(L),
+enum Node {
+    Leaf(Leaf),
     Branch(Branch),
 }
 
-impl<L> Node<L>
-where
-    L: Leaf,
-{
-    fn level(&self) -> Level {
+impl Node {
+    fn level(&self) -> u8 {
         match self {
-            Node::Leaf(_) => Level(L::LOG_SIDE_LEN),
+            Node::Leaf(_) => Leaf::LEVEL,
             Node::Branch(b) => b.level,
         }
     }
@@ -61,64 +37,52 @@ where
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Branch {
     children: Grid2<NodeId>,
-    level: Level,
+    level: u8,
 }
 
 impl Branch {
     fn from_children(children: Grid2<NodeId>) -> Self {
-        debug_assert_eq!(children.nw.level, children.ne.level);
-        debug_assert_eq!(children.nw.level, children.sw.level);
-        debug_assert_eq!(children.nw.level, children.se.level);
+        assert_eq!(children.nw.level, children.ne.level);
+        assert_eq!(children.nw.level, children.sw.level);
+        assert_eq!(children.nw.level, children.se.level);
 
         Branch {
-            level: children.nw.level.increment(),
+            level: children.nw.level + 1,
             children,
         }
     }
 }
 
-pub struct Tree<L, R> {
-    arenas: Vec<Arena<Node<L>>>,
+pub struct Tree<R> {
+    arenas: Vec<Arena<Node>>,
     root: NodeId,
     rule: R,
     jump_cache: HashMap<Branch, NodeId>,
 }
 
-impl<L, R> Tree<L, R>
+impl<R> Tree<R>
 where
-    L: Leaf,
-    R: Rule<Leaf = L>,
+    R: Rule,
 {
-    fn min_level() -> Level {
-        Level(L::LOG_SIDE_LEN)
-    }
-
-    fn max_level() -> Level {
-        Level(63)
-    }
+    const MIN_LEVEL: u8 = Leaf::LEVEL;
+    const MAX_LEVEL: u8 = 63;
 
     pub fn new(rule: R) -> Self {
-        let min: u8 = Self::min_level().0;
-        let max: u8 = Self::max_level().0;
+        let mut arenas = Vec::<Arena<Node>>::new();
 
-        let arenas: Vec<Arena<Node<L>>> = (min..=max)
-            .map(Level)
-            .map(|level| {
-                if level == Self::min_level() {
-                    Arena::with_value(Node::Leaf(L::default()))
-                } else {
-                    let previous_id = NodeId {
-                        level: level.decrement(),
-                        index: 0,
-                    };
-                    let branch = Branch::from_children(Grid2::repeat(previous_id));
-                    Arena::with_value(Node::Branch(branch))
-                }
-            })
-            .collect();
+        arenas.push(Arena::with_value(Node::Leaf(Leaf::default())));
+
+        for level in (Self::MIN_LEVEL + 1)..=Self::MAX_LEVEL {
+            let previous_id = NodeId {
+                level: level - 1,
+                index: 0,
+            };
+            let branch = Branch::from_children(Grid2::repeat(previous_id));
+            arenas.push(Arena::with_value(Node::Branch(branch)));
+        }
 
         let root = NodeId {
-            level: Self::max_level(),
+            level: Self::MAX_LEVEL,
             index: 0,
         };
 
@@ -130,16 +94,9 @@ where
         }
     }
 
-    fn register(&mut self, node: Node<L>) -> NodeId {
-        let level = node.level();
-        let arena_index = self.arena_index(level);
-        let index = self.arenas[arena_index].register(node);
-        NodeId { level, index }
-    }
-
     pub fn step(&mut self, steps: u64) -> Result<()> {
         match self.get_node(self.root)? {
-            Node::Leaf(_) => panic!(),
+            Node::Leaf(_) => unreachable!(),
             Node::Branch(branch) => {
                 self.root = self.evolve(branch, steps)?;
                 Ok(())
@@ -147,21 +104,45 @@ where
         }
     }
 
+    fn empty(&self, level: u8) -> Result<Node> {
+        let empty_id = NodeId { level, index: 0 };
+        self.get_node(empty_id)
+    }
+
+    fn register(&mut self, node: Node) -> NodeId {
+        let level = node.level();
+        let arena_index = self.arena_index(level);
+        let index = self.arenas[arena_index].register(node);
+        NodeId { level, index }
+    }
+
+    fn arena_index(&self, level: u8) -> usize {
+        (level - Self::MIN_LEVEL) as usize
+    }
+
+    fn get_node(&self, id: NodeId) -> Result<Node> {
+        self.arenas
+            .get(self.arena_index(id.level))
+            .and_then(|arena| arena.get(id.index))
+            .ok_or(Error)
+    }
+
     fn evolve(&mut self, branch: Branch, steps: u64) -> Result<NodeId> {
-        if steps == branch.level.max_steps() {
+        if steps == 1 << (branch.level - 2) {
             if let Some(&jump) = self.jump_cache.get(&branch) {
                 return Ok(jump);
             }
         }
 
-        let children: Grid2<Node<L>> = branch.children.try_map(|id| self.get_node(id))?;
+        let children: Grid2<Node> = branch.children.try_map(|id| self.get_node(id))?;
 
         let node = match children.unpack() {
             [Node::Leaf(nw), Node::Leaf(ne), Node::Leaf(sw), Node::Leaf(se)] => {
-                let leaves: Grid2<L> = Grid2::pack([nw, ne, sw, se]);
+                let leaves: Grid2<Leaf> = Grid2::pack([nw, ne, sw, se]);
                 let new_leaf = self.rule.evolve(leaves, steps);
                 Node::Leaf(new_leaf)
             }
+
             [Node::Branch(nw), Node::Branch(ne), Node::Branch(sw), Node::Branch(se)] => {
                 let branches: Grid2<Branch> = Grid2::pack([nw, ne, sw, se]);
 
@@ -174,25 +155,15 @@ where
 
                 Node::Branch(Branch::from_children(complete))
             }
+
             _ => Err(Error)?,
         };
         let id = self.register(node);
 
-        if steps == branch.level.max_steps() {
+        if steps == 1 << (branch.level - 2) {
             self.jump_cache.insert(branch, id);
         }
 
         Ok(id)
-    }
-
-    fn arena_index(&self, level: Level) -> usize {
-        (level.0 - Self::min_level().0) as usize
-    }
-
-    fn get_node(&self, id: NodeId) -> Result<Node<L>> {
-        self.arenas
-            .get(self.arena_index(id.level))
-            .and_then(|arena| arena.get(id.index))
-            .ok_or(Error)
     }
 }

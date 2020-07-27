@@ -5,6 +5,13 @@
 pub mod quadtree;
 pub mod rule;
 
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum Cell {
+    Dead,
+    Alive,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Position {
     pub x: i64,
     pub y: i64,

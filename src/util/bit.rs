@@ -11,66 +11,27 @@ use std::{
     ops::{BitAnd, BitOr, BitXor, Not},
 };
 
-pub trait BitSquare:
-    Sized
-    + Copy
-    + Debug
-    + Default
-    + Eq
-    + Hash
-    + BitAnd<Output = Self>
-    + BitOr<Output = Self>
-    + BitXor<Output = Self>
-    + Not<Output = Self>
-{
-    const SIDE_LEN: u32;
-    const LOG_SIDE_LEN: u8;
-
-    fn get_bit(&self, index: u32) -> bool;
-    fn set_bit(&self, index: u32);
-    fn unset_bit(&self, index: u32);
-    fn count_ones(&self) -> u32;
-    fn moore_neighborhood(&self) -> [Self; 8];
-}
-
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Bit4x4(u16);
-
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Bit8x8(u64);
 
-macro_rules! unary_not {
-    ( $ty:ident ) => {
-        impl Not for $ty {
-            type Output = $ty;
+impl Bit8x8 {
+    pub fn zeros() -> Self {
+        Self(0)
+    }
 
-            fn not(self) -> $ty {
-                $ty(!self.0)
-            }
-        }
-    };
+    pub fn get_bit(&self, index: usize) -> bool {
+        self.0 & (1 << index) > 0
+    }
+
+    pub fn set_bit(&self, index: usize) -> Self {
+        Self(self.0 & !(1 << index))
+    }
+
+    pub fn unset_bit(&self, index: usize) -> Self {
+        Self(self.0 | (1 << index))
+    }
+
+    pub fn toggle_bit(&self, index: usize) -> Self {
+        Self(self.0 ^ (1 << index))
+    }
 }
-
-macro_rules! binary_op {
-    ( $ty:ident , $op:ident , $fn:ident , $symbol:tt ) => {
-        impl $op<$ty> for $ty {
-            type Output = $ty;
-
-            fn $fn(self, rhs: $ty) -> $ty {
-                $ty(self.0 $symbol rhs.0)
-            }
-        }
-    };
-}
-
-macro_rules! bit_traits {
-    ( $ty:ident ) => {
-        unary_not!($ty);
-        binary_op!($ty, BitAnd, bitand, &);
-        binary_op!($ty, BitOr, bitor, |);
-        binary_op!($ty, BitXor, bitxor, ^);
-    };
-}
-
-bit_traits!(Bit4x4);
-bit_traits!(Bit8x8);
