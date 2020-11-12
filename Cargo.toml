@@ -1,6 +1,6 @@
 [package]
 name = "smeagol"
-version = "0.1.2"
+version = "0.2.0-alpha"
 authors = ["Billy Rieger <wrieger@protonmail.com>"]
 description = "Conway's Game of Life using HashLife and SIMD."
 repository = "https://github.com/billyrieger/smeagol"
@@ -11,17 +11,6 @@ license = "MPL-2.0"
 edition = "2018"
 
 [dependencies]
-btoi = "0.4"
-failure = "0.1"
-hashbrown = "0.1"
-nom = "4.2"
-packed_simd = "0.3"
-png = "0.14"
+packed_simd = { version = "0.3.4", package = "packed_simd_2" }
 
 [dev-dependencies]
-criterion = "0.2"
-version-sync = "0.8"
-
-[[bench]]
-name = "bench"
-harness = false
