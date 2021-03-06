@@ -13,7 +13,7 @@ pub struct B3S23;
 
 impl Rule for B3S23 {
     fn step(&self, a: Clover) -> Clover {
-        // Adapted from the `gen3` function on page 5 of Tomas Rokicki's "Life Algorithms."
+        // Adapted from the `gen3` function of Tomas Rokicki's "Life Algorithms."
         // https://www.gathering4gardner.org/g4g13gift/math/RokickiTomas-GiftExchange-LifeAlgorithms-G4G13.pdf
         let (aw, ae) = (a << 1, a >> 1);
         let (s0, s1) = (aw ^ ae, aw & ae);
@@ -61,7 +61,7 @@ impl Clover {
 impl fmt::Display for Clover {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let rows: [u16; 16] = self.cells.into();
-        for &row in &rows {
+        for row in &rows {
             writeln!(f, "{:016b}", row)?;
         }
         Ok(())
@@ -69,10 +69,10 @@ impl fmt::Display for Clover {
 }
 
 pub struct Branch {
-    nw: usize,
-    ne: usize,
-    sw: usize,
-    se: usize,
+    _nw: usize,
+    _ne: usize,
+    _sw: usize,
+    _se: usize,
 }
 
 pub enum Node {
@@ -80,7 +80,7 @@ pub enum Node {
     Branch(Branch),
 }
 
-pub struct Universe {
-    nodes: mem::Arena<Node>,
-    root: Node,
-}
+// pub struct Universe {
+//     nodes: mem::Arena<Node>,
+//     root: Node,
+// }

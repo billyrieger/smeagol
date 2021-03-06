@@ -11,8 +11,8 @@ license = "MPL-2.0"
 edition = "2018"
 
 [dependencies]
+bimap = { package = "bimap", path = "../bimap-rs" }
 derive_more = "0.99.11"
-generational-arena = "0.2.8"
 packed_simd = { version = "0.3.4", package = "packed_simd_2" }
 
 [dev-dependencies]

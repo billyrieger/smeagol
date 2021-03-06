@@ -1,24 +1,16 @@
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
-#[derive(Clone, Copy, Debug)]
-pub enum Slot<T> {
-    Vacant,
-    Occupied(T),
-}
+use bimap::maps::{HashKind, VecKind};
+use bimap::Generic;
 
-impl<T> Slot<T> {
-    fn is_vacant(&self) -> bool {
-        match self {
-            Slot::Vacant => true,
-            Slot::Occupied(_) => false,
-        }
-    }
-}
+type BiMap<T> = Generic<usize, T, VecKind, HashKind>;
 
-#[derive(Clone, Debug)]
-pub struct Arena<T> {
-    values: Vec<Slot<T>>,
-    lookup: HashMap<T, usize>,
+#[derive(Debug)]
+pub struct Arena<T>
+where
+    T: Eq + Hash,
+{
+    bimap: BiMap<T>,
     next_free: usize,
 }
 
@@ -28,66 +20,38 @@ where
 {
     pub fn new() -> Self {
         Self {
-            values: vec![Slot::Vacant],
-            lookup: HashMap::new(),
+            bimap: BiMap::new(),
             next_free: 0,
         }
     }
 
-    pub fn get(&self, index: usize) -> Slot<T> {
-        self.values[index]
+    pub fn get(&self, index: usize) -> Option<&T> {
+        self.bimap.get_left(&index)
     }
 
     pub fn insert(&mut self, value: T) -> usize {
-        if let Some(&index) = self.lookup.get(&value) {
+        if let Some(&index) = self.bimap.get_right(&value) {
             index
         } else {
             let index = self.next_free;
-            self.values[index] = Slot::Occupied(value);
-            self.lookup.insert(value, index);
+            self.bimap.insert(index, value);
             self.find_next_free();
             index
         }
     }
 
-    pub fn retain<F>(&mut self, f: F)
+    pub fn retain<F>(&mut self, mut f: F)
     where
         F: FnMut(&T) -> bool,
     {
-        Self::retain_helper(&mut self.values, &mut self.lookup, f);
+        self.bimap.retain_right(|_, x| f(x));
         self.next_free = 0;
         self.find_next_free();
     }
 
-    fn retain_helper<F>(values: &mut Vec<Slot<T>>, lookup: &mut HashMap<T, usize>, mut f: F)
-    where
-        F: FnMut(&T) -> bool,
-    {
-        lookup.retain(|value, index| {
-            if f(value) {
-                true
-            } else {
-                values[*index] = Slot::Vacant;
-                false
-            }
-        })
-    }
-
     fn find_next_free(&mut self) {
-        let maybe_next_free: Option<usize> = self
-            .values
-            .iter()
-            .enumerate()
-            .skip(self.next_free)
-            .skip_while(|(_, slot)| !slot.is_vacant())
-            .map(|(index, _)| index)
-            .nth(0);
-
-        if let Some(index) = maybe_next_free {
-            self.next_free = index;
-        } else {
-            self.next_free = self.values.len();
-            self.values.push(Slot::Vacant);
+        while self.bimap.contains_left(&self.next_free) {
+            self.next_free += 1;
         }
     }
 }
@@ -105,5 +69,15 @@ mod tests {
         assert_eq!(arena.insert('d'), 3);
 
         arena.retain(|&c| c == 'a' || c == 'd');
+
+        assert_eq!(arena.get(0), Some(&'a'));
+        assert_eq!(arena.get(1), None);
+        assert_eq!(arena.get(2), None);
+        assert_eq!(arena.get(3), Some(&'d'));
+
+        assert_eq!(arena.insert('e'), 1);
+        assert_eq!(arena.insert('f'), 2);
+        assert_eq!(arena.insert('a'), 0);
+        assert_eq!(arena.insert('g'), 4);
     }
 }
