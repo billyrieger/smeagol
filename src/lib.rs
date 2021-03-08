@@ -147,10 +147,18 @@ pub struct Branch {
 }
 
 impl Branch {
+    fn repeat(id: Id) -> Self {
+        Self::new(id, id, id, id)
+    }
+
+    fn new(nw: Id, ne: Id, sw: Id, se: Id) -> Self {
+        debug_assert_eq!(nw.level(), ne.level());
+        debug_assert_eq!(nw.level(), sw.level());
+        debug_assert_eq!(nw.level(), se.level());
+        Self { nw, ne, sw, se }
+    }
+
     fn level(&self) -> usize {
-        debug_assert_eq!(self.nw.level(), self.ne.level());
-        debug_assert_eq!(self.nw.level(), self.sw.level());
-        debug_assert_eq!(self.nw.level(), self.se.level());
         self.nw.level() + 1
     }
 }
@@ -201,12 +209,7 @@ impl Universe {
 
         for level in 4..=MAX_LEVEL {
             let id = Id::new(0, level - 1);
-            let empty = Branch {
-                nw: id,
-                ne: id,
-                sw: id,
-                se: id,
-            };
+            let empty = Branch::repeat(id);
             tiers.push(indexset! { empty });
         }
         Self { base, tiers }
@@ -272,7 +275,7 @@ impl Universe {
             let ne = self.set_cells(branch.ne, ne_center, ne_coords);
             let sw = self.set_cells(branch.sw, sw_center, sw_coords);
             let se = self.set_cells(branch.se, se_center, se_coords);
-            let branch = Branch { nw, ne, sw, se };
+            let branch = Branch::new(nw, ne, sw, se);
             self.create_branch(branch)
         }
     }
