@@ -2,17 +2,23 @@
 name = "smeagol"
 version = "0.2.0-alpha"
 authors = ["Billy Rieger <wrieger@protonmail.com>"]
-description = "Conway's Game of Life using HashLife and SIMD."
-repository = "https://github.com/billyrieger/smeagol"
-readme = "README.md"
-keywords = ["life", "conway", "cellular", "automaton", "hashlife"]
 categories = ["algorithms", "science", "simulation"]
-license = "MPL-2.0"
+description = "Conway's Game of Life using HashLife and SIMD."
 edition = "2018"
+keywords = ["life", "conway", "cellular", "automaton", "hashlife"]
+license = "MPL-2.0"
+readme = "README.md"
+repository = "https://github.com/billyrieger/smeagol"
 
 [dependencies]
-bimap = { package = "bimap", path = "../bimap-rs" }
 derive_more = "0.99.11"
+fxhash = "0.2.1"
+indexmap = "1.6.2"
 packed_simd = { version = "0.3.4", package = "packed_simd_2" }
 
 [dev-dependencies]
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3

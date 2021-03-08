@@ -2,8 +2,9 @@ use std::hash::Hash;
 
 use bimap::maps::{HashKind, VecKind};
 use bimap::Generic;
+use fxhash::FxBuildHasher;
 
-type BiMap<T> = Generic<usize, T, VecKind, HashKind>;
+type BiMap<T> = Generic<usize, T, VecKind, HashKind<FxBuildHasher>>;
 
 #[derive(Debug)]
 pub struct Arena<T>
