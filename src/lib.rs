@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 #![feature(iter_partition_in_place)]
 #![allow(dead_code)]
 
@@ -16,7 +20,7 @@ pub struct B3S23;
 
 impl Rule for B3S23 {
     fn step(&self, a: Clover) -> Clover {
-        // Adapted from Tomas Rokicki's "Life Algorithms." Don't ask me how it works.
+        // Adapted from Tomas Rokicki's "Life Algorithms."
         // https://www.gathering4gardner.org/g4g13gift/math/RokickiTomas-GiftExchange-LifeAlgorithms-G4G13.pdf
         let (aw, ae) = (a << 1, a >> 1);
         let (s0, s1) = (aw ^ ae, aw & ae);
@@ -37,22 +41,18 @@ pub struct Leaf {
 }
 
 impl Leaf {
-    #[inline(always)]
     const fn level() -> usize {
         3
     }
 
-    #[inline(always)]
     const fn min_coord() -> i64 {
         -4
     }
 
-    #[inline(always)]
     const fn max_coord() -> i64 {
         3
     }
 
-    #[inline(always)]
     const fn is_inbounds(pos: Coords) -> bool {
         Self::min_coord() <= pos.x
             && Self::min_coord() <= pos.y
@@ -147,10 +147,6 @@ pub struct Branch {
 }
 
 impl Branch {
-    fn repeat(id: Id) -> Self {
-        Self::new(id, id, id, id)
-    }
-
     fn new(nw: Id, ne: Id, sw: Id, se: Id) -> Self {
         debug_assert_eq!(nw.level(), ne.level());
         debug_assert_eq!(nw.level(), sw.level());
@@ -158,7 +154,11 @@ impl Branch {
         Self { nw, ne, sw, se }
     }
 
-    fn level(&self) -> usize {
+    fn repeat(id: Id) -> Self {
+        Self::new(id, id, id, id)
+    }
+
+    const fn level(&self) -> usize {
         self.nw.level() + 1
     }
 }
@@ -203,7 +203,7 @@ const MIN_COORD: i64 = -(1 << (MAX_LEVEL - 1));
 const MAX_COORD: i64 = (1 << (MAX_LEVEL - 1)) - 1;
 
 impl Universe {
-    fn new() -> Self {
+    fn new() -> (Self, Id) {
         let base = indexset! { Leaf::empty() };
         let mut tiers: Vec<IndexSet<Branch>> = vec![];
 
@@ -212,7 +212,8 @@ impl Universe {
             let empty = Branch::repeat(id);
             tiers.push(indexset! { empty });
         }
-        Self { base, tiers }
+
+        (Self { base, tiers }, Id::new(0, MAX_LEVEL))
     }
 
     fn create_leaf(&mut self, leaf: Leaf) -> Id {
@@ -227,8 +228,8 @@ impl Universe {
         Id::new(index, branch.level())
     }
 
-    fn get_leaf(&self, index: usize) -> Leaf {
-        *self.base.get_index(index).expect("invalid index")
+    fn get_leaf(&self, id: Id) -> Leaf {
+        *self.base.get_index(id.index()).expect("invalid index")
     }
 
     fn get_branch(&self, id: Id) -> Branch {
@@ -237,44 +238,34 @@ impl Universe {
             .expect("invalid index")
     }
 
-    fn get_child_leaves(&self, branch: Branch) -> [Leaf; 4] {
-        let nw = self.get_leaf(branch.nw.index());
-        let ne = self.get_leaf(branch.ne.index());
-        let sw = self.get_leaf(branch.sw.index());
-        let se = self.get_leaf(branch.se.index());
-        [nw, ne, sw, se]
-    }
-
-    fn set_leaf_cells(&mut self, mut leaf: Leaf, center: Coords, coords: &[Coords]) -> Id {
-        for pos in coords {
-            leaf = leaf.set_cell(pos.relative_to(center));
-        }
-        self.create_leaf(leaf)
-    }
-
     fn set_cells(&mut self, id: Id, center: Coords, coords: &mut [Coords]) -> Id {
         if coords.is_empty() {
             return id;
         }
 
         if id.level() == Leaf::level() {
-            self.set_leaf_cells(self.get_leaf(id.index()), center, coords)
+            let mut leaf = self.get_leaf(id);
+            for pos in coords {
+                leaf = leaf.set_cell(pos.relative_to(center));
+            }
+            self.create_leaf(leaf)
         } else {
             let branch = self.get_branch(id);
             let delta: i64 = 1 << (branch.level() - 2);
-            let nw_center = center.offset(-delta, -delta);
-            let ne_center = center.offset(delta, -delta);
-            let sw_center = center.offset(-delta, delta);
-            let se_center = center.offset(delta, delta);
 
-            let (north, south) = partition(coords, |pos| pos.y < center.y);
-            let (nw_coords, ne_coords) = partition(north, |pos| pos.x < center.x);
-            let (sw_coords, se_coords) = partition(south, |pos| pos.x < center.x);
+            let center_nw = center.offset(-delta, -delta);
+            let center_ne = center.offset(delta, -delta);
+            let center_sw = center.offset(-delta, delta);
+            let center_se = center.offset(delta, delta);
 
-            let nw = self.set_cells(branch.nw, nw_center, nw_coords);
-            let ne = self.set_cells(branch.ne, ne_center, ne_coords);
-            let sw = self.set_cells(branch.sw, sw_center, sw_coords);
-            let se = self.set_cells(branch.se, se_center, se_coords);
+            let (coords_north, coords_south) = partition(coords, |pos| pos.y < center.y);
+            let (coords_nw, coords_ne) = partition(coords_north, |pos| pos.x < center.x);
+            let (coords_sw, coords_se) = partition(coords_south, |pos| pos.x < center.x);
+
+            let nw = self.set_cells(branch.nw, center_nw, coords_nw);
+            let ne = self.set_cells(branch.ne, center_ne, coords_ne);
+            let sw = self.set_cells(branch.sw, center_sw, coords_sw);
+            let se = self.set_cells(branch.se, center_se, coords_se);
             let branch = Branch::new(nw, ne, sw, se);
             self.create_branch(branch)
         }
@@ -295,19 +286,13 @@ mod tests {
 
     #[test]
     fn test() {
-        let mut universe = Universe::new();
+        let (mut universe, _) = Universe::new();
         let mut coords = vec![];
         for x in 0..8 {
             for y in 0..8 {
                 coords.push(Coords::new(x, y));
             }
         }
-        let new = universe.set_cells(Id::new(0, MAX_LEVEL), Coords::new(0, 0), &mut coords);
-        dbg!(&universe);
-        dbg!(new);
-        dbg!(std::mem::size_of::<Branch>());
-        let id = Id::new(5, 3);
-        println!("{:?}", id);
-        println!("{:?}", id.data);
+        let _ = universe.set_cells(Id::new(0, MAX_LEVEL), Coords::new(0, 0), &mut coords);
     }
 }
