@@ -140,16 +140,48 @@ impl Coords {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Branch {
-    nw: usize,
-    ne: usize,
-    sw: usize,
-    se: usize,
-    level: usize,
+    nw: Id,
+    ne: Id,
+    sw: Id,
+    se: Id,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+impl Branch {
+    fn level(&self) -> usize {
+        debug_assert_eq!(self.nw.level(), self.ne.level());
+        debug_assert_eq!(self.nw.level(), self.sw.level());
+        debug_assert_eq!(self.nw.level(), self.se.level());
+        self.nw.level() + 1
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Id {
     data: u64,
+}
+
+impl fmt::Debug for Id {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Id")
+            .field("index", &self.index())
+            .field("level", &self.level())
+            .finish()
+    }
+}
+
+impl Id {
+    fn new(index: usize, level: usize) -> Self {
+        let data = ((index as u64) << 8) | ((level as u64) & 0xFF);
+        Self { data }
+    }
+
+    const fn index(&self) -> usize {
+        (self.data >> 8) as usize
+    }
+
+    const fn level(&self) -> usize {
+        (self.data & 0xFF) as usize
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -168,70 +200,65 @@ impl Universe {
         let mut tiers: Vec<IndexSet<Branch>> = vec![];
 
         for level in 4..=MAX_LEVEL {
+            let id = Id::new(0, level - 1);
             let empty = Branch {
-                level,
-                nw: 0,
-                ne: 0,
-                sw: 0,
-                se: 0,
+                nw: id,
+                ne: id,
+                sw: id,
+                se: id,
             };
             tiers.push(indexset! { empty });
         }
         Self { base, tiers }
     }
 
-    fn create_leaf(&mut self, leaf: Leaf) -> usize {
-        self.base.insert_full(leaf).0
+    fn create_leaf(&mut self, leaf: Leaf) -> Id {
+        let index = self.base.insert_full(leaf).0;
+        Id::new(index, Leaf::level())
     }
 
-    fn create_branch(&mut self, branch: Branch) -> usize {
-        self.tiers[branch.level - Leaf::level() - 1]
+    fn create_branch(&mut self, branch: Branch) -> Id {
+        let index = self.tiers[branch.level() - Leaf::level() - 1]
             .insert_full(branch)
-            .0
+            .0;
+        Id::new(index, branch.level())
     }
 
     fn get_leaf(&self, index: usize) -> Leaf {
         *self.base.get_index(index).expect("invalid index")
     }
 
-    fn get_branch(&self, index: usize, level: usize) -> Branch {
-        *self.tiers[level - Leaf::level() - 1]
-            .get_index(index)
+    fn get_branch(&self, id: Id) -> Branch {
+        *self.tiers[id.level() - Leaf::level() - 1]
+            .get_index(id.index())
             .expect("invalid index")
     }
 
     fn get_child_leaves(&self, branch: Branch) -> [Leaf; 4] {
-        let nw = self.get_leaf(branch.nw);
-        let ne = self.get_leaf(branch.ne);
-        let sw = self.get_leaf(branch.sw);
-        let se = self.get_leaf(branch.se);
+        let nw = self.get_leaf(branch.nw.index());
+        let ne = self.get_leaf(branch.ne.index());
+        let sw = self.get_leaf(branch.sw.index());
+        let se = self.get_leaf(branch.se.index());
         [nw, ne, sw, se]
     }
 
-    fn set_leaf_cells(&mut self, mut leaf: Leaf, center: Coords, coords: &[Coords]) -> usize {
+    fn set_leaf_cells(&mut self, mut leaf: Leaf, center: Coords, coords: &[Coords]) -> Id {
         for pos in coords {
             leaf = leaf.set_cell(pos.relative_to(center));
         }
         self.create_leaf(leaf)
     }
 
-    fn set_cells(
-        &mut self,
-        index: usize,
-        level: usize,
-        center: Coords,
-        coords: &mut [Coords],
-    ) -> usize {
+    fn set_cells(&mut self, id: Id, center: Coords, coords: &mut [Coords]) -> Id {
         if coords.is_empty() {
-            return index;
+            return id;
         }
 
-        if level == Leaf::level() {
-            let leaf = self.get_leaf(index);
-            self.set_leaf_cells(leaf, center, coords)
+        if id.level() == Leaf::level() {
+            self.set_leaf_cells(self.get_leaf(id.index()), center, coords)
         } else {
-            let branch = self.get_branch(index, level);
-            let delta: i64 = 1 << (branch.level - 2);
+            let branch = self.get_branch(id);
+            let delta: i64 = 1 << (branch.level() - 2);
             let nw_center = center.offset(-delta, -delta);
             let ne_center = center.offset(delta, -delta);
             let sw_center = center.offset(-delta, delta);
@@ -241,17 +268,11 @@ impl Universe {
             let (nw_coords, ne_coords) = partition(north, |pos| pos.x < center.x);
             let (sw_coords, se_coords) = partition(south, |pos| pos.x < center.x);
 
-            let nw = self.set_cells(branch.nw, level - 1, nw_center, nw_coords);
-            let ne = self.set_cells(branch.ne, level - 1, ne_center, ne_coords);
-            let sw = self.set_cells(branch.sw, level - 1, sw_center, sw_coords);
-            let se = self.set_cells(branch.se, level - 1, se_center, se_coords);
-            let branch = Branch {
-                level: branch.level,
-                nw,
-                ne,
-                sw,
-                se,
-            };
+            let nw = self.set_cells(branch.nw, nw_center, nw_coords);
+            let ne = self.set_cells(branch.ne, ne_center, ne_coords);
+            let sw = self.set_cells(branch.sw, sw_center, sw_coords);
+            let se = self.set_cells(branch.se, se_center, se_coords);
+            let branch = Branch { nw, ne, sw, se };
             self.create_branch(branch)
         }
     }
@@ -278,9 +299,12 @@ mod tests {
                 coords.push(Coords::new(x, y));
             }
         }
-        let new = universe.set_cells(0, MAX_LEVEL, Coords::new(0, 0), &mut coords);
+        let new = universe.set_cells(Id::new(0, MAX_LEVEL), Coords::new(0, 0), &mut coords);
         dbg!(&universe);
         dbg!(new);
         dbg!(std::mem::size_of::<Branch>());
+        let id = Id::new(5, 3);
+        println!("{:?}", id);
+        println!("{:?}", id.data);
     }
 }
