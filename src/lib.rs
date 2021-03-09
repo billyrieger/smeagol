@@ -3,117 +3,15 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #![feature(iter_partition_in_place)]
-#![allow(dead_code)]
+#![allow(dead_code, unused_variables)]
+
+mod life;
+
+use life::{Clover, Leaf, Rule, B3S23};
 
 use std::fmt;
-use std::hash::Hash;
 
-use derive_more::{BitAnd, BitOr, BitXor, Not, Shl, Shr};
-use indexmap::{indexset, IndexSet};
-use packed_simd::{shuffle, u16x16, u8x8};
-
-pub trait Rule {
-    fn step(&self, cells: Clover) -> Clover;
-}
-
-pub struct B3S23;
-
-impl Rule for B3S23 {
-    fn step(&self, a: Clover) -> Clover {
-        // Adapted from Tomas Rokicki's "Life Algorithms."
-        // https://www.gathering4gardner.org/g4g13gift/math/RokickiTomas-GiftExchange-LifeAlgorithms-G4G13.pdf
-        let (aw, ae) = (a << 1, a >> 1);
-        let (s0, s1) = (aw ^ ae, aw & ae);
-        let (hs0, hs1) = (s0 ^ a, (s0 & a) | s1);
-        let (hs0w8, hs0e8) = (hs0.shift_up(), hs0.shift_down());
-        let (hs1w8, hs1e8) = (hs1.shift_up(), hs1.shift_down());
-        let ts0 = hs0w8 ^ hs0e8;
-        let ts1 = (hs0w8 & hs0e8) | (ts0 & s0);
-        (hs1w8 ^ hs1e8 ^ ts1 ^ s1) & ((hs1w8 | hs1e8) ^ (ts1 | s1)) & ((ts0 ^ s0) | a)
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-// `derive_more` macros
-#[derive(BitAnd, BitOr, BitXor, Not, Shl, Shr)]
-pub struct Leaf {
-    cells: u8x8,
-}
-
-impl Leaf {
-    const fn level() -> usize {
-        3
-    }
-
-    const fn min_coord() -> i64 {
-        -4
-    }
-
-    const fn max_coord() -> i64 {
-        3
-    }
-
-    const fn is_inbounds(pos: Coords) -> bool {
-        Self::min_coord() <= pos.x
-            && Self::min_coord() <= pos.y
-            && pos.x <= Self::max_coord()
-            && pos.y <= Self::max_coord()
-    }
-
-    fn empty() -> Self {
-        Self {
-            cells: u8x8::splat(0),
-        }
-    }
-
-    fn set_cell(&self, pos: Coords) -> Self {
-        debug_assert!(Self::is_inbounds(pos));
-        let row = (pos.y + 4) as usize;
-        let col = (pos.x + 4) as usize;
-        unsafe {
-            Self {
-                cells: self
-                    .cells
-                    .replace_unchecked(row, self.cells.extract_unchecked(row) | (1 << col)),
-            }
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-// `derive_more` macros
-#[derive(BitAnd, BitOr, BitXor, Not, Shl, Shr)]
-pub struct Clover {
-    cells: u16x16,
-}
-
-impl Clover {
-    pub fn shift_down(&self) -> Self {
-        let cells = shuffle!(
-            self.cells,
-            [15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
-        );
-        Self { cells }
-    }
-
-    pub fn shift_up(&self) -> Self {
-        let cells = shuffle!(
-            self.cells,
-            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0]
-        );
-        Self { cells }
-    }
-}
-
-impl fmt::Display for Clover {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let rows: [u16; 16] = self.cells.into();
-        for row in &rows {
-            writeln!(f, "{:016b}", row)?;
-        }
-        Ok(())
-    }
-}
+use indexmap::{indexmap, indexset, IndexMap, IndexSet};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Coords {
@@ -147,6 +45,11 @@ pub struct Branch {
 }
 
 impl Branch {
+    const MIN_LEVEL: usize = 4;
+    const MAX_LEVEL: usize = 63;
+    const MIN_COORD: i64 = -(1 << (Self::MAX_LEVEL - 1));
+    const MAX_COORD: i64 = (1 << (Self::MAX_LEVEL - 1)) - 1;
+
     fn new(nw: Id, ne: Id, sw: Id, se: Id) -> Self {
         debug_assert_eq!(nw.level(), ne.level());
         debug_assert_eq!(nw.level(), sw.level());
@@ -179,6 +82,8 @@ impl fmt::Debug for Id {
 
 impl Id {
     fn new(index: usize, level: usize) -> Self {
+        debug_assert!(Leaf::level() <= level);
+        debug_assert!(level <= Branch::MAX_LEVEL);
         let data = ((index as u64) << 8) | ((level as u64) & 0xFF);
         Self { data }
     }
@@ -193,27 +98,37 @@ impl Id {
 }
 
 #[derive(Clone, Debug)]
-pub struct Universe {
+struct Data;
+
+#[derive(Clone, Debug)]
+pub struct Universe<R = B3S23> {
     base: IndexSet<Leaf>,
-    tiers: Vec<IndexSet<Branch>>,
+    levels: Vec<IndexMap<Branch, Data>>,
+    rule: R,
 }
 
-const MAX_LEVEL: usize = 63;
-const MIN_COORD: i64 = -(1 << (MAX_LEVEL - 1));
-const MAX_COORD: i64 = (1 << (MAX_LEVEL - 1)) - 1;
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+enum Node {
+    Leaf(Leaf),
+    Branch(Branch),
+}
 
 impl Universe {
-    fn new() -> (Self, Id) {
+    fn new() -> Self {
         let base = indexset! { Leaf::empty() };
-        let mut tiers: Vec<IndexSet<Branch>> = vec![];
+        let mut levels: Vec<IndexMap<Branch, Data>> = vec![];
 
-        for level in 4..=MAX_LEVEL {
-            let id = Id::new(0, level - 1);
-            let empty = Branch::repeat(id);
-            tiers.push(indexset! { empty });
+        for level in Branch::MIN_LEVEL..=Branch::MAX_LEVEL {
+            let prev = Id::new(0, level - 1);
+            let empty = Branch::repeat(prev);
+            levels.push(indexmap! { empty => Data, });
         }
 
-        (Self { base, tiers }, Id::new(0, MAX_LEVEL))
+        Self {
+            base,
+            levels,
+            rule: B3S23,
+        }
     }
 
     fn create_leaf(&mut self, leaf: Leaf) -> Id {
@@ -222,10 +137,19 @@ impl Universe {
     }
 
     fn create_branch(&mut self, branch: Branch) -> Id {
-        let index = self.tiers[branch.level() - Leaf::level() - 1]
-            .insert_full(branch)
+        let index = self.levels[branch.level() - Leaf::level() - 1]
+            .insert_full(branch, Data)
             .0;
+
         Id::new(index, branch.level())
+    }
+
+    fn get(&self, id: Id) -> Node {
+        if id.level() == Leaf::level() {
+            Node::Leaf(self.get_leaf(id))
+        } else {
+            Node::Branch(self.get_branch(id))
+        }
     }
 
     fn get_leaf(&self, id: Id) -> Leaf {
@@ -233,9 +157,10 @@ impl Universe {
     }
 
     fn get_branch(&self, id: Id) -> Branch {
-        *self.tiers[id.level() - Leaf::level() - 1]
+        *self.levels[id.level() - Leaf::level() - 1]
             .get_index(id.index())
             .expect("invalid index")
+            .0
     }
 
     fn set_cells(&mut self, id: Id, center: Coords, coords: &mut [Coords]) -> Id {
@@ -270,6 +195,40 @@ impl Universe {
             self.create_branch(branch)
         }
     }
+
+    fn evolve(&mut self, id: Id, generations: u64) -> Id {
+        let parent = self.get_branch(id);
+        match (
+            self.get(parent.nw),
+            self.get(parent.ne),
+            self.get(parent.sw),
+            self.get(parent.se),
+        ) {
+            (Node::Leaf(nw), Node::Leaf(ne), Node::Leaf(sw), Node::Leaf(se)) => {
+                let mut clover = Clover::new(nw, ne, sw, se);
+                assert!(generations <= 4); // log_2 16 is the max for 16x16 grid
+                for _ in 0..generations {
+                    clover = self.rule.step(clover);
+                }
+                self.create_leaf(clover.center())
+            }
+
+            (Node::Branch(nw), Node::Branch(ne), Node::Branch(sw), Node::Branch(se)) => {
+                let [a, b, c, d] = [nw.nw, nw.ne, ne.nw, ne.ne];
+                let [e, f, g, h] = [nw.sw, nw.se, ne.sw, ne.se];
+                let [i, j, k, l] = [sw.nw, sw.ne, se.nw, se.ne];
+                let [m, n, o, p] = [sw.sw, sw.se, se.sw, se.se];
+
+                let east = self.create_branch(Branch::new(e, f, i, j));
+                let west = self.create_branch(Branch::new(g, h, k, l));
+                let north = self.create_branch(Branch::new(b, c, f, g));
+                let south = self.create_branch(Branch::new(j, k, n, o));
+
+                todo!()
+            }
+            _ => panic!("invalid branch"),
+        }
+    }
 }
 
 fn partition<F>(coords: &mut [Coords], predicate: F) -> (&mut [Coords], &mut [Coords])
@@ -286,13 +245,19 @@ mod tests {
 
     #[test]
     fn test() {
-        let (mut universe, _) = Universe::new();
-        let mut coords = vec![];
-        for x in 0..8 {
-            for y in 0..8 {
-                coords.push(Coords::new(x, y));
-            }
-        }
-        let _ = universe.set_cells(Id::new(0, MAX_LEVEL), Coords::new(0, 0), &mut coords);
+        let mut universe = Universe::new();
+        let mut coords: Vec<Coords> = vec![(7, 4), (8, 4), (9, 4)]
+            .into_iter()
+            .map(|(x, y)| Coords::new(x, y))
+            .collect();
+        let blinker = universe.set_cells(
+            Id::new(0, Branch::MAX_LEVEL),
+            Coords::new(0, 0),
+            &mut coords,
+        );
+
+        let next = universe.evolve(blinker, 1);
+        dbg!(&universe);
+        dbg!(next);
     }
 }
