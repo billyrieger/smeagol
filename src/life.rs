@@ -1,7 +1,13 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 use std::fmt;
 
 use derive_more::{BitAnd, BitOr, BitXor, Not, Shl, Shr};
 use packed_simd::{shuffle, u16x16, u8x8};
+
+use crate::util::Grid2;
 
 pub trait Rule {
     fn step(&self, cells: Clover) -> Clover;
@@ -31,6 +37,17 @@ impl Rule for B3S23 {
 pub struct Leaf {
     cells: u8x8,
 }
+
+impl fmt::Display for Leaf {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let rows: [u8; 8] = self.cells.into();
+        for row in &rows {
+            writeln!(f, "{:08b}", row)?;
+        }
+        Ok(())
+    }
+}
+
 
 impl Leaf {
     pub const fn new(cells: u8x8) -> Self {
@@ -62,10 +79,14 @@ impl Leaf {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.cells == u8x8::splat(0)
+    }
+
     pub fn set_cell(&self, pos: crate::Coords) -> Self {
         assert!(Self::is_inbounds(pos));
         let row = (pos.y + 4) as usize;
-        let col = (pos.x + 4) as usize;
+        let col = (3 - pos.x) as usize;
         unsafe {
             Self {
                 cells: self
@@ -97,11 +118,11 @@ pub struct Clover {
 }
 
 impl Clover {
-    pub fn new(nw: Leaf, ne: Leaf, sw: Leaf, se: Leaf) -> Self {
-        let nw: [u8; 8] = nw.cells.into();
-        let ne: [u8; 8] = ne.cells.into();
-        let sw: [u8; 8] = sw.cells.into();
-        let se: [u8; 8] = se.cells.into();
+    pub fn new(leaves: Grid2<Leaf>) -> Self {
+        let nw: [u8; 8] = leaves.nw.cells.into();
+        let ne: [u8; 8] = leaves.ne.cells.into();
+        let sw: [u8; 8] = leaves.sw.cells.into();
+        let se: [u8; 8] = leaves.se.cells.into();
 
         let combine = |west: u8, east: u8| -> u16 { ((west as u16) << 8) | (east as u16) };
 
