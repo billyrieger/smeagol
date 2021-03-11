@@ -48,7 +48,6 @@ impl fmt::Display for Leaf {
     }
 }
 
-
 impl Leaf {
     pub const fn new(cells: u8x8) -> Self {
         Self { cells }
@@ -56,6 +55,10 @@ impl Leaf {
 
     pub const fn level() -> usize {
         3
+    }
+
+    pub fn population(&self) -> u32 {
+        u64::from_be_bytes(self.cells.into()).count_ones()
     }
 
     pub const fn min_coord() -> i64 {
@@ -87,25 +90,10 @@ impl Leaf {
         assert!(Self::is_inbounds(pos));
         let row = (pos.y + 4) as usize;
         let col = (3 - pos.x) as usize;
-        unsafe {
-            Self {
-                cells: self
-                    .cells
-                    .replace_unchecked(row, self.cells.extract_unchecked(row) | (1 << col)),
-            }
-        }
-    }
-
-    pub fn unset_cell(&self, pos: crate::Coords) -> Self {
-        assert!(Self::is_inbounds(pos));
-        let row = (pos.y + 4) as usize;
-        let col = (pos.x + 4) as usize;
-        unsafe {
-            Self {
-                cells: self
-                    .cells
-                    .replace_unchecked(row, self.cells.extract_unchecked(row) & !(1 << col)),
-            }
+        Self {
+            cells: self
+                .cells
+                .replace(row, self.cells.extract(row) | (1 << col)),
         }
     }
 }

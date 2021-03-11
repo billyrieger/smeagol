@@ -40,3 +40,9 @@ impl<T> From<[T; 4]> for Grid2<T> {
         Self::new(array)
     }
 }
+
+impl<T> From<Grid2<T>> for [T; 4] {
+    fn from(Grid2 { nw, ne, sw, se }: Grid2<T>) -> [T; 4] {
+        [nw, ne, sw, se]
+    }
+}
