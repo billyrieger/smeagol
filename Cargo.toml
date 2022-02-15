@@ -1,27 +1,14 @@
 [package]
 name = "smeagol"
-version = "0.1.2"
+version = "0.2.0-alpha"
 authors = ["Billy Rieger <wrieger@protonmail.com>"]
-description = "Conway's Game of Life using HashLife and SIMD."
+description = "Conway's Game of Life using HashLife and SIMD"
 repository = "https://github.com/billyrieger/smeagol"
 readme = "README.md"
-keywords = ["life", "conway", "cellular", "automaton", "hashlife"]
-categories = ["algorithms", "science", "simulation"]
 license = "MPL-2.0"
-edition = "2018"
+edition = "2021"
+publish = false
 
 [dependencies]
-btoi = "0.4"
-failure = "0.1"
-hashbrown = "0.1"
-nom = "4.2"
-packed_simd = "0.3"
-png = "0.14"
 
 [dev-dependencies]
-criterion = "0.2"
-version-sync = "0.8"
-
-[[bench]]
-name = "bench"
-harness = false
