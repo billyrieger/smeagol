@@ -63,6 +63,18 @@ impl LifeRule for B3S23 {
     }
 }
 
+enum Node {
+    Leaf(Leaf),
+    Branch(Branch),
+}
+
+struct NodeId(usize);
+
+struct Branch {
+    side_len_log2: u8,
+    children: Grid2<NodeId>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
