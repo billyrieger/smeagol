@@ -4,7 +4,7 @@
 
 //! SMEAGOL
 
-// Single Instruction Multiple Data in the standard library.
+// SIMD in the standard library.
 #![feature(portable_simd)]
 // MaybeUninit methods on arrays.
 #![feature(maybe_uninit_array_assume_init, maybe_uninit_uninit_array)]
@@ -12,5 +12,7 @@
 #![feature(generic_const_exprs, array_zip, try_blocks, split_array, array_try_map)]
 #![allow(incomplete_features)]
 
+pub mod leaf;
 pub mod life;
+pub mod mem;
 pub mod util;

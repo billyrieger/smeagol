@@ -3,16 +3,10 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::mem::MaybeUninit;
+use std::ops::{BitAnd, BitOr, BitXor, Not, Shl, Shr};
+use std::simd::{LaneCount, Simd, SimdElement, SupportedLaneCount};
 
 use derive_more as dm;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Grid2<T> {
-    pub nw: T,
-    pub ne: T,
-    pub sw: T,
-    pub se: T,
-}
 
 // Derive macros from the standard library.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -23,11 +17,36 @@ pub struct Vec2 {
     pub y: i64,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Grid2<T> {
+    pub nw: T,
+    pub ne: T,
+    pub sw: T,
+    pub se: T,
+}
+
+pub trait ToGrid<T> {
+    fn to_grid(self) -> Grid2<T>;
+}
+
+impl<T> ToGrid<T> for [T; 4] {
+    fn to_grid(self) -> Grid2<T> {
+        Grid2::from_array(self)
+    }
+}
+
 pub enum Dir {
     North,
     South,
     East,
     West,
+}
+
+pub enum OrdinalDir {
+    Northwest,
+    Northeast,
+    Southwest,
+    Southeast,
 }
 
 impl Dir {
@@ -67,16 +86,6 @@ impl<T> Grid2<T> {
 //     }
 // }
 
-pub trait ToGrid<T> {
-    fn to_grid(self) -> Grid2<T>;
-}
-
-impl<T> ToGrid<T> for [T; 4] {
-    fn to_grid(self) -> Grid2<T> {
-        Grid2::from_array(self)
-    }
-}
-
 pub trait ArrayConcatExt<T, const N: usize> {
     fn array_concat<const M: usize>(self, other: [T; M]) -> [T; N + M];
 }
@@ -86,8 +95,9 @@ impl<T, const N: usize> ArrayConcatExt<T, N> for [T; N] {
         let mut result = MaybeUninit::uninit_array();
         *result.split_array_mut().0 = self.map(MaybeUninit::new);
         *result.rsplit_array_mut().1 = other.map(MaybeUninit::new);
-        // SAFETY: the length of the result array is N+M. We initialized the first N elements and then
-        // the last M elements, so all the elements have been initialized.
+        // SAFETY: the length of the result array is N+M. We initialized the
+        // first N elements using `self` and the last M elements using `other`,
+        // so all the elements have been initialized.
         unsafe { MaybeUninit::array_assume_init(result) }
     }
 }
@@ -99,5 +109,103 @@ pub trait ArrayUnzipExt<T, U, const N: usize> {
 impl<T, U, const N: usize> ArrayUnzipExt<T, U, N> for [(T, U); N] {
     fn unzip_array(self) -> ([T; N], [U; N]) {
         todo!()
+    }
+}
+
+pub trait BitGrid:
+    Sized
+    + Copy
+    + BitAnd<Self, Output = Self>
+    + BitOr<Self, Output = Self>
+    + BitXor<Self, Output = Self>
+{
+    const ROWS: usize;
+    const COLS: usize;
+
+    fn count_ones(&self) -> u32;
+    fn get(&self, row: usize, col: usize) -> Option<bool>;
+    fn set(self, row: usize, col: usize, value: bool) -> Option<Self>;
+    fn shift(self, dir: Dir) -> Self;
+}
+
+trait Num:
+    Sized
+    + Copy
+    + Ord
+    + BitAnd<Self, Output = Self>
+    + BitOr<Self, Output = Self>
+    + BitXor<Self, Output = Self>
+    + Not<Output = Self>
+    + Shl<usize, Output = Self>
+    + Shr<usize, Output = Self>
+{
+    const ZERO: Self;
+    const ONE: Self;
+
+    fn count_ones(&self) -> u32;
+}
+
+macro_rules! impl_num {
+    ( $int:ty ) => {
+        impl Num for $int {
+            const ZERO: Self = 0;
+            const ONE: Self = 1;
+            fn count_ones(&self) -> u32 {
+                <$int>::count_ones(*self)
+            }
+        }
+    };
+}
+
+impl_num!(u8);
+impl_num!(u16);
+impl_num!(u32);
+impl_num!(u64);
+impl_num!(u128);
+
+impl<T, const LANES: usize> BitGrid for Simd<T, LANES>
+where
+    Self: BitAnd<Self, Output = Self>
+        + BitOr<Self, Output = Self>
+        + BitXor<Self, Output = Self>
+        + Shl<Self, Output = Self>
+        + Shr<Self, Output = Self>,
+    T: SimdElement + Num,
+    LaneCount<LANES>: SupportedLaneCount,
+{
+    const ROWS: usize = LANES;
+    const COLS: usize = std::mem::size_of::<T>() * 8;
+
+    fn count_ones(&self) -> u32 {
+        self.to_array().map(|row| row.count_ones()).iter().sum()
+    }
+
+    fn get(&self, row: usize, col: usize) -> Option<bool> {
+        (row < Self::ROWS && col < Self::COLS).then(|| {
+            let bitmask = T::ONE << (Self::COLS - col - 1);
+            self.as_array()[row] & bitmask > T::ZERO
+        })
+    }
+
+    fn set(mut self, row: usize, col: usize, value: bool) -> Option<Self> {
+        (row < Self::ROWS && col < Self::COLS).then(|| {
+            let bitmask = T::ONE << (Self::COLS - col - 1);
+            let row = &mut self.as_mut_array()[row];
+            *row = if value {
+                *row | bitmask
+            } else {
+                *row & !bitmask
+            };
+            self
+        })
+    }
+
+    fn shift(self, dir: Dir) -> Self {
+        match dir {
+            Dir::North => self.rotate_lanes_left::<1>(),
+            Dir::South => self.rotate_lanes_right::<1>(),
+            Dir::East => self >> Self::splat(T::ONE),
+            Dir::West => self << Self::splat(T::ONE),
+        }
     }
 }
