@@ -25,6 +25,104 @@ pub struct Grid2<T> {
     pub se: T,
 }
 
+impl<T: Copy> Grid2<T> {
+    pub fn do_it<U: Copy>(
+        self,
+        mut f0: impl FnMut(T) -> U,
+        mut f1: impl FnMut(T) -> U,
+        mut split: impl FnMut(T) -> Grid2<U>,
+        mut combine: impl FnMut(Grid2<U>) -> T,
+    ) -> T {
+        let grandkids: Grid2<Grid2<U>> = self.to_array().map(&mut split).to_grid();
+
+        let [partial_nw, partial_ne, partial_sw, partial_se] = self.to_array().map(&mut f0);
+        let partial_n = f0(combine(grandkids.north()));
+        let partial_s = f0(combine(grandkids.south()));
+        let partial_e = f0(combine(grandkids.east()));
+        let partial_w = f0(combine(grandkids.west()));
+        let partial_center = f0(combine(grandkids.center()));
+
+        let final_nw = f1(combine(Grid2 {
+            nw: partial_nw,
+            ne: partial_n,
+            sw: partial_w,
+            se: partial_center,
+        }));
+        let final_ne = f1(combine(Grid2 {
+            nw: partial_n,
+            ne: partial_ne,
+            sw: partial_center,
+            se: partial_e,
+        }));
+        let final_sw = f1(combine(Grid2 {
+            nw: partial_w,
+            ne: partial_center,
+            sw: partial_sw,
+            se: partial_s,
+        }));
+        let final_se = f1(combine(Grid2 {
+            nw: partial_center,
+            ne: partial_e,
+            sw: partial_s,
+            se: partial_se,
+        }));
+
+        combine(Grid2 {
+            nw: final_nw,
+            ne: final_ne,
+            sw: final_sw,
+            se: final_se,
+        })
+    }
+}
+
+impl<T> Grid2<Grid2<T>> {
+    pub(crate) fn north(self) -> Grid2<T> {
+        Grid2 {
+            nw: self.nw.ne,
+            ne: self.ne.nw,
+            sw: self.nw.se,
+            se: self.ne.sw,
+        }
+    }
+
+    pub(crate) fn south(self) -> Grid2<T> {
+        Grid2 {
+            nw: self.sw.ne,
+            ne: self.se.nw,
+            sw: self.sw.se,
+            se: self.se.sw,
+        }
+    }
+
+    pub(crate) fn east(self) -> Grid2<T> {
+        Grid2 {
+            nw: self.ne.sw,
+            ne: self.ne.se,
+            sw: self.se.nw,
+            se: self.se.ne,
+        }
+    }
+
+    pub(crate) fn west(self) -> Grid2<T> {
+        Grid2 {
+            nw: self.nw.sw,
+            ne: self.nw.se,
+            sw: self.sw.nw,
+            se: self.sw.ne,
+        }
+    }
+
+    pub(crate) fn center(self) -> Grid2<T> {
+        Grid2 {
+            nw: self.nw.se,
+            ne: self.ne.sw,
+            sw: self.sw.ne,
+            se: self.se.nw,
+        }
+    }
+}
+
 pub trait ToGrid<T> {
     fn to_grid(self) -> Grid2<T>;
 }
@@ -102,30 +200,26 @@ impl<T, const N: usize> ArrayConcatExt<T, N> for [T; N] {
     }
 }
 
-pub trait ArrayUnzipExt<T, U, const N: usize> {
-    fn unzip_array(self) -> ([T; N], [U; N]);
+pub trait ArrayUnzipExt<T, U, V, const N: usize> {
+    fn unzip_array(self, f: impl FnMut(T) -> (U, V)) -> ([U; N], [V; N]);
 }
 
-impl<T, U, const N: usize> ArrayUnzipExt<T, U, N> for [(T, U); N] {
-    fn unzip_array(self) -> ([T; N], [U; N]) {
-        todo!()
+impl<T, U, V, const N: usize> ArrayUnzipExt<T, U, V, N> for [T; N] {
+    fn unzip_array(self, f: impl FnMut(T) -> (U, V)) -> ([U; N], [V; N]) {
+        let mut left: [_; N] = MaybeUninit::uninit_array();
+        let mut right: [_; N] = MaybeUninit::uninit_array();
+        let src_iter = self.map(f).into_iter();
+        let dst_iter = left.iter_mut().zip(right.iter_mut());
+        for (src, dst) in src_iter.zip(dst_iter) {
+            dst.0.write(src.0);
+            dst.1.write(src.1);
+        }
+        // SAFETY: TODO
+        let left = unsafe { MaybeUninit::array_assume_init(left) };
+        // SAFETY: TODO
+        let right = unsafe { MaybeUninit::array_assume_init(right) };
+        (left, right)
     }
-}
-
-pub trait BitGrid:
-    Sized
-    + Copy
-    + BitAnd<Self, Output = Self>
-    + BitOr<Self, Output = Self>
-    + BitXor<Self, Output = Self>
-{
-    const ROWS: usize;
-    const COLS: usize;
-
-    fn count_ones(&self) -> u32;
-    fn get(&self, row: usize, col: usize) -> Option<bool>;
-    fn set(self, row: usize, col: usize, value: bool) -> Option<Self>;
-    fn shift(self, dir: Dir) -> Self;
 }
 
 trait Num:
@@ -155,21 +249,32 @@ macro_rules! impl_num {
             }
         }
     };
+    ( $( $int:ty ),* ) => {
+        $( impl_num!($int); )*
+    };
 }
 
-impl_num!(u8);
-impl_num!(u16);
-impl_num!(u32);
-impl_num!(u64);
-impl_num!(u128);
+impl_num!(u8, u16, u32, u64, u128);
+
+pub trait BitGrid:
+    Sized + Copy + Eq + BitAnd<Output = Self> + BitOr<Output = Self> + BitXor<Output = Self>
+{
+    const ROWS: usize;
+    const COLS: usize;
+
+    fn count_ones(&self) -> u32;
+    fn get(&self, row: usize, col: usize) -> Option<bool>;
+    fn set(self, row: usize, col: usize, value: bool) -> Option<Self>;
+    fn shift(self, dir: Dir) -> Self;
+}
 
 impl<T, const LANES: usize> BitGrid for Simd<T, LANES>
 where
-    Self: BitAnd<Self, Output = Self>
-        + BitOr<Self, Output = Self>
-        + BitXor<Self, Output = Self>
-        + Shl<Self, Output = Self>
-        + Shr<Self, Output = Self>,
+    Self: BitAnd<Output = Self>
+        + BitOr<Output = Self>
+        + BitXor<Output = Self>
+        + Shl<Output = Self>
+        + Shr<Output = Self>,
     T: SimdElement + Num,
     LaneCount<LANES>: SupportedLaneCount,
 {

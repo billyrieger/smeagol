@@ -14,5 +14,4 @@
 
 pub mod leaf;
 pub mod life;
-pub mod mem;
 pub mod util;
