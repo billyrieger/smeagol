@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::leaf::{Leaf, QuarterLeaf};
+use crate::leaf::Leaf;
 use crate::util::{BitGrid, Dir, Grid2, ToGrid};
 use indexmap::IndexMap;
 
@@ -34,12 +34,12 @@ pub fn do_it(cells: std::simd::u16x16) -> std::simd::u16x16 {
 
 #[test]
 fn test() {
-    use std::simd::u8x8;
-    let mut rows = [0; 8];
+    use std::simd::Simd;
+    let mut rows = [0u64; 64];
     rows[2] = 0b00100;
     rows[3] = 0b01000;
     rows[4] = 0b01110;
-    let x = u8x8::from_array(rows);
+    let x = Simd::from_array(rows);
     dbg!(x);
     dbg!(B3S23.tick(B3S23.tick(B3S23.tick(B3S23.tick(x)))));
 }
@@ -70,10 +70,7 @@ impl Branch {
 
 impl Branch {
     pub(crate) fn children(&self) -> Grid2<NodeId> {
-        self.child_indices
-            .to_array()
-            .map(|idx| NodeId::new(idx, self.gen))
-            .to_grid()
+        self.child_indices.map(|idx| NodeId::new(idx, self.gen))
     }
 }
 
@@ -129,33 +126,27 @@ where
     pub fn evolve(&mut self, root_id: NodeId, ticks: u64) -> NodeId {
         let _: Option<_> = try {
             // NOTE: can only evolve a branch, not a leaf.
-            let branch = self.nodes.entry(root_id)?.node.as_branch()?;
+            let branch: Branch = *self.nodes.get_node(root_id)?.as_branch()?;
             let ticks0 = 0;
             let ticks1 = 0;
             if branch.side_log2 == Leaf::SIDE_LOG2 + 1 {
                 // base case: children are leaves
                 let kids: Grid2<Leaf> = branch
                     .children()
-                    .to_array()
-                    .try_map(|id| self.nodes.get_node(id)?.as_leaf().copied())?
-                    .to_grid();
-                let f0 = |leaf: Leaf| leaf.step(&self.rule, ticks0).center();
-                let f1 = |leaf: Leaf| leaf.step(&self.rule, ticks1).center();
+                    .try_map(|id| self.nodes.get_node(id)?.as_leaf().copied())?;
+                let f0 = |leaf: Leaf| leaf.step(&self.rule, 1).center();
+                let f1 = |leaf: Leaf| leaf.step(&self.rule, 2).center();
                 kids.do_it(f0, f1, Leaf::to_parts, Leaf::from_parts);
             } else {
-                let split = |id: NodeId| -> Grid2<NodeId> {
-                    Option::unwrap(try { self.nodes.get_node(id)?.as_branch()?.children() })
-                };
-                let combine =
-                    |parts: Grid2<NodeId>| -> NodeId { self.nodes.make_branch(parts).unwrap() };
-                let f0 = |id: NodeId| self.evolve(id, ticks0 as u64);
-                let f1 = |id: NodeId| self.evolve(id, ticks0 as u64);
-                // branch.children().do_it(f0, f1, split, combine);
-                // let _grandkids: Grid2<Grid2<_>> = branch
-                //     .children()
-                //     .to_array()
-                //     .try_map(|id| Some(self.nodes.entry(id)?.node.as_branch()?.children()))?
-                //     .to_grid();
+                let kids: Grid2<NodeId> = branch.children();
+                let grandkids: Grid2<Grid2<NodeId>> = branch
+                    .children()
+                    .try_map(|id| self.nodes.get_node(id)?.as_branch())?
+                    .map(|branch| branch.children());
+                let nw = branch.children().nw;
+                let n = self.nodes.make_branch(grandkids.north())?;
+                let ne = branch.children().ne;
+                self.evolve(nw, ticks0);
             }
         };
         todo!()

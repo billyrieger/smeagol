@@ -29,14 +29,14 @@ impl Leaf {
         Self::new(u16x16::splat(0))
     }
 
-    pub fn from_parts(Grid2 { nw, ne, sw, se }: Grid2<QuarterLeaf>) -> Self {
+    pub fn from_parts(Grid2 { nw, ne, sw, se }: Grid2<LeafPart>) -> Self {
         let west = nw.cells.to_array().array_concat(sw.cells.to_array());
         let east = ne.cells.to_array().array_concat(se.cells.to_array());
         let whole = west.zip(east).map(|(w, e)| u16::from_be_bytes([w, e]));
         Self::new(u16x16::from_array(whole))
     }
 
-    pub fn to_parts(self) -> Grid2<QuarterLeaf> {
+    pub fn to_parts(self) -> Grid2<LeafPart> {
         let (west, east) = self
             .cells
             .to_array()
@@ -45,7 +45,7 @@ impl Leaf {
         let (nw, ne) = (west.split_array_ref().0, east.split_array_ref().0);
         let (sw, se) = (west.rsplit_array_ref().1, east.rsplit_array_ref().1);
         [*nw, *ne, *sw, *se]
-            .map(|part| QuarterLeaf::new(u8x8::from_array(part)))
+            .map(|part| LeafPart::new(u8x8::from_array(part)))
             .to_grid()
     }
 
@@ -65,7 +65,7 @@ impl Leaf {
         *self == Self::empty()
     }
 
-    pub fn center(&self) -> QuarterLeaf {
+    pub fn center(&self) -> LeafPart {
         // Start with 16 rows and 16 columns. To isolate the central 8 rows,
         // split off the first 12 rows and then split off the last 8 of those 12
         // rows. To isolate the central 8 columns, shift each row to the right
@@ -75,18 +75,18 @@ impl Leaf {
         let rows: &[u16; 12] = rows.split_array_ref().0;
         let rows: &[u16; 8] = rows.rsplit_array_ref().1;
         let rows: [u8; 8] = rows.map(|row| (row >> 4) as u8);
-        QuarterLeaf::new(u8x8::from_array(rows))
+        LeafPart::new(u8x8::from_array(rows))
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 // `derive_more` macros.
 #[derive(dm::BitAnd, dm::BitOr, dm::BitXor, dm::Not)]
-pub struct QuarterLeaf {
+pub struct LeafPart {
     cells: u8x8,
 }
 
-impl QuarterLeaf {
+impl LeafPart {
     fn new(cells: u8x8) -> Self {
         Self { cells }
     }

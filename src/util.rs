@@ -3,7 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::mem::MaybeUninit;
-use std::ops::{BitAnd, BitOr, BitXor, Not, Shl, Shr};
+use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr};
 use std::simd::{LaneCount, Simd, SimdElement, SupportedLaneCount};
 
 use derive_more as dm;
@@ -23,6 +23,16 @@ pub struct Grid2<T> {
     pub ne: T,
     pub sw: T,
     pub se: T,
+}
+
+impl<T> Grid2<T> {
+    pub(crate) fn map<U>(self, f: impl FnMut(T) -> U) -> Grid2<U> {
+        self.to_array().map(f).to_grid()
+    }
+
+    pub(crate) fn try_map<U>(self, f: impl FnMut(T) -> Option<U>) -> Option<Grid2<U>> {
+        Some(self.to_array().try_map(f)?.to_grid())
+    }
 }
 
 impl<T: Copy> Grid2<T> {
@@ -222,40 +232,6 @@ impl<T, U, V, const N: usize> ArrayUnzipExt<T, U, V, N> for [T; N] {
     }
 }
 
-trait Num:
-    Sized
-    + Copy
-    + Ord
-    + BitAnd<Self, Output = Self>
-    + BitOr<Self, Output = Self>
-    + BitXor<Self, Output = Self>
-    + Not<Output = Self>
-    + Shl<usize, Output = Self>
-    + Shr<usize, Output = Self>
-{
-    const ZERO: Self;
-    const ONE: Self;
-
-    fn count_ones(&self) -> u32;
-}
-
-macro_rules! impl_num {
-    ( $int:ty ) => {
-        impl Num for $int {
-            const ZERO: Self = 0;
-            const ONE: Self = 1;
-            fn count_ones(&self) -> u32 {
-                <$int>::count_ones(*self)
-            }
-        }
-    };
-    ( $( $int:ty ),* ) => {
-        $( impl_num!($int); )*
-    };
-}
-
-impl_num!(u8, u16, u32, u64, u128);
-
 pub trait BitGrid:
     Sized + Copy + Eq + BitAnd<Output = Self> + BitOr<Output = Self> + BitXor<Output = Self>
 {
@@ -275,7 +251,7 @@ where
         + BitXor<Output = Self>
         + Shl<Output = Self>
         + Shr<Output = Self>,
-    T: SimdElement + Num,
+    T: SimdElement + num::PrimInt,
     LaneCount<LANES>: SupportedLaneCount,
 {
     const ROWS: usize = LANES;
@@ -287,14 +263,14 @@ where
 
     fn get(&self, row: usize, col: usize) -> Option<bool> {
         (row < Self::ROWS && col < Self::COLS).then(|| {
-            let bitmask = T::ONE << (Self::COLS - col - 1);
-            self.as_array()[row] & bitmask > T::ZERO
+            let bitmask = T::one() << (Self::COLS - col - 1);
+            self.as_array()[row] & bitmask > T::zero()
         })
     }
 
     fn set(mut self, row: usize, col: usize, value: bool) -> Option<Self> {
         (row < Self::ROWS && col < Self::COLS).then(|| {
-            let bitmask = T::ONE << (Self::COLS - col - 1);
+            let bitmask = T::one() << (Self::COLS - col - 1);
             let row = &mut self.as_mut_array()[row];
             *row = if value {
                 *row | bitmask
@@ -309,8 +285,8 @@ where
         match dir {
             Dir::North => self.rotate_lanes_left::<1>(),
             Dir::South => self.rotate_lanes_right::<1>(),
-            Dir::East => self >> Self::splat(T::ONE),
-            Dir::West => self << Self::splat(T::ONE),
+            Dir::East => self >> Self::splat(T::one()),
+            Dir::West => self << Self::splat(T::one()),
         }
     }
 }
