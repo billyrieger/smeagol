@@ -40,8 +40,8 @@ fn test() {
     rows[3] = 0b01000;
     rows[4] = 0b01110;
     let x = Simd::from_array(rows);
-    dbg!(x);
-    dbg!(B3S23.tick(B3S23.tick(B3S23.tick(B3S23.tick(x)))));
+    // dbg!(x);
+    // dbg!(B3S23.tick(B3S23.tick(B3S23.tick(B3S23.tick(x)))));
 }
 
 pub enum Cell {

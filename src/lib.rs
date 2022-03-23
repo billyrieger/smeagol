@@ -12,6 +12,7 @@
 #![feature(generic_const_exprs, array_zip, try_blocks, split_array, array_try_map)]
 #![allow(incomplete_features)]
 
+mod bitgrid;
 pub mod leaf;
 pub mod life;
 pub mod util;
