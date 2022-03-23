@@ -6,13 +6,17 @@
 
 // SIMD in the standard library.
 #![feature(portable_simd)]
-// MaybeUninit methods on arrays.
-#![feature(maybe_uninit_array_assume_init, maybe_uninit_uninit_array)]
+// MaybeUninit methods on arrays and slices.
+#![feature(
+    maybe_uninit_array_assume_init,
+    maybe_uninit_uninit_array,
+    maybe_uninit_write_slice
+)]
 // everything else
 #![feature(generic_const_exprs, array_zip, try_blocks, split_array, array_try_map)]
 #![allow(incomplete_features)]
 
-mod bitgrid;
-pub mod leaf;
-pub mod life;
+pub mod bitgrid;
+pub mod quad;
+// mod life;
 pub mod util;

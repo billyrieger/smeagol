@@ -2,8 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::leaf::Leaf;
-use crate::util::{BitGrid, Dir, Grid2, ToGrid};
+use std::simd::u8x8;
+
+use crate::bitgrid::BitGrid;
+use crate::util::{CardinalDir, Quad, ToQuad};
 use indexmap::IndexMap;
 
 pub trait LifeRule {
@@ -48,6 +50,9 @@ pub enum Cell {
     Off,
     On,
 }
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Leaf(u8x8);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Branch {
